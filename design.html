@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體電路設計 · Memory Notes</title>
+<meta name="description" content="記憶體電路設計：陣列組織、位元線架構、感測放大器、字元線驅動、DRAM 時序、I/O 介面與預取、Refresh、ECC、冗餘修補、SRAM 輔助電路與 NAND 晶片設計。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="design" data-ch="des">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 2 · Circuit design</div>
+<h1>設計：把幾十億個單元組織起來</h1>
+<p class="lead">單元只是起點。一顆 16 Gb DRAM 有 170 億個單元，要在幾十奈秒內找到其中一個、把只有 100 mV 的訊號放大、再以每秒數 Gb 的速度送出晶片，還要在單元會漏電、會壞掉的前提下保證資料正確。這一章介紹完成這些事的周邊電路。</p>
+
+<h2 id="array-org">陣列組織：Chip → Bank → Mat</h2>
+<p>一條位元線如果掛太多單元，C<sub>BL</sub> 太大，訊號就消失了；一條字元線如果太長，RC 延遲太大，也開不快。所以陣列被切成階層：</p>
+<figure>
+<svg viewBox="0 0 680 260" role="img" aria-label="晶片、Bank、Mat 階層">
+  <rect class="boxi" x="20" y="30" width="190" height="200" rx="6"/>
+  <g class="c1" style="stroke-width:1">
+    <rect x="32" y="42" width="38" height="38"/><rect x="76" y="42" width="38" height="38"/><rect x="120" y="42" width="38" height="38"/><rect x="164" y="42" width="34" height="38"/>
+    <rect x="32" y="86" width="38" height="38"/><rect x="76" y="86" width="38" height="38"/><rect x="120" y="86" width="38" height="38"/><rect x="164" y="86" width="34" height="38"/>
+    <rect x="32" y="136" width="38" height="38"/><rect x="76" y="136" width="38" height="38"/><rect x="120" y="136" width="38" height="38"/><rect x="164" y="136" width="34" height="38"/>
+    <rect x="32" y="180" width="38" height="38"/><rect x="76" y="180" width="38" height="38"/><rect x="120" y="180" width="38" height="38"/><rect x="164" y="180" width="34" height="38"/>
+  </g>
+  <rect class="sunk" x="26" y="126" width="178" height="8"/>
+  <text x="115" y="22" text-anchor="middle" class="tl">晶片 Chip</text>
+  <text x="115" y="250" text-anchor="middle" class="ts t-mut">中央走道：I/O、指令、Pad</text>
+  <path class="wd" d="M114 42L260 30M114 80L260 230"/>
+  <rect class="boxi" x="260" y="30" width="180" height="200" rx="4"/>
+  <g class="c3" style="stroke-width:1">
+    <rect x="270" y="44" width="34" height="34"/><rect x="312" y="44" width="34" height="34"/><rect x="354" y="44" width="34" height="34"/><rect x="396" y="44" width="34" height="34"/>
+    <rect x="270" y="90" width="34" height="34"/><rect x="312" y="90" width="34" height="34"/><rect x="354" y="90" width="34" height="34"/><rect x="396" y="90" width="34" height="34"/>
+    <rect x="270" y="136" width="34" height="34"/><rect x="312" y="136" width="34" height="34"/><rect x="354" y="136" width="34" height="34"/><rect x="396" y="136" width="34" height="34"/>
+    <rect x="270" y="182" width="34" height="34"/><rect x="312" y="182" width="34" height="34"/><rect x="354" y="182" width="34" height="34"/><rect x="396" y="182" width="34" height="34"/>
+  </g>
+  <text x="350" y="22" text-anchor="middle" class="tl">Bank</text>
+  <text x="350" y="250" text-anchor="middle" class="ts t-mut">Mat 之間夾著 SA 列與 SWD 行</text>
+  <path class="wd" d="M346 136L480 40M346 170L480 220"/>
+  <rect class="boxi" x="480" y="40" width="180" height="180" rx="2"/>
+  <rect class="c2" x="480" y="40" width="180" height="16"/><rect class="c2" x="480" y="204" width="180" height="16"/>
+  <rect class="c4" x="480" y="56" width="14" height="148"/>
+  <g class="wm"><path d="M494 72H660M494 92H660M494 112H660M494 132H660M494 152H660M494 172H660M494 192H660"/></g>
+  <g class="w" style="stroke-width:1"><path d="M512 56V204M536 56V204M560 56V204M584 56V204M608 56V204M632 56V204"/></g>
+  <text x="570" y="22" text-anchor="middle" class="tl">Mat / Subarray</text>
+  <text x="570" y="52" text-anchor="middle" class="ts">感測放大器 SA</text>
+  <text x="570" y="216" text-anchor="middle" class="ts">感測放大器 SA</text>
+  <text x="487" y="135" class="ts" transform="rotate(-90 487 135)" text-anchor="middle">SWD</text>
+  <text x="570" y="248" text-anchor="middle" class="ts t-mut">約 512–1024 列 × 1024 行</text>
+</svg>
+<figcaption>DDR5 x8 的 16 Gb 晶片有 32 個 bank（8 個 bank group × 4）。每個 bank 又切成很多 mat，每個 mat 上下夾著感測放大器列，旁邊是子字元線驅動器（sub-word-line driver, SWD）。</figcaption>
+</figure>
+<ul>
+<li><b>Bank</b>：可以獨立啟動的陣列。不同 bank 可以交錯操作（bank interleaving），一個在預充時另一個在讀取，隱藏延遲。DDR4 起再把 bank 分組（bank group），同組與不同組之間的命令間隔不同（t<sub>CCD_L</sub> vs t<sub>CCD_S</sub>）。</li>
+<li><b>Row / Page</b>：一次 ACTIVATE 會把一整列（例如 x8 晶片的 1 KB）讀進感測放大器，稱為一個 page。之後對同一列的讀寫都很快（row hit）；換列就要先預充再啟動（row miss）。</li>
+<li><b>階層式字元線</b>：主字元線（MWL，粗金屬、低電阻）橫跨整個 bank，到每個 mat 再由 SWD 產生局部字元線，兼顧速度與面積。</li>
+<li><b>階層式資料線</b>：位元線 → 局部 I/O（LIO）→ 全域 I/O（GIO）→ 晶片中央的讀寫放大器。</li>
+</ul>
+<div class="tryit">▶ 輸入容量、位寬、bank 數，自動算出列 / 行位址位元數與 page 大小：<a href="designer.html">規格設計器</a></div>
+
+<h2 id="bitline-arch">位元線架構：開放式 vs 摺疊式</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>摺疊式 Folded</th><th>開放式 Open</th></tr>
+<tr><td>參考位元線</td><td>BL 和 BLB 在同一個 mat 內並排，接到同一個 SA</td><td>BL 和 BLB 分別在 SA 兩側不同的 mat</td></tr>
+<tr><td>單元面積</td><td>8F²（每個交點只能放一半的單元）</td><td>6F²</td></tr>
+<tr><td>雜訊</td><td>字元線耦合對 BL/BLB 是共模，可抵消，雜訊小</td><td>兩側環境不同，雜訊無法完全抵消</td></tr>
+<tr><td>使用</td><td>早期 DRAM</td><td>現代 6F² DRAM 主流（靠更好的 SA 與佈局補償雜訊）</td></tr>
+</table></div>
+<p>開放式架構最邊緣的 mat 只有一側有參考位元線，所以陣列兩端需要額外的 dummy mat，這也是陣列效率（array efficiency）的損失來源之一。</p>
+
+<h2 id="sense-amp">感測放大器 Sense Amplifier</h2>
+<p>DRAM 的位元線感測放大器（BLSA）本質上是兩個交叉耦合的反相器（和 SRAM 單元很像），接在 BL 與 BLB 之間，靠正回授把微小差異放大到全擺幅。一次讀取的步驟：</p>
+<ol>
+<li><b>等化與預充</b>（EQ）：把 BL、BLB 短路並接到 V<sub>BLP</sub> = V<sub>DD</sub>/2。</li>
+<li><b>字元線開啟</b>：字元線升到 V<sub>PP</sub>（高於 V<sub>DD</sub>，通常 2.5–3 V 量級，因為存取電晶體 V<sub>t</sub> 較高，要讓「1」完整寫入與讀出），電荷分享產生 ΔV。</li>
+<li><b>啟動 SA</b>：先拉低 NMOS 對的共源節點（SAN→0），再拉高 PMOS 對的共源節點（SAP→V<sub>DD</sub>），位元線被放大到 0 / V<sub>DD</sub>。</li>
+<li><b>回寫與輸出</b>：因為 WL 仍開著，放大後的電壓同時寫回電容；行選擇（CSL）打開時，資料送到 LIO。</li>
+<li><b>預充</b>：關字元線，再次等化，準備下一次啟動。</li>
+</ol>
+<p><b>關鍵指標是偏移（offset）</b>：SA 內兩邊電晶體的 V<sub>t</sub> 失配會造成固定的偏移，若 ΔV 小於偏移就會讀錯。先進 DRAM 用偏移補償（offset-cancellation）SA：先讓 SA 自己取樣偏移並存在位元線上，再開始感測。</p>
+<p>SRAM 的 SA 通常是電壓式閂鎖 SA：位元線放電出 50–100 mV 的差後才啟動（SAE），時間由複製位元線（replica bitline）追蹤，確保不同 PVT 下都在訊號足夠時才啟動。</p>
+<div class="tryit">▶ 看 SA 偏移與 ΔV 的關係：<a href="lab.html#dram">互動實驗室 · DRAM 讀取</a></div>
+
+<h2 id="timing">DRAM 指令與時序</h2>
+<p>記憶體控制器透過指令操作 DRAM：<code>ACT</code>（啟動一列）→ <code>RD</code>/<code>WR</code>（讀寫某些行）→ <code>PRE</code>（關閉該列、預充）。各指令之間的最小間隔就是資料表上的時序參數。</p>
+<figure>
+<svg viewBox="0 0 640 220" role="img" aria-label="DRAM ACT-RD-PRE 時序">
+  <text x="10" y="56" class="ts t-mono">CMD</text><text x="10" y="106" class="ts t-mono">DQ</text>
+  <path class="wm" d="M60 50H620M60 100H620"/>
+  <rect class="c1" x="80" y="38" width="40" height="24" rx="3"/><text x="100" y="55" text-anchor="middle" class="ts t-mono">ACT</text>
+  <rect class="c3" x="208" y="38" width="40" height="24" rx="3"/><text x="228" y="55" text-anchor="middle" class="ts t-mono">RD</text>
+  <rect class="c2" x="336" y="38" width="40" height="24" rx="3"/><text x="356" y="55" text-anchor="middle" class="ts t-mono">PRE</text>
+  <rect class="c1" x="464" y="38" width="40" height="24" rx="3"/><text x="484" y="55" text-anchor="middle" class="ts t-mono">ACT</text>
+  <rect class="c3" x="336" y="90" width="56" height="20" rx="2"/><text x="364" y="104" text-anchor="middle" class="ts t-mono">BL16</text>
+  <g class="w" style="stroke-width:1.2">
+    <path d="M80 136H208M80 132V140M208 132V140"/><path d="M208 136H336M336 132V140"/>
+    <path d="M80 166H336M80 162V170M336 162V170"/><path d="M336 166H464M464 162V170"/>
+    <path d="M80 196H464M80 192V200M464 192V200"/>
+  </g>
+  <text x="144" y="130" text-anchor="middle" class="ts t-mono">tRCD</text>
+  <text x="272" y="130" text-anchor="middle" class="ts t-mono">CL</text>
+  <text x="208" y="160" text-anchor="middle" class="ts t-mono">tRAS</text>
+  <text x="400" y="160" text-anchor="middle" class="ts t-mono">tRP</text>
+  <text x="272" y="190" text-anchor="middle" class="ts t-mono">tRC = tRAS + tRP</text>
+  <text x="520" y="136" class="ts t-mut">比例約為 DDR5-4800：</text>
+  <text x="520" y="152" class="ts t-mut">tRCD ≈ CL ≈ tRP ≈ 16 ns</text>
+  <text x="520" y="168" class="ts t-mut">tRAS ≈ 32 ns</text>
+</svg>
+<figcaption>同一 bank 的一次完整「開列 → 讀 → 關列 → 再開列」週期。若下一筆存取剛好在已開啟的列（row hit），就只需要 CL，不用付 tRCD 和 tRP。</figcaption>
+</figure>
+<div class="tblwrap"><table>
+<tr><th>參數</th><th>意義</th><th>由什麼決定</th></tr>
+<tr><td><code>tRCD</code></td><td>ACT 到 RD/WR</td><td>字元線上升 + 電荷分享 + SA 放大</td></tr>
+<tr><td><code>CL</code>（tAA）</td><td>RD 到第一筆資料</td><td>行解碼 + LIO/GIO 傳輸 + 管線 + I/O</td></tr>
+<tr><td><code>tRAS</code></td><td>ACT 到 PRE 的最短時間</td><td>回寫（restore）要完成</td></tr>
+<tr><td><code>tRP</code></td><td>PRE 到下一個 ACT</td><td>字元線關閉 + 位元線等化</td></tr>
+<tr><td><code>tWR</code></td><td>最後寫入資料到 PRE</td><td>寫入資料要真正存進電容</td></tr>
+<tr><td><code>tRRD / tFAW</code></td><td>不同 bank ACT 的間隔 / 四次 ACT 的時間窗</td><td>峰值電流與電源雜訊（V<sub>PP</sub> 泵浦能力）</td></tr>
+<tr><td><code>tRFC / tREFI</code></td><td>Refresh 指令佔用時間 / 平均間隔</td><td>每次要更新多少列、容量</td></tr>
+</table></div>
+<p>有趣的是：從 DDR 到 DDR5，資料速率提升了十幾倍，但以奈秒計算的 tRCD、CL、tRP 幾乎沒變（一直在 13–18 ns 附近），因為它們受限於陣列本身的類比物理。頻寬的進步主要來自介面與平行度。</p>
+
+<h2 id="interface">I/O 介面與預取 Prefetch</h2>
+<p>陣列內部的速度只有數百 MHz，但介面要跑數 Gb/s。解法是<b>預取</b>：每次內部存取一次抓 n 倍位寬的資料，再由並轉串電路（SERDES）在介面高速送出。</p>
+<div class="tblwrap"><table>
+<tr><th>世代</th><th class="n">預取</th><th class="n">資料速率 (MT/s)</th><th class="n">V<sub>DD</sub></th><th>重點</th></tr>
+<tr><td>DDR</td><td class="n">2n</td><td class="n">200–400</td><td class="n">2.5 V</td><td>雙緣傳輸</td></tr>
+<tr><td>DDR2</td><td class="n">4n</td><td class="n">400–1066</td><td class="n">1.8 V</td><td>ODT 晶片內終端</td></tr>
+<tr><td>DDR3</td><td class="n">8n</td><td class="n">800–2133</td><td class="n">1.5 V</td><td>Fly-by 拓樸、寫入調平</td></tr>
+<tr><td>DDR4</td><td class="n">8n</td><td class="n">1600–3200</td><td class="n">1.2 V</td><td>Bank group、POD 訊號、V<sub>PP</sub> 外供</td></tr>
+<tr><td>DDR5</td><td class="n">16n</td><td class="n">4800–8800</td><td class="n">1.1 V</td><td>BL16、DIMM 分成兩個 32-bit 子通道、On-die ECC、DIMM 上 PMIC、DFE 等化</td></tr>
+</table></div>
+<p>高速介面的關鍵電路：DLL / DCC（時脈對齊與工作週期校正）、ZQ 校準（輸出阻抗與 ODT）、接收端等化（CTLE、DFE）、讀寫訓練（read/write training，由控制器掃描 V<sub>ref</sub> 與時序找出最佳取樣點）。GDDR6X 用 PAM4、GDDR7 用 PAM3，每個符號傳送超過 1 位元。</p>
+
+<h2 id="refresh">Refresh 機制</h2>
+<ul>
+<li><b>Auto refresh（REF）</b>：控制器平均每 t<sub>REFI</sub> 發一次 REF（DDR4 7.8 µs、DDR5 3.9 µs），DRAM 內部計數器決定要更新哪些列。在 t<sub>RFC</sub>（16 Gb 約 300 ns）期間這些 bank 無法存取。</li>
+<li><b>Refresh 開銷</b> ≈ t<sub>RFC</sub> / t<sub>REFI</sub>。容量越大、t<sub>RFC</sub> 越長，開銷越高（DDR5 16 Gb 約 7–8%）。為此 DDR5 加入 <b>same-bank refresh</b>，只鎖住每個 bank group 中的一個 bank，其他 bank 照常工作。</li>
+<li><b>Self refresh</b>：待機時 DRAM 自己用內部振盪器更新，控制器可以關閉介面省電；LPDDR 會依溫度調整更新速率（TCSR）。</li>
+<li><b>高溫</b>：超過 85 °C 時要加倍更新頻率，因為保存時間隨溫度指數下降。</li>
+</ul>
+<div class="tryit">▶ 調整溫度和 t<sub>REFI</sub>，看失效單元比例與更新開銷：<a href="lab.html#retention">互動實驗室 · 保存與更新</a></div>
+
+<h2 id="ecc">錯誤更正 ECC</h2>
+<ul>
+<li><b>SECDED Hamming</b>：64 位元資料加 8 位元檢查碼（72,64），可更正 1 位元、偵測 2 位元錯誤。伺服器 ECC DIMM 的基本做法。</li>
+<li><b>Chipkill / SDDC</b>：把碼字分散到多顆晶片，即使整顆 DRAM 壞掉也能更正，用於資料中心。</li>
+<li><b>DDR5 On-die ECC</b>：每 128 位元資料在晶片內部加 8 位元做單位元更正（SEC），用來補償微縮後單元變弱、良率下降，對控制器是透明的。它不取代系統層級的 ECC。</li>
+<li><b>NAND</b>：原始錯誤率（RBER）高得多，早期用 BCH，現在用 LDPC 搭配軟判決讀取（多次讀取不同 V<sub>ref</sub> 取得可靠度資訊），每 1–4 KB 資料可更正上百位元。</li>
+<li><b>SRAM</b>：大型快取通常也有 SECDED，並把相鄰的實體單元分配到不同的碼字（interleaving），避免一次粒子撞擊造成多位元錯誤（MBU）超出更正能力。</li>
+</ul>
+
+<h2 id="redundancy">冗餘與修補 Redundancy &amp; Repair</h2>
+<p>幾十億個單元中有幾十個壞掉是常態。每個 mat 都預留了<b>備用列</b>（spare row）與<b>備用行</b>（spare column）。測試找到壞位元後，用<b>熔絲</b>（雷射熔絲或電熔絲 e-fuse / anti-fuse）記錄壞位址；之後每次存取都比對位址，命中就改用備用線。</p>
+<ul>
+<li><b>修補分析（Redundancy Analysis, RA）</b>：給定壞位元的分佈與有限的備用列 / 行，找出能修好所有錯誤的分配方式。這在一般情況下是 NP-complete 問題，實務上用啟發式演算法（must-repair 優先、再分支搜尋）。</li>
+<li><b>PPR（Post Package Repair）</b>：DDR4/DDR5 允許封裝後、甚至在系統上，用 anti-fuse 修補新出現的壞列（hPPR 永久、sPPR 暫時）。</li>
+<li><b>BISR</b>：嵌入式 SRAM 用 MBIST 測出錯誤後由內建分析電路（BIRA）自動配置修補。</li>
+</ul>
+<p>測試與修補流程細節見<a href="test.html#repair">封測章節</a>。</p>
+
+<h2 id="sram-assist">SRAM 巨集設計與輔助電路</h2>
+<p>SoC 裡的 SRAM 通常由<b>記憶體編譯器</b>（memory compiler）產生：設計者指定字數 × 位寬、行多工比、埠數，編譯器輸出佈局、時序模型（.lib）、Verilog 模型與 LEF。一個巨集包含：位元胞陣列、列解碼與 WL 驅動、行多工（column mux，例如 4:1 或 8:1，讓 SA 間距放得下）、SA、寫入驅動器、時序控制（replica 位元線）。</p>
+<h3 id="assist-types">讀寫輔助 Assist</h3>
+<ul>
+<li><b>WL underdrive</b>：讀取時稍微降低字元線電壓，削弱 PG，提高讀取穩定度（但讀取變慢）。</li>
+<li><b>負位元線寫入（Negative BL）</b>：寫入時把 BL 拉到 0 以下（例如 −100 mV），加強 PG 的寫入能力。</li>
+<li><b>單元 V<sub>DD</sub> 降壓（cell-VDD collapse）</b>：寫入時暫時降低被寫入行的單元供電，削弱 PU。</li>
+<li><b>雙電源軌</b>：陣列用較高、穩定的 V<sub>DDM</sub>，邏輯用可動態調整的 V<sub>DD</sub>，中間加位準轉換。</li>
+</ul>
+<p>因為晶片上有數百萬顆位元胞，V<sub>min</sub> 要看 6σ 以上的最差單元，所以 SRAM 良率分析需要高 sigma 統計模擬（重要性抽樣等）。</p>
+
+<h2 id="nand-design">NAND 晶片設計</h2>
+<ul>
+<li><b>Page buffer</b>：每條位元線一組閂鎖與感測電路，一次感測整頁（16 KB）。多階讀取時，同一頁要用多個 V<sub>READ</sub> 依序感測，再由閂鎖邏輯組合出各位元。</li>
+<li><b>ISPP 寫入</b>：寫入電壓從約 15 V 開始，每個脈衝增加 ΔV<sub>PGM</sub>（數百 mV），每次脈衝後驗證（program verify），已達標的單元把位元線拉到 V<sub>DD</sub> 禁止繼續寫入（inhibit）。步進越小分佈越窄、但越慢。</li>
+<li><b>寫入禁止（Self-boosting）</b>：同一字元線上不該被寫入的單元，通道被電容耦合升壓到約 8 V，降低閘–通道電場，避免被誤寫。</li>
+<li><b>電荷泵</b>：晶片內用電荷泵產生 20 V 以上的 V<sub>PGM</sub>、V<sub>PASS</sub> 與抹除電壓。</li>
+<li><b>Multi-plane</b>：一顆晶粒分成 2–6 個 plane，可同時讀寫，提高吞吐量。</li>
+<li><b>Read retry / 讀取校準</b>：保存或干擾讓分佈漂移後，控制器改用另一組 V<sub>READ</sub> 重讀；新一代晶片支援自動追蹤最佳讀取電壓。</li>
+</ul>
+<div class="tryit">▶ 看 ISPP 步進、P/E 次數、保存時間對 V<sub>t</sub> 分佈與錯誤率的影響：<a href="lab.html#nand">互動實驗室 · NAND</a></div>
+
+<h2 id="des-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>Bank / Bank group</dt><dd>可獨立啟動的陣列 / 共用部分資源的 bank 群組。</dd></div>
+<div><dt>Page（DRAM）</dt><dd>一次 ACT 載入感測放大器的整列資料，x8 晶片常見 1 KB。</dd></div>
+<div><dt>Mat / Subarray</dt><dd>bank 內被 SA 列與 SWD 行包圍的最小陣列區塊。</dd></div>
+<div><dt>SWD / MWL</dt><dd>子字元線驅動器 / 主字元線，階層式字元線架構。</dd></div>
+<div><dt>V<sub>PP</sub></dt><dd>字元線高電壓，高於 V<sub>DD</sub>，確保存取電晶體完全導通。</dd></div>
+<div><dt>V<sub>BLP</sub></dt><dd>位元線預充電壓，DRAM 通常為 V<sub>DD</sub>/2。</dd></div>
+<div><dt>SA offset</dt><dd>感測放大器因失配造成的輸入偏移電壓，要小於 ΔV 才能正確感測。</dd></div>
+<div><dt>Row hit / miss</dt><dd>存取的列已在 / 不在感測放大器中。</dd></div>
+<div><dt>Prefetch</dt><dd>內部一次讀出多倍資料再高速串列輸出。</dd></div>
+<div><dt>BL16</dt><dd>Burst length 16，一次讀寫連續傳 16 拍。</dd></div>
+<div><dt>DFE / CTLE</dt><dd>決策回授等化 / 連續時間線性等化，用於補償通道損耗。</dd></div>
+<div><dt>ZQ calibration</dt><dd>以外部精密電阻校準輸出驅動與終端阻抗。</dd></div>
+<div><dt>tREFI / tRFC</dt><dd>平均更新間隔 / 每次更新指令佔用的時間。</dd></div>
+<div><dt>SECDED</dt><dd>Single Error Correction, Double Error Detection。</dd></div>
+<div><dt>LDPC</dt><dd>Low-Density Parity-Check，NAND 控制器主流 ECC。</dd></div>
+<div><dt>PPR</dt><dd>Post Package Repair，封裝後修補壞列。</dd></div>
+<div><dt>Memory compiler</dt><dd>依參數自動產生 SRAM 巨集佈局與模型的工具。</dd></div>
+<div><dt>Column mux</dt><dd>多條位元線共用一個 SA 的行多工。</dd></div>
+<div><dt>Program verify</dt><dd>每個寫入脈衝後檢查 V<sub>t</sub> 是否已達目標。</dd></div>
+<div><dt>Self-boosting</dt><dd>NAND 寫入禁止技術，利用耦合升高未選單元的通道電位。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">時序數值為 DDR5-4800 等級的典型量級，實際以 JEDEC JESD79-5 與各廠資料表為準。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

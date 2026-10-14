@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體規格設計器 · Memory Notes</title>
+<meta name="description" content="輸入 DRAM、NAND 或 SRAM 的規格，自動算出陣列組織、位址位元、晶粒面積、感測裕度、refresh 開銷、頻寬與 SSD / 系統配置，並產生規格摘要與 Verilog 模型。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="designer">
+<main class="app-wrap">
+<div class="app-head">
+  <div class="eyebrow">Memory Spec Designer · 規格設計器</div>
+  <h1>從規格推出陣列、面積、頻寬與裕度</h1>
+  <p>選一個範例或自己輸入參數。設計器會算出陣列組織與位址位元、估計晶粒面積、檢查感測裕度與 refresh 開銷、推算系統頻寬，並產生可以複製的規格摘要。所有估算都是一階模型，適合做量級判斷與學習。</p>
+</div>
+
+<div class="seg" role="tablist" aria-label="記憶體類型">
+  <button role="tab" data-type="dram" aria-selected="true">DRAM</button>
+  <button role="tab" data-type="nand" aria-selected="false">3D NAND / SSD</button>
+  <button role="tab" data-type="sram" aria-selected="false">SRAM 巨集</button>
+</div>
+
+<div class="bench">
+  <div class="panel">
+    <div class="ctl"><label for="preset">範例</label><select id="preset"></select></div>
+    <div id="fields"></div>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="ds-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>位址對應 <small id="ds-addr-sub"></small></h3><svg class="viz" id="ds-addr" role="img" aria-label="位址位元分配"></svg>
+        <h3 style="margin-top:14px">陣列組織</h3><div class="tblwrap" style="margin:0"><table id="ds-org"></table></div></div>
+      <div class="panel"><h3>平面圖估計 <small id="ds-fp-sub"></small></h3><svg class="viz" id="ds-fp" role="img" aria-label="晶粒或巨集平面圖估計"></svg></div>
+    </div>
+    <div class="two">
+      <div class="panel"><h3 id="ds-trade-h">設計取捨</h3><svg class="viz" id="ds-trade" role="img" aria-label="設計取捨曲線"></svg><div class="legend" id="ds-trade-leg"></div></div>
+      <div class="panel"><h3>設計檢查</h3><div id="ds-checks" class="log" style="max-height:none;font-family:var(--sans);font-size:13.5px"></div>
+        <h3 style="margin-top:14px">系統配置</h3><div class="tblwrap" style="margin:0"><table id="ds-sys"></table></div></div>
+    </div>
+    <div class="panel"><h3>產生的輸出 <small><button class="btn" id="ds-copy" type="button" style="padding:3px 10px">複製</button></small></h3>
+      <div class="btnrow" id="ds-outsel"></div><pre class="code" id="ds-out"></pre></div>
+  </div>
+</div>
+<p class="foot">估算模型的假設寫在每個欄位旁與輸出的註解中。延伸閱讀：<a href="design.html#array-org">陣列組織</a>、<a href="application.html#bandwidth">頻寬計算</a>、<a href="application.html#ssd">SSD 架構</a>、<a href="design.html#sram-assist">SRAM 巨集</a>。</p>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/plot.js"></script>
+<script src="assets/designer.js"></script>
+</body>
+</html>

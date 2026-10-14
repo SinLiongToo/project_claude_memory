@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體元件 · Memory Notes</title>
+<meta name="description" content="記憶體元件：記憶體階層、SRAM 6T、DRAM 1T1C、NOR/NAND Flash、3D NAND 與 MRAM / ReRAM / PCM / FeRAM 等新興記憶體。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="device" data-ch="dev">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 1 · Devices</div>
+<h1>元件：一個位元怎麼被存起來</h1>
+<p class="lead">每一種記憶體，本質上都是「用某種物理狀態代表 0 和 1」：SRAM 用雙穩態電路，DRAM 用電容上的電荷，Flash 用閘極裡被困住的電子，MRAM 用磁化方向，PCM 用晶體或非晶的電阻。這些選擇決定了速度、密度、成本和會不會斷電就忘記。</p>
+
+<h2 id="hierarchy">記憶體階層 Memory Hierarchy</h2>
+<p>沒有一種記憶體同時又快、又大、又便宜，所以電腦把它們疊成階層：越靠近處理器越快、越小、每位元越貴；越往下越大、越便宜，但延遲多好幾個數量級。</p>
+<figure>
+<svg viewBox="0 0 680 300" role="img" aria-label="記憶體階層金字塔">
+  <polygon class="c1" points="200,20 200,20 230,65 170,65"/>
+  <polygon class="c2" points="170,65 230,65 260,110 140,110"/>
+  <polygon class="c3" points="140,110 260,110 290,155 110,155"/>
+  <polygon class="c5" points="110,155 290,155 320,200 80,200"/>
+  <polygon class="c4" points="80,200 320,200 350,245 50,245"/>
+  <polygon class="c6" points="50,245 350,245 380,290 20,290"/>
+  <path class="wm" d="M395 280V34m-5 8 5-8 5 8"/>
+  <text x="404" y="30" class="ts t-mut">更快 · 更貴/bit</text>
+  <text x="404" y="294" class="ts t-mut">更大 · 更便宜/bit</text>
+  <text x="430" y="47">暫存器 Register <tspan class="t-mono t-mut ts">&lt; 1 ns</tspan></text>
+  <text x="430" y="92">SRAM 快取 L1–L3 <tspan class="t-mono t-mut ts">1–40 ns</tspan></text>
+  <text x="430" y="137">DRAM 主記憶體 / HBM <tspan class="t-mono t-mut ts">~100 ns</tspan></text>
+  <text x="430" y="182">CXL 記憶體 / SCM <tspan class="t-mono t-mut ts">0.2–1 µs</tspan></text>
+  <text x="430" y="227">NAND SSD <tspan class="t-mono t-mut ts">50–100 µs</tspan></text>
+  <text x="430" y="272">HDD / 磁帶 <tspan class="t-mono t-mut ts">ms – s</tspan></text>
+</svg>
+<figcaption>每往下一層，容量大約多 10–1000 倍，延遲也多 10–1000 倍。數字是量級，實際依產品與存取型態而定。</figcaption>
+</figure>
+<p>這個階層能運作，是因為程式有<b>局部性</b>（locality）：剛用過的資料很可能馬上再用（時間局部性），附近的資料也很可能接著用（空間局部性）。快取只要抓住常用的那一小部分，平均存取時間就會接近 SRAM，平均成本卻接近 DRAM。</p>
+
+<h2 id="taxonomy">分類：揮發 vs 非揮發</h2>
+<div class="tblwrap"><table>
+<tr><th>類別</th><th>記憶體</th><th>存什麼</th><th>典型用途</th></tr>
+<tr><td rowspan="2">揮發性 Volatile<br><small>斷電就消失</small></td><td>SRAM</td><td>雙穩態閂鎖（6 顆電晶體）</td><td>CPU/GPU 快取、暫存器檔、SoC 內嵌</td></tr>
+<tr><td>DRAM</td><td>電容上的電荷（1T1C）</td><td>主記憶體 DDR、手機 LPDDR、顯示卡 GDDR、AI 加速器 HBM</td></tr>
+<tr><td rowspan="4">非揮發性 Non-volatile<br><small>斷電仍保存</small></td><td>NAND Flash</td><td>閘極中被捕捉的電子 → V<sub>t</sub> 偏移</td><td>SSD、手機 UFS、記憶卡</td></tr>
+<tr><td>NOR Flash</td><td>同上，但單元並聯</td><td>開機碼、韌體、可直接執行 (XIP)</td></tr>
+<tr><td>EEPROM / eFlash</td><td>浮閘電荷</td><td>MCU 內嵌程式碼、參數</td></tr>
+<tr><td>新興 Emerging</td><td>磁化（MRAM）、電阻（ReRAM/PCM）、極化（FeRAM）</td><td>嵌入式 NVM、快取、AI 存內運算</td></tr>
+</table></div>
+
+<h2 id="sram">SRAM 6T 單元</h2>
+<p>SRAM（Static RAM）用兩個交叉耦合的反相器形成雙穩態閂鎖：Q 是 1 時 QB 一定是 0，反之亦然，只要有電就會一直保持，不需要更新（refresh），這就是「static」的意思。另外兩顆存取電晶體（pass-gate, PG）由字元線 WL 控制，把內部節點接到位元線 BL / BLB。</p>
+<figure>
+<svg viewBox="0 0 640 250" role="img" aria-label="SRAM 6T 單元方塊圖">
+  <path class="w" d="M60 30V230M580 30V230"/>
+  <path class="wa" d="M40 40H600"/>
+  <text x="604" y="44" class="t-mono ts">WL</text>
+  <text x="48" y="246" class="t-mono ts">BL</text><text x="562" y="246" class="t-mono ts">BLB</text>
+  <rect class="boxi" x="130" y="120" width="60" height="30" rx="4"/><text x="160" y="140" text-anchor="middle" class="ts">PG1</text>
+  <rect class="boxi" x="450" y="120" width="60" height="30" rx="4"/><text x="480" y="140" text-anchor="middle" class="ts">PG2</text>
+  <path class="wa" d="M160 40V120M480 40V120"/>
+  <path class="w" d="M60 135H130M190 135H250M390 135H450M510 135H580"/>
+  <polygon class="c1" points="270,100 370,78 370,122"/><circle class="boxi" cx="264" cy="100" r="5"/>
+  <polygon class="c1" points="370,170 270,148 270,192"/><circle class="boxi" cx="376" cy="170" r="5"/>
+  <path class="w" d="M250 100V170M390 100V170M259 100H250M370 100H390M250 170H270M381 170H390"/>
+  <circle class="fi" cx="250" cy="135" r="4"/><circle class="fi" cx="390" cy="135" r="4"/>
+  <text x="236" y="131" text-anchor="end" class="tl">Q</text><text x="404" y="131" class="tl">QB</text>
+  <text x="320" y="70" text-anchor="middle" class="ts t-mut">INV1：PU1 + PD1</text>
+  <text x="320" y="212" text-anchor="middle" class="ts t-mut">INV2：PU2 + PD2</text>
+</svg>
+<figcaption>每個反相器是一顆 PMOS 上拉（PU）加一顆 NMOS 下拉（PD）。兩個反相器頭尾相接形成正回授，WL 打開時 PG 把 Q/QB 接到位元線。</figcaption>
+</figure>
+<h3 id="sram-rw">讀與寫的拉鋸</h3>
+<ul>
+<li><b>讀取</b>：BL 與 BLB 先預充到 V<sub>DD</sub>，WL 打開後，存 0 的那一側會經由 PG→PD 把位元線慢慢拉低。感測放大器只要看到數十 mV 的差就能判斷。危險在於讀取時 PG 會把「0」節點往上抬，如果抬得太高，閂鎖可能翻轉（read disturb）。所以 <b>PD 必須比 PG 強</b>，這個強度比叫 cell ratio（β = PD/PG，平面製程常見 1.5–2.5）。</li>
+<li><b>寫入</b>：寫入驅動器把一條位元線強拉到 0，透過 PG 把存 1 的節點拉下來，這時要打贏 PU。所以 <b>PG 必須比 PU 強</b>（pull-up ratio）。</li>
+<li>讀要 PD 強、寫要 PG 強，兩者互相牽制，這就是 SRAM 尺寸設計的核心取捨。到了 FinFET/GAA 時代，鰭片數只能是整數（例如高密度單元的 1:1:1），所以改用讀寫輔助電路（assist）補救，詳見<a href="design.html#sram-assist">設計章節</a>。</li>
+</ul>
+<h3 id="snm">靜態雜訊邊限 SNM</h3>
+<p>把兩個反相器的電壓轉移曲線，一條正常畫、一條鏡像疊在一起，就是「蝴蝶曲線」。兩個眼睛裡能塞進的最大正方形邊長，就是 SNM，代表單元能承受多少雜訊電壓而不翻轉。讀取時的 SNM 比保持時小很多，電壓越低、電晶體 V<sub>t</sub> 失配越大，SNM 越小。這決定了 SRAM 能運作的最低電壓 V<sub>min</sub>。</p>
+<div class="tryit">▶ 動手調 β、V<sub>DD</sub> 和失配，看蝴蝶曲線變化：<a href="lab.html#sram">互動實驗室 · SRAM 蝴蝶曲線</a></div>
+<h3 id="sram-area">面積與微縮</h3>
+<p>6T 單元在邏輯製程大約 120–150 F²，比 DRAM 的 6F² 大二十多倍，所以 SRAM 只用在需要極快的地方。先進製程的高密度位元胞約 0.02 µm²（5 nm/3 nm 世代）。近年 SRAM 微縮明顯趨緩，邏輯面積可縮 1.6 倍時 SRAM 往往只縮 1.0–1.2 倍，這也是 3D 堆疊快取（例如把 SRAM 晶粒疊在運算晶粒上）興起的原因。</p>
+<p>其他變體：<b>8T</b> 把讀取埠獨立出來（讀取不擾動儲存節點，適合低電壓）；<b>雙埠 / 多埠</b>用於暫存器檔；<b>TCAM</b> 用於網路路由查表。</p>
+
+<h2 id="dram">DRAM 1T1C 單元</h2>
+<p>DRAM（Dynamic RAM）每個位元只用一顆電晶體加一顆電容：電容充飽代表 1，放空代表 0。結構極簡，所以密度高、成本低；代價是電容會漏電，必須定期更新（refresh），這就是「dynamic」的意思。</p>
+<figure>
+<svg viewBox="0 0 640 260" role="img" aria-label="DRAM 1T1C 單元與讀取波形">
+  <path class="w" d="M80 20V240"/><text x="66" y="250" class="t-mono ts">BL</text>
+  <path class="wa" d="M40 60H300"/><text x="268" y="52" class="t-mono ts">WL</text>
+  <path class="w" d="M80 140H130M190 140H240M240 140V150M240 162V190"/>
+  <path class="wt" d="M130 140H190M130 126H190"/>
+  <path class="wa" d="M160 60V126"/>
+  <path class="wt" d="M218 150H262M218 162H262"/>
+  <circle class="fi" cx="80" cy="140" r="4"/><circle class="fi" cx="240" cy="140" r="3.5"/>
+  <text x="250" y="137" class="ts">SN 儲存節點</text>
+  <text x="270" y="160" class="ts">C<tspan dy="3" class="ts">s</tspan></text>
+  <text x="240" y="208" text-anchor="middle" class="ts t-mut">Plate = V<tspan dy="3">DD</tspan><tspan dy="-3">/2</tspan></text>
+  <text x="168" y="104" class="ts t-mut">存取電晶體</text>
+  <path class="wm" d="M340 60H620M340 220H620"/>
+  <path class="wd" d="M340 140H620M420 40V228M480 40V228M540 40V228"/>
+  <text x="626" y="64" class="ts t-mono">V<tspan dy="3">DD</tspan></text>
+  <text x="626" y="144" class="ts t-mono">½</text><text x="626" y="224" class="ts t-mono">0</text>
+  <path class="wa" d="M340 140H420L436 122H480C500 122 510 60 540 60H620"/>
+  <path class="w" style="stroke:var(--s2)" d="M340 140H480C500 140 510 220 540 220H620"/>
+  <path class="wm" d="M462 122V140"/><text x="466" y="116" class="ts">ΔV</text>
+  <text x="380" y="252" text-anchor="middle" class="ts t-mut">預充</text>
+  <text x="450" y="252" text-anchor="middle" class="ts t-mut">電荷分享</text>
+  <text x="510" y="252" text-anchor="middle" class="ts t-mut">SA 放大</text>
+  <text x="580" y="252" text-anchor="middle" class="ts t-mut">回寫</text>
+  <text x="560" y="54" class="ts" style="fill:var(--accent)">BL</text><text x="560" y="214" class="ts" style="fill:var(--s2)">BLB（參考）</text>
+</svg>
+<figcaption>左：1T1C 單元。右：讀取「1」時的位元線波形。位元線預充到 V<sub>DD</sub>/2，WL 打開後電容與位元線分享電荷，產生微小的 ΔV，再由感測放大器放大到全擺幅，並同時寫回單元。</figcaption>
+</figure>
+<h3 id="charge-sharing">電荷分享：訊號為什麼這麼小</h3>
+<p>單元電容 C<sub>s</sub> 很小（約數 fF 到 10 fF 量級），而位元線上掛了幾百個單元，寄生電容 C<sub>BL</sub> 是它的好幾倍。WL 打開後兩者的電荷重新分配：</p>
+<div class="eq">ΔV = (V<sub>cell</sub> − V<sub>DD</sub>/2) · C<sub>s</sub> / (C<sub>s</sub> + C<sub>BL</sub>)</div>
+<p>例如 V<sub>DD</sub> = 1.1 V、C<sub>s</sub> = 10 fF、C<sub>BL</sub> = 50 fF，存 1 時 ΔV ≈ 0.55 × 10/60 ≈ 92 mV。這就是 DRAM 設計最在意的幾件事：<b>電容要夠大</b>（所以電容做成深寬比極高的圓柱）、<b>位元線要夠短</b>（所以陣列切成很多小 mat）、<b>感測放大器偏移要夠小</b>。</p>
+<h3 id="destructive-read">破壞性讀取與回寫</h3>
+<p>電荷分享之後，電容的電壓已經接近 V<sub>DD</sub>/2，原本的資料被破壞了。所以感測放大器把位元線拉到全擺幅時，必須維持 WL 開著，把正確的值寫回電容（restore）。這也是 DRAM 時序中 t<sub>RAS</sub>（列啟動到可預充的最短時間）存在的原因。</p>
+<h3 id="leakage">漏電與 refresh</h3>
+<p>儲存節點上的電荷會經由幾條路徑流失：接面漏電（junction leakage）、存取電晶體的次臨界漏電（subthreshold）、閘極誘發汲極漏電（GIDL），以及介電層漏電。大部分單元能保存好幾秒，但少數「尾端」單元只能保存數十到數百毫秒，所以 JEDEC 規定每個單元在 64 ms 內（DDR5 為 32 ms；高溫時減半）一定要被更新一次。溫度每升高約 10 °C，保存時間大約減半。</p>
+<div class="tryit">▶ 調 C<sub>s</sub>、C<sub>BL</sub>、溫度、等待時間，看感測裕度何時失效：<a href="lab.html#dram">互動實驗室 · DRAM 讀取</a></div>
+<h3 id="dram-cell-arch">6F² 與存取電晶體</h3>
+<p>現代 DRAM 單元面積是 6F²（F 是特徵尺寸，例如 3F × 2F），主動區斜向排列。為了在極小面積下壓低漏電，存取電晶體做成埋入式字元線（buried word line，BCAT）：閘極埋在矽溝槽裡，等效通道長度變長，漏電大幅下降。下一步是 4F² 的垂直通道電晶體（VCT）與 3D DRAM，詳見<a href="process.html#dram-future">製程章節</a>。</p>
+
+<h2 id="flash">Flash：把電子關進閘極</h2>
+<p>Flash 單元是一顆 MOSFET，在控制閘和通道之間多了一層能儲存電荷的結構。把電子注入進去，電晶體的臨界電壓 V<sub>t</sub> 就會升高；讀取時在控制閘加一個參考電壓，看電晶體導不導通，就知道存的是什麼。電子被絕緣層包住，斷電後仍然可以保存約十年。</p>
+<figure>
+<svg viewBox="0 0 640 250" role="img" aria-label="浮閘與電荷捕捉單元剖面">
+  <text x="170" y="30" text-anchor="middle" class="tl">浮閘 Floating Gate</text>
+  <text x="470" y="30" text-anchor="middle" class="tl">電荷捕捉 Charge Trap</text>
+  <rect class="sunk" x="40" y="170" width="260" height="60"/><rect class="sunk" x="340" y="170" width="260" height="60"/>
+  <rect class="c1" x="40" y="170" width="60" height="22"/><rect class="c1" x="240" y="170" width="60" height="22"/>
+  <rect class="c1" x="340" y="170" width="60" height="22"/><rect class="c1" x="540" y="170" width="60" height="22"/>
+  <text x="70" y="186" text-anchor="middle" class="ts">n+ S</text><text x="270" y="186" text-anchor="middle" class="ts">n+ D</text>
+  <text x="370" y="186" text-anchor="middle" class="ts">n+ S</text><text x="570" y="186" text-anchor="middle" class="ts">n+ D</text>
+  <text x="170" y="216" text-anchor="middle" class="ts t-mut">p 型基板 / 通道</text><text x="470" y="216" text-anchor="middle" class="ts t-mut">p 型基板 / 通道</text>
+  <rect class="box" x="100" y="160" width="140" height="10"/><rect class="box" x="400" y="160" width="140" height="10"/>
+  <rect class="c2" x="100" y="120" width="140" height="40"/>
+  <rect class="box" x="100" y="108" width="140" height="12"/>
+  <rect class="c5" x="100" y="68" width="140" height="40"/>
+  <text x="170" y="144" text-anchor="middle" class="ts">浮閘 FG（多晶矽，導體）</text>
+  <text x="170" y="92" text-anchor="middle" class="ts">控制閘 CG</text>
+  <path class="wm" d="M246 165h30M246 114h30"/><text x="280" y="168" class="ts t-mut">穿隧氧化層</text><text x="280" y="117" class="ts t-mut">ONO</text>
+  <rect class="c2" x="400" y="140" width="140" height="20"/>
+  <rect class="box" x="400" y="125" width="140" height="15"/>
+  <rect class="c5" x="400" y="80" width="140" height="45"/>
+  <text x="470" y="106" text-anchor="middle" class="ts">金屬閘（TiN / W）</text>
+  <text x="470" y="154" text-anchor="middle" class="ts">SiN 捕捉層（絕緣體）</text>
+  <path class="wm" d="M546 165h20M546 132h20"/><text x="570" y="168" class="ts t-mut">穿隧氧化</text><text x="570" y="135" class="ts t-mut">阻擋氧化</text>
+  <g class="fi"><circle cx="125" cy="134" r="3"/><circle cx="215" cy="134" r="3"/><circle cx="420" cy="146" r="2.5"/><circle cx="455" cy="146" r="2.5"/><circle cx="512" cy="146" r="2.5"/></g>
+</svg>
+<figcaption>浮閘是導體，電子在裡面可以自由移動，只要穿隧氧化層有一個缺陷，整顆浮閘的電子都可能漏光。電荷捕捉層是絕緣體，電子被困在各自的陷阱裡，局部缺陷只影響附近，所以更耐微縮，也是 3D NAND 的主流。</figcaption>
+</figure>
+<h3 id="program-erase">寫入（Program）與抹除（Erase）</h3>
+<ul>
+<li><b>FN 穿隧（Fowler–Nordheim）</b>：控制閘加約 15–20 V 高壓，強電場讓電子穿過穿隧氧化層進入儲存層。電流極小、效率高，NAND 用它來寫入和抹除。</li>
+<li><b>通道熱電子注入（CHE）</b>：汲極加高壓產生高能電子跳進浮閘，速度快但耗電大。NOR Flash 用它寫入。</li>
+<li><b>抹除</b>：反過來在基板（p-well）加高壓把電子拉出來。NAND 一次抹除一整個區塊（block），所以不能直接覆寫，這直接催生了 SSD 控制器裡的 FTL（見<a href="application.html#ssd">應用章節</a>）。</li>
+</ul>
+<h3 id="nor-nand">NOR vs NAND</h3>
+<div class="tblwrap"><table>
+<tr><th></th><th>NOR</th><th>NAND</th></tr>
+<tr><td>單元接法</td><td>每個單元直接接位元線（並聯，像 NOR 閘）</td><td>數十到數百個單元串聯成一串（string），兩端才接位元線和源極線</td></tr>
+<tr><td>密度</td><td>低（約 10F²）</td><td>高（2D 時代約 4F²，3D 再乘上層數與每單元位元數）</td></tr>
+<tr><td>讀取</td><td>隨機存取快（數十 ns），可直接執行程式碼 XIP</td><td>以頁（page，常見 16 KB）為單位，t<sub>R</sub> 數十 µs</td></tr>
+<tr><td>寫入 / 抹除</td><td>慢、耗電（CHE）</td><td>頁寫入、區塊抹除，吞吐量高</td></tr>
+<tr><td>用途</td><td>開機碼、車用 / 工控韌體</td><td>大容量儲存：SSD、UFS、記憶卡</td></tr>
+</table></div>
+<p>NAND 串讀取的方法：選中的那條字元線加參考電壓 V<sub>READ</sub>，其他未選中的字元線加高的導通電壓 V<sub>PASS</sub>，讓它們不論存什麼都導通。這樣整串是否導通就只取決於被選中的單元。</p>
+<h3 id="mlc">多階儲存：SLC / MLC / TLC / QLC</h3>
+<p>同一個單元若能精準控制注入的電子量，就可以區分更多 V<sub>t</sub> 等級：n 位元需要 2ⁿ 個狀態。</p>
+<figure>
+<svg viewBox="0 0 640 200" role="img" aria-label="MLC 四個 Vt 分佈">
+  <path class="wm" d="M30 170H620"/><text x="612" y="190" class="ts t-mono" text-anchor="end">V<tspan dy="3">t</tspan></text>
+  <path class="c1" style="stroke-width:1.5" d="M30 170C70 170 80 40 110 40C140 40 150 170 190 170Z"/>
+  <path class="c2" style="stroke-width:1.5" d="M220 170C245 170 245 70 260 70C275 70 275 170 300 170Z"/>
+  <path class="c3" style="stroke-width:1.5" d="M360 170C385 170 385 70 400 70C415 70 415 170 440 170Z"/>
+  <path class="c4" style="stroke-width:1.5" d="M500 170C525 170 525 70 540 70C555 70 555 170 580 170Z"/>
+  <path class="wd" d="M205 30V176M330 30V176M470 30V176"/>
+  <text x="205" y="24" text-anchor="middle" class="ts t-mono">R1</text><text x="330" y="24" text-anchor="middle" class="ts t-mono">R2</text><text x="470" y="24" text-anchor="middle" class="ts t-mono">R3</text>
+  <text x="110" y="190" text-anchor="middle" class="ts">E · 11</text><text x="260" y="190" text-anchor="middle" class="ts">P1 · 01</text>
+  <text x="400" y="190" text-anchor="middle" class="ts">P2 · 00</text><text x="540" y="190" text-anchor="middle" class="ts">P3 · 10</text>
+</svg>
+<figcaption>MLC 的四個狀態。抹除態 E 最寬；讀取參考電壓 R1–R3 落在分佈之間的空隙。用格雷碼編碼，讓相鄰狀態只差一個位元，誤判時只錯一位。</figcaption>
+</figure>
+<div class="tblwrap"><table>
+<tr><th>類型</th><th class="n">bit/cell</th><th class="n">V<sub>t</sub> 狀態</th><th>典型 P/E 壽命</th><th>特性</th></tr>
+<tr><td>SLC</td><td class="n">1</td><td class="n">2</td><td>5 萬–10 萬次</td><td>最快、最耐寫；企業快取、工控</td></tr>
+<tr><td>MLC</td><td class="n">2</td><td class="n">4</td><td>3 千–1 萬次</td><td>已少見於消費級</td></tr>
+<tr><td>TLC</td><td class="n">3</td><td class="n">8</td><td>1 千–3 千次</td><td>目前主流 SSD、手機</td></tr>
+<tr><td>QLC</td><td class="n">4</td><td class="n">16</td><td>數百–1 千餘次</td><td>大容量讀取密集型、資料中心冷資料</td></tr>
+<tr><td>PLC</td><td class="n">5</td><td class="n">32</td><td>研發中</td><td>狀態間距極窄</td></tr>
+</table></div>
+<p>每多一位元，狀態間的空隙就更窄，寫入要更細的步進（ISPP）和更多次驗證，因此更慢；而保存、干擾造成的 V<sub>t</sub> 漂移更容易讓相鄰狀態重疊，所以壽命更短，需要更強的 ECC（LDPC）。</p>
+<div class="tryit">▶ 切換 SLC→QLC、增加 P/E 次數和保存時間，看分佈怎麼重疊：<a href="lab.html#nand">互動實驗室 · NAND V<sub>t</sub> 分佈</a></div>
+
+<h2 id="nand3d">3D NAND：往上蓋</h2>
+<p>2D NAND 在約 15 nm 世代碰到極限：單元間干擾太強，浮閘裡只剩幾十個電子。業界改成把單元垂直堆疊：先疊上百層交錯的絕緣層與字元線層，再一次蝕刻出貫穿所有層的通道孔，孔壁依序沉積阻擋氧化層、SiN 捕捉層、穿隧氧化層和多晶矽通道。每一層字元線與通道孔的交點，就是一個環繞閘極（GAA）的電荷捕捉單元。</p>
+<figure>
+<svg viewBox="0 0 640 280" role="img" aria-label="3D NAND 垂直通道示意">
+  <g>
+    <rect class="c5" x="80" y="50" width="400" height="16"/><rect class="box" x="80" y="66" width="400" height="8"/>
+    <rect class="c5" x="80" y="74" width="400" height="16"/><rect class="box" x="80" y="90" width="400" height="8"/>
+    <rect class="c5" x="80" y="98" width="400" height="16"/><rect class="box" x="80" y="114" width="400" height="8"/>
+    <rect class="c5" x="80" y="122" width="400" height="16"/><rect class="box" x="80" y="138" width="400" height="8"/>
+    <rect class="c5" x="80" y="146" width="400" height="16"/><rect class="box" x="80" y="162" width="400" height="8"/>
+    <rect class="c5" x="80" y="170" width="400" height="16"/><rect class="box" x="80" y="186" width="400" height="8"/>
+    <rect class="c5" x="80" y="194" width="400" height="16"/>
+  </g>
+  <rect class="sunk" x="80" y="210" width="400" height="30"/>
+  <text x="280" y="230" text-anchor="middle" class="ts">共用源極 CSL（下方可能是 CMOS 周邊電路）</text>
+  <g><rect class="c2" x="186" y="40" width="48" height="170"/><rect class="sunk" x="196" y="40" width="28" height="170"/><rect class="c3" x="200" y="40" width="20" height="170"/></g>
+  <g><rect class="c2" x="326" y="40" width="48" height="170"/><rect class="sunk" x="336" y="40" width="28" height="170"/><rect class="c3" x="340" y="40" width="20" height="170"/></g>
+  <path class="wt" d="M150 30H420"/><text x="430" y="34" class="ts t-mono">BL</text>
+  <path class="w" d="M210 30V40M350 30V40"/>
+  <path class="wm" d="M486 58h30M486 70h30"/><text x="520" y="62" class="ts">字元線 WL（W / Mo）</text><text x="520" y="78" class="ts t-mut">層間 SiO₂</text>
+  <path class="wm" d="M234 260V212M210 260V212M346 252h-20"/>
+  <text x="234" y="274" text-anchor="middle" class="ts">ONO 電荷捕捉</text><text x="140" y="274" class="ts t-mut">多晶矽通道</text>
+  <text x="560" y="140" class="ts t-mut">每個交點 =</text><text x="560" y="156" class="ts t-mut">一個 GAA 單元</text>
+</svg>
+<figcaption>剖面示意：字元線層與氧化層交錯堆疊，通道孔貫穿所有層。實際產品每串有 200–300 層以上，並分成數個 deck 分段蝕刻。</figcaption>
+</figure>
+<p>3D NAND 的密度不再靠縮小線寬，而是靠：(1) 增加層數，(2) 每單元位元數（TLC/QLC），(3) 把周邊 CMOS 電路放到陣列下方（CMOS under Array）或另外做一片晶圓再接合（CMOS bonded Array），省下晶粒面積。製程細節見<a href="process.html#nand3d-flow">製程章節</a>。</p>
+<div class="callout co"><b>Micron 註記</b>　Micron 與 Intel 合作的早期 3D NAND（32、64、96 層世代）採用的是<b>浮閘</b>結構，而且從第一代就把 CMOS 周邊放在陣列下方（CMOS under Array, CuA）。之後 Micron 轉為 <b>replacement gate + 電荷捕捉</b>（約從 128 / 176 層世代開始），延續到 232 層與之後的世代。所以「3D NAND 都是電荷捕捉」並不完全正確，浮閘 3D NAND 曾經大量出貨。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+
+
+<h2 id="emerging">新興非揮發記憶體</h2>
+<p>這些技術都想填補 DRAM 和 NAND 之間的空缺（儲存級記憶體 SCM），或取代先進製程中越來越難整合的嵌入式 Flash。它們多半做在後段金屬層（BEOL）之間，不佔用前段電晶體面積。</p>
+<h3 id="mram">MRAM（磁阻式）</h3>
+<p>核心是磁穿隧接面 MTJ：兩層鐵磁層（CoFeB）夾一層極薄的 MgO。一層磁化方向固定（參考層），另一層可翻轉（自由層）。方向平行時電阻低、反平行時電阻高，兩者差異（TMR）可達 150% 以上。<b>STT-MRAM</b> 用通過 MTJ 的自旋極化電流翻轉自由層；<b>SOT-MRAM</b> 用相鄰重金屬層的電流翻轉，讀寫路徑分開，更快更耐寫。STT-MRAM 已在 28/22 nm 及以下製程量產，作為 eFlash 的替代品，在車用 MCU 很常見。</p>
+<h3 id="reram">ReRAM / RRAM（電阻式）</h3>
+<p>金屬–絕緣體–金屬結構（例如 TiN/HfO<sub>x</sub>/Ti），施加電壓讓氧空缺形成導電細絲（SET，低阻），反向電壓把細絲斷開（RESET，高阻）。結構簡單、與 CMOS 相容，已用於嵌入式 NVM；也因為電阻可以多階，被研究用於類比存內運算。挑戰是細絲形成的隨機性造成的阻值變異。</p>
+<h3 id="pcm">PCM（相變化）</h3>
+<p>利用硫屬化物（如 Ge<sub>2</sub>Sb<sub>2</sub>Te<sub>5</sub>）在非晶（高阻）與結晶（低阻）之間切換：短而強的電流把它熔化後急冷成非晶（RESET），較長較弱的電流讓它退火結晶（SET）。Intel/Micron 的 3D XPoint（Optane）就是相變化記憶體搭配雙向閾值開關（OTS）選擇器的交叉點陣列，2022 年停產，但證明了 SCM 的價值與商業難度。</p>
+<h3 id="feram">FeRAM / FeFET（鐵電）</h3>
+<p>用鐵電材料的極化方向存資料。傳統 FeRAM 用 PZT，難以微縮；2011 年發現摻雜 HfO<sub>2</sub>（如 HfZrO<sub>2</sub>）在數奈米厚度就具有鐵電性，且與 CMOS 製程相容，讓 1T1C FeRAM 與 FeFET（把鐵電層做在閘極裡）重新受到重視。</p>
+
+<h2 id="compare">比較總表</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>SRAM</th><th>DRAM</th><th>NAND</th><th>NOR</th><th>STT-MRAM</th><th>ReRAM</th><th>PCM</th></tr>
+<tr><td>單元面積</td><td>120–150F²</td><td>6F²</td><td>&lt;1F² 等效*</td><td>~10F²</td><td>20–60F²</td><td>4–30F²</td><td>4–20F²</td></tr>
+<tr><td>讀取延遲</td><td>~1 ns</td><td>~15–50 ns</td><td>20–100 µs</td><td>~50 ns</td><td>5–30 ns</td><td>10–100 ns</td><td>50–150 ns</td></tr>
+<tr><td>寫入延遲</td><td>~1 ns</td><td>~15–50 ns</td><td>0.2–3 ms</td><td>µs 級</td><td>10–50 ns</td><td>10–100 ns</td><td>0.1–1 µs</td></tr>
+<tr><td>耐寫次數</td><td>無限</td><td>&gt;10¹⁵</td><td>10³–10⁵</td><td>~10⁵</td><td>10⁶–10¹²</td><td>10⁵–10⁸</td><td>10⁶–10⁹</td></tr>
+<tr><td>非揮發</td><td>否</td><td>否</td><td>是</td><td>是</td><td>是</td><td>是</td><td>是</td></tr>
+<tr><td>主要市場</td><td>快取</td><td>主記憶體</td><td>儲存</td><td>韌體</td><td>eNVM、快取</td><td>eNVM、CIM</td><td>SCM（已退場）</td></tr>
+</table></div>
+<p class="note">* NAND 等效面積 = 單元面積 ÷ (層數 × bit/cell)。延遲是陣列層級的量級，不含控制器與介面。</p>
+
+<h2 id="dev-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>F（特徵尺寸）</dt><dd>製程最小半節距，用來把單元面積正規化成 nF²，方便跨世代比較。</dd></div>
+<div><dt>Bit line / Word line</dt><dd>位元線（BL）沿行方向傳送資料；字元線（WL）沿列方向選取要存取的單元。</dd></div>
+<div><dt>Cell ratio β</dt><dd>SRAM 中 PD 與 PG 的強度比，決定讀取穩定度。</dd></div>
+<div><dt>SNM</dt><dd>Static Noise Margin，蝴蝶曲線中可內接最大正方形的邊長。</dd></div>
+<div><dt>V<sub>min</sub></dt><dd>SRAM 能正確讀寫的最低供電電壓，通常由最差的那幾顆單元決定。</dd></div>
+<div><dt>C<sub>s</sub> / C<sub>BL</sub></dt><dd>DRAM 單元電容與位元線寄生電容，比值決定電荷分享後的訊號大小。</dd></div>
+<div><dt>Restore</dt><dd>DRAM 讀取後把資料寫回電容的動作，因為讀取是破壞性的。</dd></div>
+<div><dt>Retention time</dt><dd>單元在不更新的情況下能保持正確資料的時間。</dd></div>
+<div><dt>GIDL</dt><dd>Gate-Induced Drain Leakage，閘極與汲極重疊處的強電場造成的能帶穿隧漏電。</dd></div>
+<div><dt>BCAT</dt><dd>Buried Channel Array Transistor，埋入式字元線的 DRAM 存取電晶體。</dd></div>
+<div><dt>FN tunneling</dt><dd>電子在強電場下穿過三角形能障的量子穿隧，NAND 寫入 / 抹除的機制。</dd></div>
+<div><dt>CHE</dt><dd>Channel Hot Electron injection，通道熱電子注入，NOR 寫入機制。</dd></div>
+<div><dt>ISPP</dt><dd>Incremental Step Pulse Programming，逐次增加寫入電壓並驗證，收窄 V<sub>t</sub> 分佈。</dd></div>
+<div><dt>V<sub>PASS</sub> / V<sub>READ</sub></dt><dd>NAND 讀取時加在未選中 / 選中字元線上的電壓。</dd></div>
+<div><dt>Charge trap (CTF)</dt><dd>用 SiN 絕緣層捕捉電子的 Flash 單元，3D NAND 主流。</dd></div>
+<div><dt>MTJ / TMR</dt><dd>磁穿隧接面與其穿隧磁阻比，MRAM 的核心元件與讀取訊號來源。</dd></div>
+<div><dt>SCM</dt><dd>Storage Class Memory，速度接近 DRAM、可非揮發的中間層記憶體。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">內容為教學用途的整理，數值為量級參考，實際規格以各廠商資料表與 JEDEC 標準為準。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>職務地圖 · Memory Notes</title>
+<meta name="description" content="記憶體公司常見職務地圖：製程整合、製程模組、良率提升、產品工程、測試工程、元件開發、電路設計、封裝、品質可靠度、設備工程，各自對應的章節、工具與面試題。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="roles">
+<main class="doc">
+<nav class="toc" aria-label="本頁目錄"></nav>
+<article>
+<div class="eyebrow">Career map · 職務地圖</div>
+<h1>職務地圖：每個職位要先讀哪幾節</h1>
+<p class="lead">一顆記憶體從研發到出貨，會經過很多不同的工程職位。這一頁把記憶體公司（DRAM / NAND 廠）常見的職位，對應到本站的章節、互動工具，並列出面試常被問到的觀念題。職稱與分工依公司而異，這裡是通用的描述。</p>
+
+<h2 id="overview">總覽</h2>
+<div class="tblwrap"><table>
+<tr><th>職位</th><th>一句話</th><th>最相關章節</th></tr>
+<tr><td><a href="#pi">製程整合 PI</a></td><td>把幾百道製程串成能動的元件，對良率與電性負責</td><td>製程、元件、封測（失效位元圖）</td></tr>
+<tr><td><a href="#module">製程模組工程</a></td><td>負責單一模組（蝕刻、薄膜、微影、CMP、擴散）的穩定與改善</td><td>製程</td></tr>
+<tr><td><a href="#ye">良率提升 YE</a></td><td>從測試資料與缺陷資料找出良率損失的根因</td><td>製程（良率）、封測（失效位元圖）</td></tr>
+<tr><td><a href="#pe">產品工程 PE</a></td><td>對一個產品的良率、測試流程、規格與客戶問題負責</td><td>設計、封測、可靠度</td></tr>
+<tr><td><a href="#te">測試工程 TE</a></td><td>開發與最佳化測試程式、測試硬體，壓低測試時間與漏網</td><td>封測、設計（時序、修補）</td></tr>
+<tr><td><a href="#td">元件 / 技術開發 TD</a></td><td>定義下一代單元結構與製程，達成微縮目標</td><td>元件、製程、可靠度</td></tr>
+<tr><td><a href="#de">電路設計 DE</a></td><td>設計陣列周邊、感測放大器、介面與 DFT</td><td>設計、元件、應用</td></tr>
+<tr><td><a href="#pkg">封裝工程</a></td><td>開發與量產封裝製程，例如多晶粒堆疊、TSV、HBM</td><td>封測（封裝、HBM）、可靠度</td></tr>
+<tr><td><a href="#qra">品質與可靠度 QRA</a></td><td>驗證產品壽命、處理客退分析、維持出貨品質</td><td>可靠度、封測</td></tr>
+<tr><td><a href="#ee">設備工程 EE</a></td><td>讓機台穩定、高稼動率，並配合製程改善</td><td>製程</td></tr>
+</table></div>
+
+<h2 id="pi">製程整合 Process Integration（PI）</h2>
+<p>PI 是製程的「系統工程師」：一顆 DRAM 有上千道步驟，PI 定義整個流程、決定各模組的規格（例如電容孔的關鍵尺寸、接觸電阻目標），並在電性或良率出問題時，協調各模組找出根因。日常工作包括看 WAT / CP 資料、做分批實驗（split）、安排失效分析。</p>
+<ul>
+<li><b>必讀</b>：<a href="process.html#dram-flow">DRAM 製程流程</a>、<a href="process.html#dram-cap">電容</a>、<a href="process.html#nand3d-flow">3D NAND 製程</a>、<a href="device.html#leakage">漏電與 refresh</a>、<a href="test.html#bitmap">失效位元圖</a></li>
+<li><b>工具</b>：<a href="lab.html#dram">DRAM 讀取</a>（C<sub>s</sub>、C<sub>BL</sub> 對訊號的影響）、<a href="lab.html#wafer">晶圓良率</a>、<a href="lab.html#retention">保存與 Refresh</a></li>
+</ul>
+<h3 id="pi-q">面試常見問題</h3>
+<ul>
+<li>DRAM 電容值不夠會發生什麼事？可以從哪三個方向增加電容？</li>
+<li>埋入式字元線為什麼能降低漏電？GIDL 從哪裡來？</li>
+<li>CP 發現某一批的整列失效變多，你會怎麼追？</li>
+<li>如何設計一個 split 實驗來確認是哪一道製程造成良率損失？</li>
+</ul>
+
+<h2 id="module">製程模組工程（蝕刻、薄膜、微影、CMP、擴散）</h2>
+<p>模組工程師負責一個或一類製程步驟：讓機台產出的膜厚、線寬、孔形穩定在規格內，用 SPC 監控漂移，處理異常批，並開發下一代需要的新製程（例如更高深寬比的蝕刻、新的 ALD 材料）。</p>
+<ul>
+<li><b>必讀</b>：<a href="process.html#unit-process">基本製程模組</a>、<a href="process.html#dram-cap">電容挑戰</a>、<a href="process.html#dram-litho">微影與節點</a>、<a href="process.html#nand3d-flow">3D NAND 通道孔與閘極置換</a></li>
+<li><b>工具</b>：<a href="lab.html#wafer">晶圓良率</a>（邊緣缺陷、缺陷密度的影響）</li>
+</ul>
+<h3 id="module-q">面試常見問題</h3>
+<ul>
+<li>高深寬比蝕刻常見的形貌問題有哪些（bowing、tilting、底部變細）？成因是什麼？</li>
+<li>ALD 與 CVD 的差別？為什麼深孔內要用 ALD？</li>
+<li>SPC 管制圖出現連續七點在中心線同一側，代表什麼？你會怎麼做？</li>
+<li>SAQP 的流程是什麼？與 EUV 單次曝光相比的優缺點？</li>
+</ul>
+
+<h2 id="ye">良率提升 Yield Enhancement（YE）</h2>
+<p>YE 把晶圓測試結果、失效位元圖、線上缺陷檢測、WAT 和機台履歷串在一起，找出良率損失的來源並量化每個問題的影響（Pareto），推動對應的製程或設備改善。資料分析能力（SQL、Python、統計）非常重要。</p>
+<ul>
+<li><b>必讀</b>：<a href="process.html#yield">良率與製程控制</a>、<a href="test.html#bitmap">失效位元圖</a>、<a href="test.html#repair">修補與 KGD</a>、<a href="design.html#redundancy">冗餘修補</a></li>
+<li><b>工具</b>：<a href="lab.html#wafer">晶圓良率</a>（Poisson vs 負二項、修補）、<a href="lab.html#cost">每 Gb 成本</a></li>
+</ul>
+<h3 id="ye-q">面試常見問題</h3>
+<ul>
+<li>Poisson 良率模型和負二項模型的差別？為什麼群聚缺陷反而讓良率比較高？</li>
+<li>晶圓圖上出現邊緣環狀失效，可能的原因有哪些？</li>
+<li>修補前良率很低、修補後良率正常，這代表什麼？要擔心嗎？</li>
+<li>如何把線上缺陷檢測結果與 CP 失效對應起來（kill ratio）？</li>
+</ul>
+
+<h2 id="pe">產品工程 Product Engineering（PE）</h2>
+<p>PE 對「一個產品」負責：監控各階段良率、決定測試流程與規格、處理速度分級、與設計和製程溝通產品問題，並支援客戶端的問題分析。是記憶體公司裡接觸面最廣的職位之一。</p>
+<ul>
+<li><b>必讀</b>：<a href="design.html#timing">DRAM 時序</a>、<a href="design.html#refresh">Refresh</a>、<a href="test.html#test-flow">測試流程</a>、<a href="test.html#ate">ATE 與測試成本</a>、<a href="reliability.html#dram-retention">DRAM 保存</a>、<a href="reliability.html#rowhammer">Row hammer</a></li>
+<li><b>工具</b>：<a href="lab.html#retention">保存與 Refresh</a>、<a href="lab.html#rowhammer">Row Hammer</a>、<a href="designer.html#dram">規格設計器</a></li>
+</ul>
+<h3 id="pe-q">面試常見問題</h3>
+<ul>
+<li>tRCD、CL、tRP 分別是什麼？為什麼這二十年幾乎沒變快？</li>
+<li>為什麼高溫要加倍 refresh？這對效能和功耗有什麼影響？</li>
+<li>客戶回報系統偶發位元翻轉，你會怎麼區分是 row hammer、保存問題、還是軟錯誤？</li>
+<li>速度分級的依據是什麼？良率與速度分佈如何影響營收？</li>
+</ul>
+
+<h2 id="te">測試工程 Test Engineering（TE）</h2>
+<p>TE 開發 ATE 上的測試程式與測試圖形、設計探針卡與負載板、最佳化平行度與測試時間，並確保測試能抓到該抓的缺陷（覆蓋率）又不誤殺好的晶片（overkill）。</p>
+<ul>
+<li><b>必讀</b>：<a href="test.html#fault-models">故障模型</a>、<a href="test.html#march">March 演算法</a>、<a href="test.html#ate">ATE</a>、<a href="test.html#mbist">MBIST</a>、<a href="design.html#redundancy">冗餘修補</a></li>
+<li><b>工具</b>：<a href="lab.html#march">March 測試</a>、<a href="lab.html#hbm">HBM 堆疊良率</a>（KGD 漏網率的影響）</li>
+</ul>
+<h3 id="te-q">面試常見問題</h3>
+<ul>
+<li>寫出 March C− 並說明它為什麼能抓到耦合故障。</li>
+<li>測試時間太長，你有哪些方法縮短（平行度、內建測試模式、刪減冗餘項目）？風險是什麼？</li>
+<li>Overkill 和 underkill（漏網）怎麼取捨？怎麼量化？</li>
+<li>HBM 的 KGD 測試和一般 DRAM 晶圓測試有什麼不同？</li>
+</ul>
+
+<h2 id="td">元件 / 技術開發 Technology Development（TD）</h2>
+<p>TD 定義下一代的單元結構、材料與製程整合方案，用 TCAD 模擬與短流程實驗驗證，達成面積、電性與可靠度目標，再移轉到量產。通常需要元件物理背景（碩博士居多）。</p>
+<ul>
+<li><b>必讀</b>：<a href="device.html#dram">DRAM 單元</a>、<a href="device.html#flash">Flash</a>、<a href="device.html#nand3d">3D NAND</a>、<a href="process.html#dram-future">4F² 與 3D DRAM</a>、<a href="device.html#emerging">新興記憶體</a>、<a href="reliability.html#flash-endurance">耐寫</a></li>
+<li><b>工具</b>：<a href="lab.html#dram">DRAM 讀取</a>、<a href="lab.html#nand">NAND V<sub>t</sub> 分佈</a>、<a href="lab.html#cost">每 Gb 成本</a>（微縮 vs 良率）</li>
+</ul>
+<h3 id="td-q">面試常見問題</h3>
+<ul>
+<li>浮閘和電荷捕捉單元的差別？為什麼 3D NAND 多用電荷捕捉？</li>
+<li>4F² 垂直通道電晶體要解決什麼問題？會遇到什麼新問題？</li>
+<li>FN 穿隧電流與電場的關係？穿隧氧化層變薄會怎樣？</li>
+<li>為什麼 DRAM 的微縮瓶頸在電容與存取電晶體，而不是線寬？</li>
+</ul>
+
+<h2 id="de">電路設計 Design Engineering（DE）</h2>
+<p>DE 設計陣列周邊電路：感測放大器、字元線驅動、電荷泵、高速 I/O（DLL、等化器）、時序控制、DFT 與修補電路，並做佈局、模擬（SPICE）與矽後驗證。</p>
+<ul>
+<li><b>必讀</b>：<a href="design.html#array-org">陣列組織</a>、<a href="design.html#sense-amp">感測放大器</a>、<a href="design.html#interface">I/O 介面</a>、<a href="design.html#sram-assist">SRAM assist</a>、<a href="design.html#nand-design">NAND 晶片設計</a>、<a href="application.html#dram-family">DRAM 家族</a></li>
+<li><b>工具</b>：<a href="lab.html#sram">SRAM 蝴蝶曲線</a>、<a href="lab.html#dram">DRAM 讀取</a>、<a href="designer.html">規格設計器</a></li>
+</ul>
+<h3 id="de-q">面試常見問題</h3>
+<ul>
+<li>畫出 DRAM 位元線感測放大器，說明預充、感測、回寫的時序。</li>
+<li>SA 偏移從哪裡來？偏移補償 SA 怎麼運作？</li>
+<li>SRAM 讀取穩定度與寫入能力的取捨？低電壓時有哪些輔助電路？</li>
+<li>DDR5 為什麼要用 16n 預取？DFE 解決什麼問題？</li>
+</ul>
+
+<h2 id="pkg">封裝工程 Packaging</h2>
+<p>封裝工程負責研磨、切割、黏晶、打線、模封等組裝製程，以及先進封裝（TSV、微凸塊、HBM 堆疊、混合鍵合）的開發與量產，關注良率、翹曲、散熱與可靠度。</p>
+<ul>
+<li><b>必讀</b>：<a href="test.html#package-types">封裝型式</a>、<a href="test.html#assembly">組裝流程</a>、<a href="test.html#hbm-stack">HBM 堆疊與 TSV</a>、<a href="application.html#hbm-system">HBM 系統整合</a>、<a href="reliability.html#qualification">可靠度驗證</a></li>
+<li><b>工具</b>：<a href="lab.html#hbm">HBM 堆疊良率</a></li>
+</ul>
+<h3 id="pkg-q">面試常見問題</h3>
+<ul>
+<li>TC-NCF、MR-MUF、混合鍵合三種 HBM 堆疊方式的差異與取捨？</li>
+<li>晶圓磨到 30–50 µm 會遇到什麼問題？隱形切割為什麼適合薄晶圓？</li>
+<li>翹曲從哪裡來？會造成什麼失效？</li>
+<li>溫度循環（TC）測試主要在驗證什麼？</li>
+</ul>
+
+<h2 id="qra">品質與可靠度 QRA</h2>
+<p>QRA 規劃並執行可靠度驗證（HTOL、TC、HAST、ESD 等）、建立壽命模型、處理客退品的失效分析、推動矯正措施，並維持出貨品質指標（DPPM）。車用產品的品質要求最嚴格。</p>
+<ul>
+<li><b>必讀</b>：<a href="reliability.html#bathtub">浴缸曲線與 FIT</a>、<a href="reliability.html#qualification">驗證項目</a>、<a href="reliability.html#arrhenius">加速模型</a>、<a href="test.html#burnin">Burn-in</a>、<a href="application.html#embedded">車用需求</a></li>
+<li><b>工具</b>：<a href="lab.html#retention">保存與 Refresh</a>、<a href="lab.html#nand">NAND V<sub>t</sub> 分佈</a>（耐寫與保存）</li>
+</ul>
+<h3 id="qra-q">面試常見問題</h3>
+<ul>
+<li>用 Arrhenius 模型估算 HTOL 的等效使用時間；零失效時怎麼估 FIT 上限？</li>
+<li>客退品分析的流程是什麼？如何判斷是製造問題還是使用問題？</li>
+<li>AEC-Q100 Grade 1 要求什麼溫度範圍？車用與消費性的品質要求差在哪？</li>
+<li>Flash 的耐寫度和保存能力為什麼要一起看？</li>
+</ul>
+
+<h2 id="ee">設備工程 Equipment Engineering（EE）</h2>
+<p>EE 負責機台的保養、故障排除與效能改善，追求高稼動率與穩定的製程結果，並與製程工程師合作導入新機台、新零件或新配方。</p>
+<ul>
+<li><b>必讀</b>：<a href="process.html#unit-process">基本製程模組</a>、<a href="process.html#yield">良率與製程控制</a></li>
+<li><b>工具</b>：<a href="lab.html#wafer">晶圓良率</a>（缺陷對良率的影響）</li>
+</ul>
+<h3 id="ee-q">面試常見問題</h3>
+<ul>
+<li>機台保養（PM）後要做哪些確認才能放行生產？</li>
+<li>電漿蝕刻機台的腔體狀態如何影響製程結果？</li>
+<li>如何提高機台稼動率？MTBF、MTTR 是什麼？</li>
+</ul>
+
+<h2 id="how-to">怎麼用這個網站準備</h2>
+<ol>
+<li>先讀<a href="index.html">首頁</a>的三大記憶體比較表，建立整體輪廓。</li>
+<li>依目標職位讀上面列出的必讀章節，每章最後的名詞解釋可以當作複習清單。</li>
+<li>用互動實驗室把每個觀念「調一次參數」，面試時就能講出數字和取捨，而不只是定義。</li>
+<li>到<a href="quiz.html">測驗</a>選對應章節自我檢查，答錯的題目都有複習連結。</li>
+</ol>
+
+<p class="foot">職稱與分工依公司、部門而異；面試題為常見觀念題整理，不代表任何公司的實際題目。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

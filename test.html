@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體封裝與測試 · Memory Notes</title>
+<meta name="description" content="記憶體封測：測試流程 WAT/CP/FT、故障模型、March 演算法、失效位元圖、冗餘修補、ATE 與測試成本、MBIST、封裝型式、組裝流程、HBM TSV 堆疊與 Burn-in。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="test" data-ch="tst">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 5 · Test &amp; packaging</div>
+<h1>封測：找出壞掉的位元、修好它、再把晶片疊起來</h1>
+<p class="lead">記憶體是測試最密集的半導體產品：每顆晶片的每一個位元都必須被寫入、讀出、在高低溫下驗證；壞的要找出來並修補，修不好的要淘汰。封裝則從單顆晶片走向十幾層的 TSV 堆疊，對已知良好晶粒（KGD）的要求越來越高。</p>
+
+<h2 id="test-flow">測試流程總覽</h2>
+<figure>
+<svg viewBox="0 0 680 200" role="img" aria-label="記憶體測試流程">
+  <g class="c1"><rect x="20" y="30" width="112" height="50" rx="6"/><rect x="154" y="30" width="112" height="50" rx="6"/><rect x="288" y="30" width="112" height="50" rx="6"/><rect x="422" y="30" width="112" height="50" rx="6"/><rect x="556" y="30" width="112" height="50" rx="6"/></g>
+  <g class="c4"><rect x="20" y="130" width="112" height="50" rx="6"/><rect x="154" y="130" width="112" height="50" rx="6"/><rect x="288" y="130" width="112" height="50" rx="6"/><rect x="422" y="130" width="112" height="50" rx="6"/><rect x="556" y="130" width="112" height="50" rx="6"/></g>
+  <g class="w"><path d="M132 55h22M266 55h22M400 55h22M534 55h22M612 80V105H76V130M132 155h22M266 155h22M400 155h22M534 155h22"/></g>
+  <g text-anchor="middle">
+  <text x="76" y="52">WAT</text><text x="76" y="70" class="ts t-mut">測試結構參數</text>
+  <text x="210" y="52">CP1（高溫）</text><text x="210" y="70" class="ts t-mut">功能 + 失效位址</text>
+  <text x="344" y="52">修補分析 + 熔絲</text><text x="344" y="70" class="ts t-mut">雷射 / e-fuse</text>
+  <text x="478" y="52">CP2（低溫）</text><text x="478" y="70" class="ts t-mut">驗證修補、保存</text>
+  <text x="612" y="52">晶圓出貨 / KGD</text><text x="612" y="70" class="ts t-mut">良品圖 wafer map</text>
+  <text x="76" y="152">組裝封裝</text><text x="76" y="170" class="ts t-mut">研磨、切割、打線</text>
+  <text x="210" y="152">Burn-in</text><text x="210" y="170" class="ts t-mut">高溫高壓加速篩選</text>
+  <text x="344" y="152">Final Test</text><text x="344" y="170" class="ts t-mut">速度分級、全溫</text>
+  <text x="478" y="152">模組 / SLT</text><text x="478" y="170" class="ts t-mut">實際系統測試</text>
+  <text x="612" y="152">出貨</text><text x="612" y="170" class="ts t-mut">品質抽驗</text>
+  </g>
+  <text x="20" y="20" class="ts t-mono t-mut">前段：晶圓層級</text><text x="88" y="124" class="ts t-mono t-mut">後段：封裝層級</text>
+</svg>
+<figcaption>典型 DRAM 測試流程。實際順序與溫度依產品而異；HBM 等堆疊產品在堆疊前後還要多次測試。</figcaption>
+</figure>
+<ul>
+<li><b>WAT</b>（Wafer Acceptance Test）：量切割道上的測試結構，確認製程參數在規格內，屬於製程監控。</li>
+<li><b>CP</b>（Chip Probe / Wafer Sort）：探針卡接觸每顆晶粒的焊墊，執行直流測試（open/short、漏電、I<sub>DD</sub>）與功能測試，輸出每顆晶粒的失效位元資料。</li>
+<li><b>修補</b>：依失效位址決定備用列 / 行的配置，用雷射或電熔絲寫入，再重測確認。</li>
+<li><b>FT</b>（Final Test）：封裝後在 ATE 上全速測試，依可通過的速度與時序分級（speed binning）。</li>
+</ul>
+
+<h2 id="fault-models">記憶體故障模型</h2>
+<p>測試不是隨便寫些資料再讀回來，而是根據可能的物理缺陷抽象出故障模型，再設計能涵蓋它們的測試序列。</p>
+<div class="tblwrap"><table>
+<tr><th>故障</th><th>行為</th><th>可能的物理原因</th></tr>
+<tr><td>SAF 固定型</td><td>單元永遠是 0（SA0）或 1（SA1）</td><td>短路到電源 / 地、斷路</td></tr>
+<tr><td>TF 轉換型</td><td>可以從 0 變 1，但不能從 1 變 0（或反之）</td><td>寫入路徑太弱、接觸電阻大</td></tr>
+<tr><td>CF 耦合型</td><td>對某個單元（攻擊者）的操作改變了另一單元（受害者）</td><td>相鄰單元間漏電、電容耦合、橋接</td></tr>
+<tr><td>　CFin 反轉</td><td>攻擊者轉換時，受害者被反轉</td><td></td></tr>
+<tr><td>　CFid 冪等</td><td>攻擊者轉換時，受害者被強制成固定值</td><td></td></tr>
+<tr><td>　CFst 狀態</td><td>攻擊者處於某狀態時，受害者被強制成固定值</td><td></td></tr>
+<tr><td>AF 位址解碼</td><td>某位址存取不到單元、存取到別的單元、或同時存取多個</td><td>解碼器缺陷</td></tr>
+<tr><td>NPSF 鄰近圖形敏感</td><td>受害者的行為取決於周圍單元的資料圖形</td><td>高密度陣列中的鄰近干擾</td></tr>
+<tr><td>DRF 資料保存</td><td>寫入後一段時間資料遺失</td><td>漏電（DRAM）、SRAM 上拉斷路</td></tr>
+<tr><td>Read disturb / 動態故障</td><td>連續多次讀取後才失效</td><td>弱單元、row hammer 類干擾</td></tr>
+</table></div>
+
+<h2 id="march">March 演算法</h2>
+<p>March 測試由多個「March 元素」組成：每個元素依指定的位址順序（⇑ 遞增、⇓ 遞減、⇕ 任意）走過每一個單元，對每個單元依序執行一串操作（w0 寫 0、r1 讀並預期 1……）。複雜度與單元數 N 成線性，適合大容量記憶體。</p>
+<div class="eq">March C−：{ ⇕(w0); ⇑(r0,w1); ⇑(r1,w0); ⇓(r0,w1); ⇓(r1,w0); ⇕(r0) }　→ 10N</div>
+<h3 id="march-why">為什麼這樣設計</h3>
+<ul>
+<li>每個單元都被讀到 0 和 1 → 抓 SAF。</li>
+<li>每個單元都經歷 0→1 和 1→0 轉換，並在轉換後被讀 → 抓 TF。</li>
+<li>以遞增與遞減兩種順序走訪：對任一對單元，攻擊者總會在某個元素中「先」被操作，然後受害者「後」被讀取 → 抓各種方向的耦合故障。</li>
+<li>每個元素都先讀再寫，讀的值是上一個元素寫入的值；若位址解碼錯誤，會讀到不對的值 → 抓 AF。</li>
+</ul>
+<div class="tblwrap"><table>
+<tr><th>演算法</th><th class="n">複雜度</th><th>涵蓋故障</th></tr>
+<tr><td>MSCAN（全 0 / 全 1）</td><td class="n">4N</td><td>部分 SAF</td></tr>
+<tr><td>Checkerboard</td><td class="n">4N</td><td>SAF、部分橋接、保存（配合等待）</td></tr>
+<tr><td>MATS+</td><td class="n">5N</td><td>SAF、AF</td></tr>
+<tr><td>March X</td><td class="n">6N</td><td>SAF、TF、AF、CFin</td></tr>
+<tr><td>March C−</td><td class="n">10N</td><td>SAF、TF、AF、CFin、CFid、CFst（非連結）</td></tr>
+<tr><td>March B</td><td class="n">17N</td><td>加上部分連結故障（linked faults）</td></tr>
+<tr><td>GALPAT（Galloping）</td><td class="n">~4N²</td><td>幾乎全部，但大容量時太慢，只用於小區塊或特性分析</td></tr>
+</table></div>
+<p>實務上 DRAM 測試還會加入各種資料背景（全 0、棋盤、列條紋、行條紋）、時序壓力（縮短 t<sub>RCD</sub>/t<sub>WR</sub>）、電壓邊界（V<sub>DD</sub> 高 / 低）、溫度，以及長時間暫停的保存測試。</p>
+<div class="tryit">▶ 自己注入故障，看 MATS+、March X、March C− 誰抓得到：<a href="lab.html#march">互動實驗室 · March 測試</a></div>
+
+<h2 id="bitmap">失效位元圖 Fail Bit Map</h2>
+<p>把測試失敗的位元依實體位置畫出來，失效的形狀往往直接指向原因：</p>
+<figure>
+<svg viewBox="0 0 660 160" role="img" aria-label="典型失效位元圖樣式">
+  <defs><pattern id="fbm" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" class="grid" fill="none"/></pattern></defs>
+  <g class="sunk"><rect x="20" y="20" width="100" height="100"/><rect x="150" y="20" width="100" height="100"/><rect x="280" y="20" width="100" height="100"/><rect x="410" y="20" width="100" height="100"/><rect x="540" y="20" width="100" height="100"/></g>
+  <g fill="url(#fbm)"><rect x="20" y="20" width="100" height="100"/><rect x="150" y="20" width="100" height="100"/><rect x="280" y="20" width="100" height="100"/><rect x="410" y="20" width="100" height="100"/><rect x="540" y="20" width="100" height="100"/></g>
+  <g style="fill:var(--bad)">
+    <rect x="60" y="60" width="10" height="10"/><rect x="90" y="30" width="10" height="10"/>
+    <rect x="150" y="70" width="100" height="10"/>
+    <rect x="320" y="20" width="10" height="100"/>
+    <rect x="440" y="50" width="30" height="20"/><rect x="450" y="40" width="10" height="10"/><rect x="450" y="70" width="20" height="10"/>
+    <rect x="540" y="40" width="100" height="10"/><rect x="540" y="50" width="100" height="10"/>
+  </g>
+  <g text-anchor="middle" class="ts">
+    <text x="70" y="140">單點</text><text x="200" y="140">整列</text><text x="330" y="140">整行</text><text x="460" y="140">群聚</text><text x="590" y="140">相鄰雙列</text>
+  </g>
+  <g text-anchor="middle" class="ts t-mut">
+    <text x="70" y="155">單元缺陷 / 弱單元</text><text x="200" y="155">字元線斷 / SWD</text><text x="330" y="155">位元線 / SA</text><text x="460" y="155">微粒污染</text><text x="590" y="155">WL 間短路</text>
+  </g>
+</svg>
+<figcaption>失效位元圖是測試與製程之間的共同語言：測試工程師把樣式分類，製程工程師依樣式回追到特定層別與機台。</figcaption>
+</figure>
+<p>放大到晶圓層級，就是<b>晶圓圖</b>（wafer map）：邊緣環狀失效常指向蝕刻或薄膜均勻度，刮痕狀指向搬運，局部群聚指向特定缺陷事件。這些圖也是 AI 分類與良率分析的主要輸入。</p>
+
+<h2 id="repair">修補流程與 KGD</h2>
+<ol>
+<li>CP1 執行完整測試，記錄所有失效位元的位址。</li>
+<li><b>修補分析（RA）</b>：每個 mat 只有固定數量的備用列 / 行。若某列失效位元數超過備用行數，這列「必須」用備用列修（must-repair）；剩下的再以搜尋演算法分配。找不到解的晶粒判為不可修。</li>
+<li><b>熔絲寫入</b>：雷射熔絲（雷射燒斷金屬線，需要開窗、只能在晶圓上做）或電熔絲 / 反熔絲（電流熔斷或擊穿，封裝後也能寫）。</li>
+<li>CP2 驗證修補結果，並做低溫或保存測試。</li>
+</ol>
+<p><b>KGD</b>（Known Good Die）：要被堆疊或與其他晶片共封裝的晶粒，必須在晶圓階段就達到接近封裝後成品的品質，因為一片壞晶粒會拖累整個昂貴的堆疊。這讓晶圓測試必須涵蓋更多原本在 FT 才做的高速與溫度測試。</p>
+
+<h2 id="ate">ATE 與測試成本</h2>
+<ul>
+<li><b>平行度</b>：記憶體 ATE 一次可測數百顆晶粒（CP）或數百顆封裝（FT），由測試機內建的演算法圖形產生器（ALPG）產生位址與資料序列。</li>
+<li><b>測試時間</b>：容量越大、測試時間越長；保存測試需要等待，更是耗時。數十 Gb 晶片的完整測試可達數十分鐘到數小時。</li>
+<li><b>測試成本</b>可達 DRAM 總成本的可觀比例，因此會用：晶片內建自我測試模式（DFT test mode，例如一次寫多個 bank、內部壓縮比較結果）、減少不必要的測試項目、提高平行度。</li>
+<li><b>直流測試</b>：Open/Short（接觸）、輸入漏電、各種 I<sub>DD</sub>（I<sub>DD0</sub> 啟動電流、I<sub>DD2P</sub> 待機、I<sub>DD6</sub> 自我更新）。</li>
+<li><b>速度分級</b>：同一批晶片依能穩定運作的最高速度與時序分成不同等級出貨。</li>
+</ul>
+
+<h2 id="mbist">嵌入式記憶體的 MBIST</h2>
+<p>SoC 裡的 SRAM 數以百計，無法從外部腳位直接存取。<b>MBIST</b>（Memory Built-In Self-Test）在每組記憶體旁加入控制器，由晶片內部產生 March 序列並比較結果，只把通過 / 失敗與失效位址送出。搭配 <b>BIRA / BISR</b>（內建修補分析 / 自我修補）可以自動配置備用元件，修補資訊存在 e-fuse 中，開機時載入。車用晶片還要求開機或執行期週期性執行 MBIST（in-system test）以符合功能安全。</p>
+
+<h2 id="package-types">封裝型式</h2>
+<div class="tblwrap"><table>
+<tr><th>封裝</th><th>結構</th><th>典型產品</th></tr>
+<tr><td>TSOP</td><td>導線架、兩側引腳</td><td>早期 SDRAM、部分 NAND / NOR</td></tr>
+<tr><td>FBGA</td><td>基板 + 錫球陣列，打線或覆晶</td><td>DDR4/DDR5 元件、GDDR</td></tr>
+<tr><td>多晶粒打線堆疊</td><td>晶粒交錯疊放（階梯狀），逐層打線</td><td>NAND（8–16 顆）、大容量 LPDDR</td></tr>
+<tr><td>PoP</td><td>記憶體封裝直接疊在處理器封裝上</td><td>手機 LPDDR</td></tr>
+<tr><td>MCP / uMCP / eMCP</td><td>多種記憶體放在同一封裝</td><td>中低階手機（LPDDR + UFS/eMMC）</td></tr>
+<tr><td>TSV 堆疊</td><td>矽穿孔垂直連接，微凸塊或混合鍵合</td><td>HBM、高容量伺服器 DRAM（3DS）</td></tr>
+<tr><td>2.5D 整合</td><td>與邏輯晶片並排於中介層</td><td>HBM + GPU / ASIC</td></tr>
+</table></div>
+
+<h2 id="assembly">組裝流程</h2>
+<ol>
+<li><b>晶圓研磨（Back grinding）</b>：把晶圓從約 775 µm 磨薄到數十 µm（多晶粒堆疊需要很薄）。</li>
+<li><b>切割（Dicing）</b>：刀片切割、雷射開槽或隱形雷射切割（stealth dicing，在晶圓內部形成改質層再擴張分離，適合超薄晶圓）。DBG（先切後磨）可降低薄晶粒的崩邊與破裂。</li>
+<li><b>黏晶（Die attach）</b>：以晶粒黏著膜（DAF）固定在基板或下層晶粒上。</li>
+<li><b>打線（Wire bonding）</b>：金線或銅線連接晶粒焊墊與基板，多層堆疊時以階梯錯位或線上膜（FOW）方式打線。</li>
+<li><b>模封（Molding）</b>：環氧樹脂模封保護。</li>
+<li><b>植球、雷射打印、切單（Singulation）</b>。</li>
+</ol>
+
+<h2 id="hbm-stack">HBM 堆疊與 TSV</h2>
+<ul>
+<li><b>TSV</b>：在 DRAM 晶粒中蝕刻數千個直徑數 µm 的矽穿孔並填銅（通常在前段與後段之間製作，via-middle），研磨晶圓背面讓 TSV 露出，做背面凸塊。</li>
+<li><b>晶粒減薄</b>：12 層堆疊加上基底晶粒要塞進 JEDEC 規定的封裝高度（HBM3E 為 720 µm，HBM4 放寬到 775 µm），每片核心晶粒只有約 30–50 µm 厚。</li>
+<li><b>堆疊與填充</b>：
+  <ul>
+  <li><b>TC-NCF</b>：每層之間放非導電膜，以熱壓鍵合逐層接合。</li>
+  <li><b>MR-MUF</b>：先以回流焊一次接合所有層，再注入液態模封材料填滿縫隙，散熱與產能較佳。</li>
+  <li><b>混合鍵合（Hybrid bonding）</b>：沒有凸塊，Cu–Cu 直接接合，可縮小層間距與總高度，被視為 16 層以上堆疊的關鍵技術。</li>
+  </ul></li>
+<li><b>測試挑戰</b>：核心晶粒在堆疊前要做 KGD 測試；堆疊後要測 TSV 連通性，並用備用 TSV 修補；基底晶粒提供 IEEE 1500 測試介面與 MBIST。完成的堆疊（KGSD, Known Good Stacked Die）再交給 2.5D 封裝。</li>
+<li><b>散熱與翹曲</b>：多層薄晶粒熱阻高，熱源 GPU 又在旁邊；不同材料的熱膨脹係數不同，會造成翹曲與接點應力。</li>
+</ul>
+
+
+<div class="callout co"><b>Micron 註記</b>　Micron 的製造網路（公開資料）：DRAM 前段晶圓廠主要在<b>台灣（台中、桃園）</b>與<b>日本廣島</b>，NAND 前段主要在<b>新加坡</b>；美國愛達荷州 Boise 與紐約州有新建 DRAM 晶圓廠計畫。後段封測據點包含台灣、馬來西亞檳城、中國西安與印度 Sanand。HBM 的先進封裝在台灣進行，並規劃在新加坡設立 HBM 封裝廠。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+<h2 id="burnin">Burn-in 與最終品質</h2>
+<p>浴缸曲線告訴我們：早期失效（infant mortality）來自製造中的潛在缺陷。<b>Burn-in</b> 在高溫（例如 125 °C）與高電壓下長時間操作晶片，加速這些弱元件提早失效，在出貨前把它們篩掉。記憶體常以晶圓層級 burn-in（WLBI）或封裝後在 burn-in 爐中進行，並在其中執行測試圖形（test during burn-in, TDBI）。</p>
+<p>最終出貨品質以 DPPM（每百萬顆不良數）衡量，車用產品目標往往在個位數 DPPM 以下。統計方法如 PAT（Part Average Testing）會剔除參數雖在規格內、但明顯偏離同批分佈的離群晶片。可靠度驗證項目見<a href="reliability.html#qualification">可靠度章節</a>。</p>
+
+<h2 id="tst-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>WAT</dt><dd>Wafer Acceptance Test，晶圓允收測試。</dd></div>
+<div><dt>CP / Wafer sort</dt><dd>晶圓針測，對每顆晶粒做電性與功能測試。</dd></div>
+<div><dt>FT</dt><dd>Final Test，封裝後最終測試。</dd></div>
+<div><dt>SLT</dt><dd>System Level Test，放在實際系統環境中測試。</dd></div>
+<div><dt>ATE</dt><dd>Automatic Test Equipment，自動測試機台。</dd></div>
+<div><dt>ALPG</dt><dd>Algorithmic Pattern Generator，產生記憶體測試位址與資料的硬體。</dd></div>
+<div><dt>Probe card</dt><dd>探針卡，CP 時接觸晶粒焊墊的針測介面。</dd></div>
+<div><dt>March element</dt><dd>依固定位址順序對每個單元執行的一串讀寫操作。</dd></div>
+<div><dt>Fail bit map</dt><dd>失效位元的實體位置圖。</dd></div>
+<div><dt>RA</dt><dd>Redundancy Analysis，備用資源配置分析。</dd></div>
+<div><dt>Laser fuse / e-fuse / anti-fuse</dt><dd>雷射燒斷 / 電流熔斷 / 電壓擊穿導通的一次性編程元件。</dd></div>
+<div><dt>KGD / KGSD</dt><dd>已知良好晶粒 / 已知良好堆疊晶粒。</dd></div>
+<div><dt>MBIST / BIRA / BISR</dt><dd>記憶體內建自我測試 / 內建修補分析 / 內建自我修補。</dd></div>
+<div><dt>Speed binning</dt><dd>依可運作速度分級。</dd></div>
+<div><dt>DAF</dt><dd>Die Attach Film，晶粒黏著膜。</dd></div>
+<div><dt>Stealth dicing</dt><dd>雷射聚焦於晶圓內部形成改質層後擴張分離的切割法。</dd></div>
+<div><dt>TSV</dt><dd>Through-Silicon Via，矽穿孔。</dd></div>
+<div><dt>TC-NCF / MR-MUF</dt><dd>HBM 堆疊的兩種主要接合與填充方式。</dd></div>
+<div><dt>Burn-in / WLBI</dt><dd>高溫高壓加速篩選 / 晶圓層級 burn-in。</dd></div>
+<div><dt>DPPM</dt><dd>Defective Parts Per Million，出貨不良率。</dd></div>
+<div><dt>PAT</dt><dd>Part Average Testing，剔除統計離群的晶片。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">流程與參數為業界通用描述，實際測試項目依產品、客戶與廠商而定。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

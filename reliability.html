@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體可靠度 · Memory Notes</title>
+<meta name="description" content="記憶體可靠度：浴缸曲線與 FIT、DRAM 保存與 VRT、Row Hammer 與 PRAC、Flash 耐寫與保存、讀取 / 寫入干擾、軟錯誤、元件老化、可靠度驗證與 Arrhenius 加速模型。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="rel" data-ch="rel">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 6 · Reliability</div>
+<h1>可靠度：資料能不能撐到最後一天</h1>
+<p class="lead">測試只能證明晶片「出貨那天」是好的。可靠度問的是：在使用者手上的五年、十年、甚至車上的十五年裡，電荷會不會漏光、相鄰的列會不會互相干擾、宇宙射線會不會翻轉位元、氧化層會不會被寫壞。</p>
+
+<h2 id="bathtub">浴缸曲線與 FIT</h2>
+<figure>
+<svg viewBox="0 0 640 220" role="img" aria-label="浴缸曲線">
+  <path class="wm" d="M50 20V180H620"/>
+  <path class="wa" d="M56 30C80 120 120 150 200 156H460C520 156 560 130 600 50"/>
+  <path class="wd" d="M200 30V180M460 30V180"/>
+  <text x="125" y="200" text-anchor="middle" class="ts">早夭期</text><text x="330" y="200" text-anchor="middle" class="ts">隨機失效期（使用壽命）</text><text x="540" y="200" text-anchor="middle" class="ts">耗損期</text>
+  <text x="125" y="70" text-anchor="middle" class="ts t-mut">製造潛在缺陷</text><text x="125" y="86" text-anchor="middle" class="ts t-mut">→ Burn-in 篩除</text>
+  <text x="330" y="140" text-anchor="middle" class="ts t-mut">失效率約為常數（FIT）</text>
+  <text x="530" y="70" text-anchor="middle" class="ts t-mut">氧化層磨耗、P/E 耗盡</text>
+  <text x="30" y="100" text-anchor="middle" class="ts t-mono" transform="rotate(-90 30 100)">失效率 λ(t)</text>
+  <text x="620" y="214" text-anchor="end" class="ts t-mono">時間</text>
+</svg>
+<figcaption>早夭期靠 burn-in 篩除；設計目標是讓耗損期遠在產品壽命之後。</figcaption>
+</figure>
+<ul>
+<li><b>FIT</b>（Failures In Time）：每 10⁹ 元件小時發生的失效數。1 FIT ≈ 每 114,000 年一次失效（對單一元件）。</li>
+<li><b>MTTF</b> = 10⁹ / FIT 小時。一個有 1000 顆元件的系統，總 FIT 是相加的。</li>
+<li>記憶體還會區分<b>硬錯誤</b>（永久損壞）和<b>軟錯誤</b>（資料翻轉但元件沒壞，重寫即可恢復）。</li>
+</ul>
+
+<h2 id="dram-retention">DRAM 保存時間</h2>
+<p>單元的保存時間呈長尾分佈：絕大多數單元能保存數秒以上，但每顆晶片中少數單元只有數十毫秒。refresh 週期就是為這些尾端單元而設。</p>
+<ul>
+<li><b>溫度</b>：漏電（特別是接面漏電）隨溫度呈 Arrhenius 關係，保存時間大約每升高 10 °C 減半。這是 DRAM 在 85 °C 以上必須加倍 refresh 的原因。</li>
+<li><b>VRT（Variable Retention Time）</b>：有些單元的保存時間會在兩三個值之間隨機跳動，推測與汲極附近缺陷的狀態變化有關。這讓「測一次就知道哪些單元弱」變得不可靠，是 retention-aware refresh 這類研究難以落地的原因之一。</li>
+<li><b>資料圖形相依</b>：周圍單元存的資料會影響漏電路徑，所以保存測試要搭配多種資料背景。</li>
+</ul>
+<div class="tryit">▶ 調溫度與 refresh 間隔，看保存失效比例：<a href="lab.html#retention">互動實驗室 · 保存與更新</a></div>
+
+<h2 id="rowhammer">Row Hammer</h2>
+<figure>
+<svg viewBox="0 0 640 210" role="img" aria-label="Row Hammer 攻擊者與受害列">
+  <g class="box"><rect x="120" y="20" width="400" height="22"/><rect x="120" y="46" width="400" height="22"/><rect x="120" y="98" width="400" height="22"/><rect x="120" y="150" width="400" height="22"/><rect x="120" y="176" width="400" height="22"/></g>
+  <rect x="120" y="72" width="400" height="22" style="fill:color-mix(in srgb,var(--bad) 30%,var(--surface));stroke:var(--bad)"/>
+  <rect x="120" y="124" width="400" height="22" style="fill:color-mix(in srgb,var(--bad) 30%,var(--surface));stroke:var(--bad)"/>
+  <rect x="120" y="98" width="400" height="22" style="fill:color-mix(in srgb,var(--warn) 30%,var(--surface));stroke:var(--warn)"/>
+  <text x="320" y="88" text-anchor="middle" class="ts">攻擊列 Aggressor（反覆 ACT / PRE）</text>
+  <text x="320" y="140" text-anchor="middle" class="ts">攻擊列 Aggressor</text>
+  <text x="320" y="114" text-anchor="middle" class="ts">受害列 Victim → 位元翻轉</text>
+  <text x="320" y="62" text-anchor="middle" class="ts t-mut">鄰列（Half-Double 時也可能受害）</text>
+  <path class="w" style="stroke:var(--bad)" d="M540 83C570 83 570 104 540 107M540 135C570 135 570 116 540 113"/>
+  <text x="575" y="114" class="ts">干擾</text>
+  <text x="105" y="114" text-anchor="end" class="ts t-mono">Row n</text><text x="105" y="88" text-anchor="end" class="ts t-mono">n−1</text><text x="105" y="140" text-anchor="end" class="ts t-mono">n+1</text>
+</svg>
+<figcaption>雙邊（double-sided）row hammer：夾住受害列的兩條攻擊列在一個 refresh 週期內被啟動數萬次，受害列中的單元電荷加速流失而翻轉。</figcaption>
+</figure>
+<p>2014 年的研究證實：反覆啟動同一列，會讓相鄰列的單元在 refresh 前就失去資料。機制包括字元線反覆升降的電容耦合、以及電子被注入並遷移到相鄰單元的儲存節點。這不只是可靠度問題，也是<b>安全漏洞</b>：攻擊者可以在使用者程式中翻轉核心的頁表位元取得權限。</p>
+<ul>
+<li><b>越微縮越嚴重</b>：引發翻轉所需的啟動次數（hammer count threshold）從 DDR3 時代的十萬次以上，降到新世代的數千次等級。</li>
+<li><b>變體</b>：Half-Double（隔一列也受影響）、RowPress（不是次數多，而是讓攻擊列長時間開著）。</li>
+<li><b>緩解</b>：
+  <ul>
+  <li>TRR（Target Row Refresh）：DRAM 內部追蹤可疑列並額外更新鄰列，但追蹤能力有限，已被證明可繞過。</li>
+  <li>RFM（Refresh Management，DDR5 / LPDDR5）：控制器依 bank 的啟動次數發額外的 refresh 指令。</li>
+  <li>PRAC（Per-Row Activation Counting，DDR5 新增）：每一列都有計數器，超過門檻時 DRAM 透過 ALERT 要求控制器給時間做緩解。代價是時序變長與面積。</li>
+  <li>ECC 可以降低但不能杜絕；系統層面還有記憶體隔離、限制啟動速率等。</li>
+  </ul></li>
+</ul>
+
+<h2 id="flash-endurance">Flash 耐寫度</h2>
+<p>每一次寫入與抹除，電子都要以高電場穿過穿隧氧化層。久而久之氧化層中產生缺陷陷阱：</p>
+<ul>
+<li>被捕捉的電荷讓 V<sub>t</sub> 分佈偏移、變寬，寫入 / 抹除變慢（需要更多 ISPP 脈衝）。</li>
+<li>缺陷形成漏電路徑（SILC，應力誘發漏電流），保存能力變差。</li>
+<li>最終 V<sub>t</sub> 窗口關閉，無法可靠區分狀態。</li>
+</ul>
+<p>所以耐寫度與保存能力是一起看的：<b>寫過越多次的 block，保存越差</b>。SSD 規格中的 TBW 就是在「寫到額定次數後，仍能在指定溫度下保存資料指定時間」的條件下定義的。</p>
+
+<h2 id="flash-retention">Flash 資料保存</h2>
+<ul>
+<li><b>機制</b>：儲存層的電荷經由穿隧氧化層缺陷漏失（V<sub>t</sub> 下移），或被捕捉在淺層陷阱中的電荷逃逸（detrapping）。3D NAND 的捕捉層沿通道連續，還有<b>橫向電荷遷移</b>：電荷沿著 SiN 層往相鄰單元之間的區域擴散。另外寫入後短時間內的快速 V<sub>t</sub> 漂移（early retention loss）也需要處理。</li>
+<li><b>溫度加速</b>：保存時的溫度越高，漏失越快；反過來說，寫入時的溫度也會影響（交叉溫度問題：低溫寫高溫讀，或高溫寫低溫讀，V<sub>t</sub> 會偏移）。</li>
+<li><b>JEDEC 規範</b>（JESD218）：消費級 SSD 寫到額定 TBW 後，斷電在 30 °C 下應保存 1 年；企業級在 40 °C 下應保存 3 個月。</li>
+<li><b>對策</b>：控制器背景掃描（patrol read），發現錯誤位元數接近 ECC 上限時，把資料重新寫到新 block（refresh / data relocation）；動態調整讀取電壓（read retry）。</li>
+</ul>
+<div class="tryit">▶ 增加 P/E 次數與保存時間，看 V<sub>t</sub> 分佈重疊與 RBER：<a href="lab.html#nand">互動實驗室 · NAND</a></div>
+
+<h2 id="disturb">讀取與寫入干擾</h2>
+<ul>
+<li><b>Read disturb</b>：讀取時同一串上的未選中單元被加上 V<sub>PASS</sub>（約 6–8 V），反覆讀取會讓它們被輕微寫入，V<sub>t</sub> 上移，特別影響抹除態。讀取密集的 block 要定期搬移。</li>
+<li><b>Program disturb</b>：同一字元線上被禁止寫入的單元，以及同一串上的其他單元，承受 V<sub>PGM</sub> 或 V<sub>PASS</sub>，可能被意外寫入。</li>
+<li><b>單元間干擾（cell-to-cell interference）</b>：相鄰單元寫入後的電荷透過寄生電容影響本單元的 V<sub>t</sub>。控制器以寫入順序（例如先粗寫再精寫的多階段寫入）來補償。</li>
+<li><b>SRAM 的讀取擾動</b>：見<a href="device.html#sram-rw">元件章節</a>，屬於電路層面的穩定度問題。</li>
+</ul>
+
+<h2 id="ser">軟錯誤 Soft Error</h2>
+<p>高能粒子打進矽中會產生電子–電洞對，若被收集到的電荷超過節點的<b>臨界電荷 Q<sub>crit</sub></b>，就會翻轉位元。</p>
+<ul>
+<li><b>來源</b>：封裝材料與焊料中微量放射性元素放出的 α 粒子；宇宙射線產生的大氣中子（高海拔、航空、太空更多）；含硼-10 材料與熱中子的反應。</li>
+<li><b>SRAM 最敏感</b>：節點電容小、Q<sub>crit</sub> 低。微縮後單一位元被打中的機率下降（面積變小），但一次打翻多個相鄰位元（MBU / MCU）的比例上升。</li>
+<li><b>DRAM</b>：單元電容相對大，每位元的軟錯誤率反而較低，但總位元數極大；周邊電路與感測放大器也會受影響。</li>
+<li><b>對策</b>：ECC + 位元交錯、低 α 材料、加固設計（DICE 等雙互鎖單元）、記憶體擦洗（scrubbing：定期讀出並更正寫回，避免錯誤累積成多位元）。</li>
+<li>軟錯誤率以 FIT/Mb 表示，透過加速器中子束或 α 源測試量測（JESD89）。</li>
+</ul>
+
+<h2 id="aging">電晶體與連線老化</h2>
+<ul>
+<li><b>BTI</b>（偏壓溫度不穩定性）：長時間偏壓讓 V<sub>t</sub> 漂移。SRAM 中存同一個值太久的單元，兩側電晶體老化不對稱，SNM 下降、V<sub>min</sub> 上升。</li>
+<li><b>HCI</b>（熱載子注入）：高電場下載子損傷氧化層介面，影響高速周邊與 I/O。</li>
+<li><b>TDDB</b>（時間相依介電崩潰）：閘極氧化層或電容介電層在長時間電場下崩潰。DRAM 電容介電層與 V<sub>PP</sub> 高壓電路是重點。</li>
+<li><b>電遷移（EM）</b>：大電流密度讓金屬原子遷移，造成斷線或短路，影響電源網路與 TSV / 凸塊。</li>
+</ul>
+
+<h2 id="qualification">可靠度驗證項目</h2>
+<div class="tblwrap"><table>
+<tr><th>項目</th><th>典型條件</th><th>目的</th></tr>
+<tr><td>HTOL</td><td>125 °C、高電壓動態操作，1000 小時</td><td>本質失效率、早夭與耗損</td></tr>
+<tr><td>HTSL / HTS</td><td>150 °C 高溫儲存</td><td>材料與介面穩定性</td></tr>
+<tr><td>TC</td><td>−65～150 °C 溫度循環，數百至上千次</td><td>封裝熱應力、焊點與打線</td></tr>
+<tr><td>THB / HAST</td><td>85 °C/85%RH 或 130 °C/85%RH 加偏壓</td><td>濕氣腐蝕</td></tr>
+<tr><td>ESD</td><td>HBM（人體模型）、CDM（帶電元件模型）</td><td>靜電放電耐受度</td></tr>
+<tr><td>Latch-up</td><td>JESD78 電流注入與過電壓</td><td>寄生閂鎖</td></tr>
+<tr><td>NVM 耐寫 / 保存</td><td>寫到額定次數後高溫烘烤（JESD22-A117）</td><td>Flash / 新興 NVM 壽命</td></tr>
+<tr><td>SER</td><td>中子 / α 加速測試（JESD89）</td><td>軟錯誤率</td></tr>
+</table></div>
+<p>整體規範：一般商用以 JEDEC JESD47 為基礎，車用依 AEC-Q100，SSD 耐寫依 JESD218 / JESD219。</p>
+
+<h2 id="arrhenius">加速模型與 FIT 計算</h2>
+<p>可靠度測試在幾週內模擬多年使用，靠的是加速因子（AF）。溫度加速用 Arrhenius 模型：</p>
+<div class="eq">AF = exp[ (E<sub>a</sub>/k) · (1/T<sub>use</sub> − 1/T<sub>stress</sub>) ]　　k = 8.617×10⁻⁵ eV/K</div>
+<p>例：E<sub>a</sub> = 0.7 eV，使用溫度 55 °C（328 K），測試 125 °C（398 K）→ AF ≈ e<sup>4.35</sup> ≈ 78。1000 小時 HTOL ≈ 78,000 小時 ≈ 8.9 年使用。</p>
+<p>零失效時以卡方分佈估計失效率上限：</p>
+<div class="eq">λ ≤ χ²(CL, 2f+2) / (2 · N · t · AF)</div>
+<p>231 顆、1000 小時、AF 78、0 失效、60% 信賴度（χ² = 1.83）→ λ ≤ 1.83 / (2 × 231 × 1000 × 78) ≈ 5.1×10⁻⁸ /h ≈ 51 FIT。電壓加速另有指數或冪次模型，濕度加速常用 Peck 模型。</p>
+
+<h2 id="rel-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>FIT</dt><dd>每 10⁹ 元件小時的失效數。</dd></div>
+<div><dt>MTTF</dt><dd>Mean Time To Failure，平均失效時間。</dd></div>
+<div><dt>VRT</dt><dd>Variable Retention Time，保存時間隨機跳動的 DRAM 單元。</dd></div>
+<div><dt>Row hammer</dt><dd>反覆啟動某列導致相鄰列位元翻轉。</dd></div>
+<div><dt>RowPress</dt><dd>長時間保持某列開啟導致相鄰列翻轉。</dd></div>
+<div><dt>TRR / RFM / PRAC</dt><dd>DRAM 中針對 row hammer 的三種緩解機制。</dd></div>
+<div><dt>P/E cycle</dt><dd>一次寫入加一次抹除。</dd></div>
+<div><dt>SILC</dt><dd>Stress-Induced Leakage Current，應力誘發漏電。</dd></div>
+<div><dt>Detrapping</dt><dd>被捕捉的電荷逃逸。</dd></div>
+<div><dt>Lateral migration</dt><dd>3D NAND 中電荷沿捕捉層橫向擴散。</dd></div>
+<div><dt>Read disturb</dt><dd>反覆讀取對未選中單元造成的輕微寫入。</dd></div>
+<div><dt>RBER</dt><dd>Raw Bit Error Rate，ECC 更正前的原始位元錯誤率。</dd></div>
+<div><dt>Q<sub>crit</sub></dt><dd>使節點翻轉所需的最小收集電荷。</dd></div>
+<div><dt>MBU / MCU</dt><dd>單一粒子事件造成多位元 / 多單元翻轉。</dd></div>
+<div><dt>Scrubbing</dt><dd>定期讀取並更正寫回，避免錯誤累積。</dd></div>
+<div><dt>BTI / HCI / TDDB / EM</dt><dd>四種主要的元件與連線老化機制。</dd></div>
+<div><dt>HTOL</dt><dd>High Temperature Operating Life，高溫操作壽命測試。</dd></div>
+<div><dt>Arrhenius</dt><dd>反應速率與溫度呈指數關係的模型，用於溫度加速。</dd></div>
+<div><dt>E<sub>a</sub></dt><dd>活化能，決定溫度加速的強弱。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">驗證條件依產品等級與客戶要求而異，請以 JEDEC / AEC 文件為準。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

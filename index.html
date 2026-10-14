@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Notes · 記憶體知識地圖</title>
+<meta name="description" content="記憶體知識地圖：從元件、電路設計、應用、製程、封裝測試到可靠度，搭配互動實驗室與規格設計器。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="index">
+<main class="hub">
+  <div class="eyebrow">Memory Notes · 記憶體知識地圖</div>
+  <h1>記憶體：從一個位元到一顆晶片</h1>
+  <p class="lead">SRAM、DRAM、NAND Flash 與新興記憶體的整理筆記。沿著一顆記憶體從元件物理、電路設計、系統應用、晶圓製程、封裝測試到可靠度的路徑，每一章都附上圖解、名詞解釋，並連到可以動手調參數的互動實驗。</p>
+  <button class="hero-find" type="button" data-open-find>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span>搜尋主題或名詞：sense amp、HBM、March C−、row hammer…</span><kbd>Ctrl K</kbd>
+  </button>
+
+  <nav class="flow" aria-label="知識流程">
+    <a href="device.html" style="--c:var(--dev)"><span class="st">01 · DEVICE</span><b>元件</b><small>位元怎麼存：電容、閂鎖、被困住的電子</small></a>
+    <a href="design.html" style="--c:var(--des)"><span class="st">02 · DESIGN</span><b>設計</b><small>陣列、感測放大器、時序、ECC、修補</small></a>
+    <a href="application.html" style="--c:var(--app)"><span class="st">03 · APPLICATION</span><b>應用</b><small>DDR、LPDDR、GDDR、HBM、SSD、車用</small></a>
+    <a href="process.html" style="--c:var(--fab)"><span class="st">04 · PROCESS</span><b>製程</b><small>電容、埋入式字元線、3D NAND 堆疊</small></a>
+    <a href="test.html" style="--c:var(--tst)"><span class="st">05 · TEST &amp; PKG</span><b>封測</b><small>March 測試、修補、TSV、HBM 堆疊</small></a>
+    <a href="reliability.html" style="--c:var(--rel)"><span class="st">06 · RELIABILITY</span><b>可靠度</b><small>保存、row hammer、耐寫、軟錯誤</small></a>
+  </nav>
+
+  <h2 class="grp-h">知識章節</h2>
+  <div class="cards">
+    <a class="card" href="device.html" style="--c:var(--dev)"><span class="k">Chapter 1 · Devices</span><h3>元件：一個位元怎麼被存起來</h3>
+      <p>記憶體階層，SRAM 6T、DRAM 1T1C、Flash 浮閘與電荷捕捉，3D NAND，以及 MRAM / ReRAM / PCM / FeRAM。</p>
+      <ul><li>SNM</li><li>電荷分享</li><li>SLC→QLC</li><li>MTJ</li></ul></a>
+    <a class="card" href="design.html" style="--c:var(--des)"><span class="k">Chapter 2 · Circuit design</span><h3>設計：把幾十億個單元組織起來</h3>
+      <p>Bank / mat 階層、位元線架構、感測放大器、DRAM 時序、預取與介面、refresh、ECC、冗餘修補、SRAM 輔助電路、NAND ISPP。</p>
+      <ul><li>tRCD / CL</li><li>On-die ECC</li><li>PPR</li><li>Assist</li></ul></a>
+    <a class="card" href="application.html" style="--c:var(--app)"><span class="k">Chapter 3 · Applications</span><h3>應用：不同系統要的是不同的記憶體</h3>
+      <p>DDR5 / LPDDR5X / GDDR7 / HBM 比較，頻寬計算，AI 記憶體牆與 KV cache，SSD 與 FTL，車用記憶體，CXL 與存內運算。</p>
+      <ul><li>HBM4</li><li>WAF</li><li>Roofline</li><li>CXL</li></ul></a>
+    <a class="card" href="process.html" style="--c:var(--fab)"><span class="k">Chapter 4 · Process</span><h3>製程：在矽上蓋出億萬個電容和摩天大樓</h3>
+      <p>DRAM 製程流程與高深寬比電容、EUV 與節點命名、4F² 與 3D DRAM、3D NAND 通道孔與閘極置換、SRAM 微縮、良率模型。</p>
+      <ul><li>BCAT</li><li>ZAZ</li><li>CuA / CBA</li><li>Y = e<sup>−AD</sup></li></ul></a>
+    <a class="card" href="test.html" style="--c:var(--tst)"><span class="k">Chapter 5 · Test &amp; packaging</span><h3>封測：找出壞位元、修好它、再疊起來</h3>
+      <p>WAT / CP / FT 流程、故障模型、March 演算法、失效位元圖、修補與 KGD、ATE、MBIST、封裝型式、HBM TSV 堆疊、burn-in。</p>
+      <ul><li>March C−</li><li>Fail bit map</li><li>MR-MUF</li><li>Hybrid bonding</li></ul></a>
+    <a class="card" href="reliability.html" style="--c:var(--rel)"><span class="k">Chapter 6 · Reliability</span><h3>可靠度：資料能不能撐到最後一天</h3>
+      <p>浴缸曲線與 FIT、DRAM 保存與 VRT、row hammer 與 PRAC、Flash 耐寫與保存、干擾、軟錯誤、老化、驗證項目與加速模型。</p>
+      <ul><li>RowPress</li><li>JESD218</li><li>SER</li><li>Arrhenius</li></ul></a>
+  </div>
+
+  <h2 class="grp-h">互動工具</h2>
+  <div class="cards">
+    <a class="card tool wide" href="lab.html" style="--c:var(--accent)">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 46C14 46 16 18 24 18S34 46 42 46 52 30 58 30"/><path d="M6 56h52M6 8v48" opacity=".4"/></svg>
+      <div><span class="k">Memory Lab · 互動實驗室</span><h3>動手調參數，看記憶體怎麼運作、怎麼失效</h3>
+      <p>九個即時模擬：DRAM 電荷分享、SRAM 蝴蝶曲線、NAND V<sub>t</sub> 分佈、保存與 refresh、row hammer 緩解、March 測試故障注入，以及晶圓良率、HBM 堆疊良率、每 Gb 成本三個製造端工具。</p>
+      <ul><li>DRAM 讀取</li><li>SRAM SNM</li><li>NAND RBER</li><li>Refresh</li><li>Row hammer</li><li>March 測試</li><li>晶圓良率</li><li>HBM 堆疊</li><li>每 Gb 成本</li></ul></div></a>
+    <a class="card tool wide" href="designer.html" style="--c:var(--des)">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="48" height="48" rx="4"/><path d="M8 24h48M8 40h48M24 8v48M40 8v48" opacity=".5"/><rect x="26" y="26" width="12" height="12" fill="currentColor" opacity=".3"/></svg>
+      <div><span class="k">Spec Designer · 規格設計器</span><h3>從規格推出陣列、面積、頻寬與裕度</h3>
+      <p>輸入 DRAM、3D NAND / SSD 或 SRAM 巨集的參數，算出位址位元、陣列組織、晶粒面積、感測裕度、refresh 開銷、SSD 瓶頸，並產生規格摘要、控制器時序或 Verilog 模型。</p>
+      <ul><li>DDR5 / LPDDR5X / GDDR7 / HBM</li><li>TLC / QLC SSD</li><li>SRAM compiler</li></ul></div></a>
+  </div>
+
+  <h2 class="grp-h">學習與求職</h2>
+  <div class="cards">
+    <a class="card" href="roles.html" style="--c:var(--app)"><span class="k">Career map · 職務地圖</span><h3>每個職位要先讀哪幾節</h3>
+      <p>製程整合、模組、良率、產品、測試、元件開發、設計、封裝、品質可靠度、設備工程：各自做什麼、必讀章節、相關工具與常見面試題。</p>
+      <ul><li>PI</li><li>YE</li><li>PE</li><li>TE</li><li>QRA</li></ul></a>
+    <a class="card" href="quiz.html" style="--c:var(--tst)"><span class="k">Quiz · 測驗</span><h3>考考自己</h3>
+      <p>49 題選擇題，涵蓋六個章節，可選章節與題數；每題附解析與複習連結，結束後列出答錯的題目。</p>
+      <ul><li>每章 8–9 題</li><li>即時解析</li><li>鍵盤作答</li></ul></a>
+  </div>
+
+  <h2 class="grp-h">一張表看懂三大記憶體</h2>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>SRAM</th><th>DRAM</th><th>NAND Flash</th></tr>
+    <tr><td>存什麼</td><td>交叉耦合反相器的狀態</td><td>電容上的電荷</td><td>捕捉層中的電子（V<sub>t</sub>）</td></tr>
+    <tr><td>單元</td><td>6 顆電晶體，120–150F²</td><td>1T1C，6F²</td><td>串聯 GAA 單元，垂直堆疊數百層</td></tr>
+    <tr><td>速度</td><td>~1 ns</td><td>數十 ns</td><td>讀數十 µs、寫數百 µs</td></tr>
+    <tr><td>斷電</td><td>消失</td><td>消失（還要定期 refresh）</td><td>保存約數年</td></tr>
+    <tr><td>最大挑戰</td><td>微縮停滯、V<sub>min</sub></td><td>電容與漏電、row hammer</td><td>層數堆疊、耐寫與保存</td></tr>
+    <tr><td>在哪裡</td><td>CPU / GPU 快取</td><td>主記憶體、HBM</td><td>SSD、手機儲存</td></tr>
+  </table></div>
+
+  <h2 class="grp-h">建議閱讀路線</h2>
+  <div class="cards">
+    <a class="card" href="device.html#sram" style="--c:var(--des)"><span class="k">電路設計</span><h3>SRAM / DRAM 電路</h3>
+      <p>元件 · SRAM 與 DRAM → 設計 · 感測放大器、時序、assist → 實驗室 · DRAM 讀取、SRAM 蝴蝶曲線 → 設計器 · SRAM 巨集。</p></a>
+    <a class="card" href="process.html#dram-flow" style="--c:var(--fab)"><span class="k">製程整合</span><h3>從電容到 3D NAND</h3>
+      <p>元件 · DRAM 與 3D NAND → 製程 · DRAM 流程、電容、3D NAND → 封測 · 失效位元圖 → 可靠度 · 保存與耐寫。</p></a>
+    <a class="card" href="test.html#test-flow" style="--c:var(--tst)"><span class="k">測試 / 產品</span><h3>測試與良率</h3>
+      <p>封測 · 流程、故障模型、March → 實驗室 · March 測試 → 設計 · 冗餘修補 → 可靠度 · 驗證項目與 FIT。</p></a>
+    <a class="card" href="application.html#memory-wall" style="--c:var(--app)"><span class="k">系統 / AI</span><h3>記憶體與 AI 系統</h3>
+      <p>應用 · DRAM 家族、記憶體牆、HBM → 封測 · HBM 堆疊 → 設計器 · HBM3E / HBM4 系統頻寬。</p></a>
+  </div>
+
+  <p class="foot">教學用途的整理筆記。數值為量級參考，規格以 JEDEC 標準與廠商資料為準。按 <kbd>Ctrl</kbd> + <kbd>K</kbd> 或 <kbd>/</kbd> 開啟全站搜尋。</p>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

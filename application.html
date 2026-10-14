@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體應用 · Memory Notes</title>
+<meta name="description" content="記憶體應用：DDR5、LPDDR5X、GDDR7、HBM3E/HBM4 比較，頻寬計算，AI 記憶體牆，SSD 架構與 FTL，手機儲存，嵌入式與車用記憶體，CXL 與存內運算。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="app" data-ch="app">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 3 · Applications</div>
+<h1>應用：不同系統要的是不同的記憶體</h1>
+<p class="lead">伺服器要容量與可靠度，手機要省電，顯示卡要每顆晶片的頻寬，AI 加速器要每瓦、每平方毫米的頻寬，SSD 要每 GB 的成本。同樣是 DRAM 或 NAND，介面與封裝會為了這些目標做出完全不同的取捨。</p>
+
+<h2 id="dram-family">DRAM 家族比較</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>DDR5</th><th>LPDDR5X</th><th>GDDR7</th><th>HBM3E</th><th>HBM4</th></tr>
+<tr><td>目標</td><td>容量、通用</td><td>低功耗</td><td>單顆頻寬</td><td>每封裝頻寬</td><td>每封裝頻寬</td></tr>
+<tr><td>每腳速率</td><td>4.8–8.8 Gb/s</td><td>8.5–10.7 Gb/s</td><td>28–32 Gb/s（PAM3）</td><td>~9.2–9.8 Gb/s</td><td>~8–10 Gb/s</td></tr>
+<tr><td>介面寬度</td><td>DIMM 2×32 bit（+ECC 2×40）</td><td>x16 / 通道</td><td>x32 / 顆</td><td>1024 bit / 堆疊</td><td>2048 bit / 堆疊</td></tr>
+<tr><td>頻寬</td><td>~51 GB/s / DIMM @6400</td><td>~68 GB/s / x64 @8533</td><td>~128 GB/s / 顆 @32</td><td>&gt;1.2 TB/s / 堆疊</td><td>~2 TB/s 以上 / 堆疊</td></tr>
+<tr><td>電壓（核心 / I/O）</td><td>1.1 V</td><td>1.05 V / 0.5 V</td><td>~1.2 V / 1.1 V</td><td>1.1 V / 0.4 V</td><td>更低</td></tr>
+<tr><td>封裝</td><td>DIMM 模組</td><td>PoP 或與 SoC 同封裝</td><td>PCB 上環繞 GPU</td><td>8–12 層 TSV 堆疊，2.5D 中介層</td><td>12–16 層，基底晶粒用邏輯製程</td></tr>
+<tr><td>典型應用</td><td>PC、伺服器</td><td>手機、筆電、車用、部分 AI CPU</td><td>顯示卡、部分 AI 推論</td><td>AI 訓練 / 推論 GPU</td><td>下一代 AI 加速器</td></tr>
+</table></div>
+<p class="note">數值為各世代規格範圍的量級，隨速度等級與廠商而異。</p>
+<div class="callout co"><b>Micron 註記</b>　Micron 對應各介面的產品形態舉例：伺服器的 DDR5 RDIMM 與 <b>MRDIMM</b>（多工 rank，提高每通道頻寬）；筆電與手機的 LPDDR5X，以及可插拔的 LPDDR 模組 <b>LPCAMM2</b>；AI 伺服器用的 LPDDR 模組 <b>SOCAMM</b>；顯示卡的 <b>GDDR6X</b>（與 NVIDIA 合作、採 PAM4 訊號）與 GDDR7；AI 加速器的 <b>HBM3E</b>（8 層 24 GB、12 層 36 GB）與 HBM4；以及 <b>CXL</b> 記憶體擴充模組。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+
+<p>差異的根源：DDR 走 PCB 上的長走線、要插多條 DIMM，所以每腳速率受限；GDDR 只點對點連一顆 GPU，可以把每腳速率推到很高；HBM 直接放在 GPU 旁的矽中介層上，走線只有幾毫米，可以用極寬的匯流排、較低的每腳速率，達到最高的總頻寬與最好的每位元能耗（約數 pJ/bit，DDR 的數分之一）。</p>
+
+<h2 id="bandwidth">頻寬怎麼算</h2>
+<div class="eq">峰值頻寬 (GB/s) = 每腳速率 (Gb/s) × 匯流排寬度 (bit) ÷ 8</div>
+<ul>
+<li>DDR5-6400 一條 DIMM：6.4 × 64 ÷ 8 = 51.2 GB/s；8 通道伺服器 ≈ 410 GB/s。</li>
+<li>HBM3E 9.6 Gb/s × 1024 ÷ 8 ≈ 1.23 TB/s；一顆 GPU 放 8 個堆疊 ≈ 9.8 TB/s。</li>
+<li>GDDR7 32 Gb/s × 32 ÷ 8 = 128 GB/s；384-bit 顯示卡（12 顆）≈ 1.5 TB/s。</li>
+</ul>
+<p>實際可用頻寬通常只有峰值的 70–90%：要扣掉 refresh、bank 衝突、讀寫切換（bus turnaround）、row miss 等開銷。</p>
+<div class="tryit">▶ 輸入速率、位寬、通道數，自動計算系統頻寬：<a href="designer.html">規格設計器</a></div>
+
+<h2 id="memory-wall">AI 與記憶體牆</h2>
+<p>過去二十年，處理器的運算能力成長遠快於記憶體頻寬，兩者差距被稱為<b>記憶體牆</b>。大型語言模型讓這個問題變得特別明顯。</p>
+<h3 id="llm-decode">為什麼 LLM 推論受限於頻寬</h3>
+<p>生成每一個 token 時，模型的所有權重都要從記憶體讀一次，但每個權重只做一次乘加。批次很小時，運算強度（FLOP / Byte）極低，GPU 的算力大多在等資料：</p>
+<div class="eq">token/s 上限 ≈ 記憶體頻寬 ÷ 每個 token 要讀的位元組數</div>
+<p>例：700 億參數、FP16（2 bytes）→ 140 GB 權重。在 3.35 TB/s 的 HBM3 上，批次 1 的上限約 3350 ÷ 140 ≈ 24 token/s。改用 8-bit 量化就讀一半的資料，上限約變兩倍。這就是 HBM 堆疊數、頻寬、容量直接決定 AI 加速器競爭力的原因。</p>
+<h3 id="kv-cache">KV cache</h3>
+<p>注意力機制要保存先前每個 token 的 Key/Value 向量，容量隨「上下文長度 × 批次 × 層數」線性增加，長上下文時甚至超過權重本身。這推動了更大容量的 HBM（12、16 層堆疊）、把 KV cache 卸載到 CPU 記憶體或 CXL 記憶體、以及 KV cache 量化等做法。</p>
+<h3 id="roofline">Roofline 模型</h3>
+<p>可達效能 = min(峰值算力, 頻寬 × 運算強度)。運算強度低於「峰值算力 ÷ 頻寬」這個轉折點時，提升頻寬比提升算力更有用。</p>
+
+<h2 id="hbm-system">HBM 系統整合</h2>
+<ul>
+<li><b>堆疊</b>：8–16 片 DRAM 核心晶粒以 TSV 垂直連接，疊在一片基底晶粒（base / logic die）上。基底晶粒負責 PHY、測試邏輯與 TSV 修補；HBM4 起改用晶圓代工的邏輯製程製作，可客製化功能。</li>
+<li><b>2.5D 封裝</b>：GPU 與 HBM 並排放在矽中介層（如 CoWoS-S）或有機 / 矽橋中介層上，數千條微凸塊連線只有幾毫米長。</li>
+<li><b>挑戰</b>：散熱（DRAM 怕熱，但旁邊是數百瓦的 GPU）、堆疊良率（一片壞全部壞，所以要 KGD 測試）、中介層產能、翹曲。詳見<a href="test.html#hbm-stack">封測章節</a>。</li>
+</ul>
+
+<h2 id="ssd">SSD：控制器讓 NAND 變成硬碟</h2>
+<p>NAND 有三個「不好用」的特性：不能覆寫（必須先整個 block 抹除）、寫入次數有限、錯誤率高。SSD 控制器把這些全部藏起來，對主機呈現成一顆可以隨意讀寫任何位址的硬碟。</p>
+<figure>
+<svg viewBox="0 0 640 210" role="img" aria-label="SSD 架構">
+  <rect class="box" x="20" y="80" width="90" height="50" rx="6"/><text x="65" y="102" text-anchor="middle" class="ts">主機</text><text x="65" y="118" text-anchor="middle" class="ts t-mut">NVMe/PCIe</text>
+  <path class="wa" d="M110 105H160"/>
+  <rect class="c6" x="160" y="40" width="200" height="130" rx="8"/>
+  <text x="260" y="62" text-anchor="middle" class="tl">SSD 控制器</text>
+  <text x="260" y="86" text-anchor="middle" class="ts">CPU 核心 · FTL 韌體</text>
+  <text x="260" y="106" text-anchor="middle" class="ts">LDPC ECC 引擎 · 加密</text>
+  <text x="260" y="126" text-anchor="middle" class="ts">NAND 通道控制（8–16 ch）</text>
+  <text x="260" y="146" text-anchor="middle" class="ts t-mut">DRAM 介面 / HMB</text>
+  <rect class="c1" x="200" y="182" width="120" height="24" rx="4"/><text x="260" y="198" text-anchor="middle" class="ts">DRAM（L2P 對照表）</text>
+  <path class="w" d="M260 170V182"/>
+  <g>
+    <path class="wa" d="M360 70H420M360 100H420M360 130H420M360 160H420"/>
+    <rect class="c5" x="420" y="58" width="50" height="24" rx="3"/><rect class="c5" x="480" y="58" width="50" height="24" rx="3"/><rect class="c5" x="540" y="58" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="88" width="50" height="24" rx="3"/><rect class="c5" x="480" y="88" width="50" height="24" rx="3"/><rect class="c5" x="540" y="88" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="118" width="50" height="24" rx="3"/><rect class="c5" x="480" y="118" width="50" height="24" rx="3"/><rect class="c5" x="540" y="118" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="148" width="50" height="24" rx="3"/><rect class="c5" x="480" y="148" width="50" height="24" rx="3"/><rect class="c5" x="540" y="148" width="50" height="24" rx="3"/>
+  </g>
+  <text x="505" y="44" text-anchor="middle" class="ts">NAND 晶粒（每通道多顆）</text>
+  <text x="600" y="74" class="ts t-mono t-mut">ch0</text><text x="600" y="164" class="ts t-mono t-mut">chN</text>
+</svg>
+<figcaption>控制器透過多個通道、每通道多顆晶粒、每顆多個 plane 平行操作，把單顆 NAND 數十 MB/s 的寫入速度堆到數 GB/s。</figcaption>
+</figure>
+<h3 id="ftl">FTL（Flash Translation Layer）</h3>
+<ul>
+<li><b>邏輯→實體對照（L2P mapping）</b>：主機寫入的邏輯位址（LBA）每次都寫到新的空白頁，舊頁標記為無效。對照表通常以 4 KB 為單位，每 1 TB 容量約需 1 GB DRAM；無 DRAM 的 SSD 用主機記憶體緩衝（HMB）或部分快取。</li>
+<li><b>垃圾回收（GC）</b>：當空白 block 不足時，挑一個無效頁多的 block，把其中有效頁搬走，再抹除整個 block。</li>
+<li><b>寫入放大（WAF）</b>：GC 搬移造成 NAND 實際寫入量大於主機寫入量。<span class="mono">WAF = NAND 寫入量 ÷ 主機寫入量</span>，隨機寫入、可用空間少時 WAF 可達 3–5 以上。</li>
+<li><b>預留空間（OP）</b>：保留部分容量不給使用者（例如 7%、28%），讓 GC 更有效率、降低 WAF。企業級 SSD OP 較大。</li>
+<li><b>平均抹寫（Wear leveling）</b>：把寫入平均分散到所有 block，避免熱資料把某些 block 先寫壞。</li>
+<li><b>TRIM</b>：作業系統告訴 SSD 哪些 LBA 已刪除，SSD 就不必在 GC 時搬移它們。</li>
+<li><b>SLC 快取</b>：先把寫入以 SLC 模式暫存在部分 TLC/QLC block，寫得快，閒置時再搬回 TLC/QLC。快取寫滿後速度會明顯下降。</li>
+
+</ul>
+<div class="callout co"><b>Micron 註記</b>　Micron 的資料中心 SSD 同時有高效能 TLC（PCIe Gen5）與大容量 QLC 產品線，正好對應本節的取捨：TLC 追求效能與耐寫，QLC 追求每 TB 成本與容量密度，適合讀取為主的 AI 資料湖與冷資料。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+<h3 id="ssd-endurance">壽命指標</h3>
+<div class="eq">TBW ≈ 容量 × P/E 次數 ÷ WAF　　DWPD = TBW ÷ (容量 × 保固天數)</div>
+<p>例：2 TB TLC、P/E 3000 次、WAF 2.5 → TBW ≈ 2 × 3000 ÷ 2.5 = 2400 TB；5 年保固 → DWPD ≈ 0.66。</p>
+
+<h2 id="mobile">手機與消費性裝置</h2>
+<ul>
+<li><b>LPDDR</b>：以低電壓 I/O（0.5 V 以下）、低功耗待機（deep sleep、partial array self refresh）、窄通道省電；常以 PoP（疊在 SoC 上方）或同封裝方式放置。</li>
+<li><b>UFS</b>：手機儲存介面，UFS 4.0 循序讀取約 4 GB/s，採全雙工串列（MIPI M-PHY）與命令佇列，取代 eMMC。</li>
+<li><b>uMCP</b>：把 LPDDR 與 UFS 放在同一封裝，節省主機板面積，常見於中階手機。</li>
+</ul>
+
+<h2 id="embedded">嵌入式與車用</h2>
+<p>MCU 的程式碼長期存在嵌入式 Flash（eFlash）。但 28 nm 以下的 HKMG 製程很難再整合浮閘，業界轉向後段整合的新興 NVM：</p>
+<ul>
+<li>eMRAM：22 nm 等製程已量產，寫入快、耐寫，適合車用 MCU 與 IoT。</li>
+<li>ePCM：用於 28 nm FD-SOI 車用 MCU。</li>
+<li>eReRAM：成本低、與 CMOS 相容性好，用於 IoT 與低功耗 MCU。</li>
+</ul>
+<p>車用記憶體的額外要求：</p>
+<ul>
+<li><b>溫度等級</b>：AEC-Q100 Grade 1（−40～125 °C）或 Grade 2（−40～105 °C）；DRAM 高溫要更頻繁 refresh，NAND 高溫保存變差。</li>
+<li><b>功能安全</b>：ISO 26262，需要 ECC、錯誤回報、位址 / 指令同位檢查、BIST。</li>
+<li><b>長壽命與零缺陷目標</b>：車輛使用 15 年以上，篩選與老化測試更嚴格（以 ppm、甚至 ppb 計的不良率）。</li>
+<li><b>應用</b>：ADAS 與自動駕駛域控制器使用 LPDDR5/5X、GDDR、甚至 HBM；資訊娛樂系統使用 UFS / eMMC；事件資料記錄需要高耐寫 SLC。</li>
+</ul>
+
+
+<div class="callout co"><b>Micron 註記</b>　Micron 是車用記憶體的主要供應商之一，產品涵蓋車規 LPDDR、NOR Flash、e.MMC / UFS 與車用 SSD。車用產品的溫度等級、長期供貨與功能安全要求，正是本節列出的重點。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+<h2 id="cxl-pim">CXL、記憶體池與存內運算</h2>
+<ul>
+<li><b>CXL（Compute Express Link）</b>：建立在 PCIe 實體層上的快取一致性協定。CXL.mem 讓 CPU 透過擴充卡或 E3.S 模組使用額外的 DDR，突破 DIMM 插槽數的限制；延遲比本地 DRAM 多約 100 ns 以上。CXL 2.0/3.x 支援多主機共用的記憶體池（pooling / sharing），提高資料中心的記憶體利用率。</li>
+<li><b>PIM（Processing-in-Memory）</b>：在 DRAM 的 bank 旁放簡單的運算單元（例如 MAC），讓 GEMV 類運算在記憶體內部完成，省下搬資料的能量。已有 HBM-PIM、GDDR6-AiM 等原型產品。</li>
+<li><b>CIM（Computing-in-Memory）</b>：直接利用陣列做類比或數位乘加，例如 SRAM CIM、ReRAM 交叉陣列，主要瞄準邊緣 AI 推論。</li>
+</ul>
+
+<h2 id="selection">選型指南</h2>
+<div class="tblwrap"><table>
+<tr><th>需求</th><th>常見選擇</th><th>理由</th></tr>
+<tr><td>CPU 快取、暫存器</td><td>SRAM</td><td>邏輯製程內建、最快</td></tr>
+<tr><td>伺服器主記憶體</td><td>DDR5 RDIMM、CXL 擴充</td><td>容量、ECC、可插拔</td></tr>
+<tr><td>手機 / 筆電</td><td>LPDDR5X + UFS</td><td>功耗、體積</td></tr>
+<tr><td>遊戲顯示卡</td><td>GDDR7</td><td>單顆頻寬高、成本低於 HBM</td></tr>
+<tr><td>AI 訓練 / 大模型推論</td><td>HBM3E / HBM4</td><td>每封裝頻寬與能效</td></tr>
+<tr><td>邊緣 AI 推論</td><td>LPDDR、SRAM、CIM</td><td>功耗受限</td></tr>
+<tr><td>大容量儲存</td><td>TLC / QLC NAND SSD</td><td>每 GB 成本</td></tr>
+<tr><td>開機碼、車用韌體</td><td>NOR Flash、eFlash、eMRAM</td><td>可直接執行、可靠</td></tr>
+</table></div>
+
+<h2 id="app-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>DIMM / RDIMM</dt><dd>雙列直插記憶體模組 / 加了暫存時脈驅動器（RCD）的伺服器用模組。</dd></div>
+<div><dt>PAM3 / PAM4</dt><dd>每個符號有 3 / 4 個電壓位準的調變，每符號傳送 1.5 / 2 位元。</dd></div>
+<div><dt>Memory wall</dt><dd>運算速度成長快於記憶體頻寬與延遲改善造成的瓶頸。</dd></div>
+<div><dt>Arithmetic intensity</dt><dd>每讀一個位元組做多少次運算，決定程式受限於算力還是頻寬。</dd></div>
+<div><dt>KV cache</dt><dd>Transformer 推論時保存的先前 token 的 Key/Value 張量。</dd></div>
+<div><dt>CoWoS</dt><dd>台積電的 2.5D 封裝技術，以中介層並排整合邏輯晶片與 HBM。</dd></div>
+<div><dt>FTL</dt><dd>Flash Translation Layer，SSD 韌體中負責位址對照、GC、平均抹寫的層。</dd></div>
+<div><dt>WAF</dt><dd>Write Amplification Factor，NAND 實際寫入量與主機寫入量之比。</dd></div>
+<div><dt>OP</dt><dd>Over-Provisioning，不提供給使用者的預留容量。</dd></div>
+<div><dt>TBW / DWPD</dt><dd>總寫入位元組數 / 每日全碟寫入次數，SSD 壽命指標。</dd></div>
+<div><dt>HMB</dt><dd>Host Memory Buffer，無 DRAM 的 SSD 借用主機記憶體存放對照表。</dd></div>
+<div><dt>UFS</dt><dd>Universal Flash Storage，手機主流儲存介面。</dd></div>
+<div><dt>AEC-Q100</dt><dd>車用積體電路應力測試認證標準，定義溫度等級。</dd></div>
+<div><dt>CXL</dt><dd>Compute Express Link，基於 PCIe 的快取一致性互連。</dd></div>
+<div><dt>PIM / CIM</dt><dd>在記憶體旁 / 記憶體陣列內進行運算。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">各介面規格隨速度等級持續更新，請以 JEDEC 標準與廠商最新公告為準。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

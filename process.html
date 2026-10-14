@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體製程 · Memory Notes</title>
+<meta name="description" content="記憶體製程：DRAM 製程流程、埋入式字元線、高深寬比電容、EUV 與多重圖形、4F² 與 3D DRAM、3D NAND 堆疊與通道孔蝕刻、CMOS under Array、SRAM 微縮、MRAM 整合與良率模型。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="fab" data-ch="fab">
+<main class="doc">
+<nav class="toc" aria-label="本章目錄"></nav>
+<article>
+<div class="eyebrow">Chapter 4 · Process</div>
+<h1>製程：在矽上蓋出億萬個電容和摩天大樓</h1>
+<p class="lead">記憶體是半導體製程推到極限的產品：DRAM 要在 10 多奈米的間距裡做出深寬比數十比一的電容；3D NAND 要一次蝕刻穿過三百層薄膜。記憶體廠每一個世代的競爭，往往就是幾個關鍵製程步驟的競爭。</p>
+
+<h2 id="unit-process">基本製程模組</h2>
+<p>不論邏輯還是記憶體，晶圓廠都是用同一組「單元製程」反覆組合，一顆 DRAM 大約需要上千個步驟、數十道光罩。</p>
+<div class="tblwrap"><table>
+<tr><th>模組</th><th>做什麼</th><th>記憶體中的關鍵用途</th></tr>
+<tr><td>薄膜沉積</td><td>CVD、ALD、PVD、磊晶</td><td>電容高介電層（ALD）、3D NAND 上百層 ON 堆疊、MTJ 多層膜（PVD）</td></tr>
+<tr><td>微影</td><td>DUV 浸潤式、EUV，加上多重圖形（SADP/SAQP）</td><td>DRAM 主動區、位元線、儲存節點接觸的密集圖形</td></tr>
+<tr><td>蝕刻</td><td>電漿乾蝕刻、濕蝕刻</td><td>電容孔、3D NAND 通道孔（極高深寬比）、埋入式字元線溝槽</td></tr>
+<tr><td>離子佈植 / 退火</td><td>摻雜、活化</td><td>接面輪廓控制以降低 DRAM 漏電</td></tr>
+<tr><td>CMP</td><td>化學機械研磨平坦化</td><td>STI、接觸、金屬鑲嵌、混合鍵合前表面</td></tr>
+<tr><td>清洗</td><td>去除微粒與殘留物</td><td>高深寬比結構的清洗與乾燥（避免結構倒塌）</td></tr>
+<tr><td>量測與檢測</td><td>CD-SEM、OCD、疊對、缺陷檢測</td><td>深孔底部尺寸、彎曲（bowing）、傾斜（tilting）</td></tr>
+</table></div>
+
+<h2 id="dram-flow">DRAM 製程流程</h2>
+<figure>
+<svg viewBox="0 0 680 320" role="img" aria-label="DRAM 單元剖面示意">
+  <rect class="sunk" x="20" y="230" width="600" height="80"/>
+  <rect class="box" x="20" y="230" width="40" height="70"/><rect class="box" x="300" y="230" width="40" height="70"/><rect class="box" x="580" y="230" width="40" height="70"/>
+  <g class="c5"><rect x="110" y="232" width="28" height="36" rx="4"/><rect x="222" y="232" width="28" height="36" rx="4"/><rect x="390" y="232" width="28" height="36" rx="4"/><rect x="502" y="232" width="28" height="36" rx="4"/></g>
+  <g class="c1"><rect x="166" y="200" width="28" height="30"/><rect x="446" y="200" width="28" height="30"/><rect x="140" y="184" width="80" height="16" rx="2"/><rect x="420" y="184" width="80" height="16" rx="2"/></g>
+  <g class="c3"><rect x="72" y="165" width="22" height="65"/><rect x="266" y="165" width="22" height="65"/><rect x="352" y="165" width="22" height="65"/><rect x="546" y="165" width="22" height="65"/>
+     <rect x="62" y="155" width="42" height="10"/><rect x="256" y="155" width="42" height="10"/><rect x="342" y="155" width="42" height="10"/><rect x="536" y="155" width="42" height="10"/></g>
+  <g class="c2" style="stroke-width:2"><path d="M64 155V36H102V155"/><path d="M258 155V36H296V155"/><path d="M344 155V36H382V155"/><path d="M538 155V36H576V155"/></g>
+  <g class="sunk"><rect x="70" y="42" width="26" height="113"/><rect x="264" y="42" width="26" height="113"/><rect x="350" y="42" width="26" height="113"/><rect x="544" y="42" width="26" height="113"/></g>
+  <rect class="c4" x="40" y="20" width="560" height="14"/>
+  <path class="wd" d="M40 100H610"/>
+  <text x="646" y="31" class="ts" text-anchor="end">上電極</text>
+  <text x="124" y="290" text-anchor="middle" class="ts">BWL</text><text x="236" y="290" text-anchor="middle" class="ts">BWL</text>
+  <text x="40" y="318" text-anchor="middle" class="ts t-mut">STI</text><text x="320" y="318" text-anchor="middle" class="ts t-mut">STI</text>
+  <text x="180" y="178" text-anchor="middle" class="ts">位元線 BL</text>
+  <text x="180" y="290" text-anchor="middle" class="ts t-mut">主動區</text>
+  <text x="140" y="125" class="ts">電容（圓柱，</text><text x="140" y="141" class="ts">深寬比數十比一）</text>
+  <text x="400" y="125" class="ts">儲存節點接觸 + 著陸墊</text>
+  <path class="wm" d="M396 121L366 160"/>
+</svg>
+<figcaption>沿主動區方向的簡化剖面：兩條埋入式字元線（BWL）共用中間的位元線接觸，兩側各接一個儲存節點和一顆電容。電容高度遠大於圖示比例；實際電容間通常還有支撐層（mesh）防止倒塌。</figcaption>
+</figure>
+<ol>
+<li><b>主動區與 STI</b>：以多重圖形（SAQP）或 EUV 定義斜向排列的島狀主動區，蝕刻溝槽並填入氧化物隔離。</li>
+<li><b>埋入式字元線（BCAT）</b>：在矽中蝕刻字元線溝槽，長閘極氧化層，填入 TiN/W（或 TiN + 多晶矽的雙功函數閘極以降低 GIDL），再回蝕到矽表面以下並封蓋。</li>
+<li><b>位元線接觸與位元線</b>：在兩條字元線中間的主動區開接觸孔，沉積多晶矽 / 金屬，形成位元線（W 或 Ru 等）與絕緣側壁（air gap 或低介電間隙壁降低 C<sub>BL</sub>）。</li>
+<li><b>儲存節點接觸（BC / SNC）與著陸墊（LP）</b>：在位元線之間自我對準開孔連到主動區兩端，著陸墊把接觸位置重新排成蜂巢狀，方便放置電容。</li>
+<li><b>電容模組</b>：沉積厚的模板層與支撐層 → 蝕刻高深寬比孔 → 沉積下電極 TiN → 去除模板（留下支撐 mesh）→ ALD 高介電層 → 上電極。</li>
+<li><b>周邊電路</b>：感測放大器、解碼器、I/O 用的平面電晶體；新世代高速 DRAM 在周邊導入 HKMG。</li>
+<li><b>後段金屬</b>：通常 3–4 層金屬（遠少於邏輯的十幾層），以降低成本。</li>
+</ol>
+
+<h2 id="dram-cap">電容：DRAM 最難的地方</h2>
+<p>單元面積每代縮小，電容值卻不能少（約數 fF～10 fF 以上），否則訊號太小。C = ε·A/d，只能從三個方向下手：</p>
+<ul>
+<li><b>加高（A）</b>：從平面電容、溝槽電容、堆疊電容，演進到圓柱 / 柱狀電容。高度約 1–1.5 µm 而直徑只有幾十奈米，深寬比數十比一。蝕刻要筆直不能彎曲（bowing）、不能底部變細，還要防止細高結構在濕製程乾燥時倒塌（leaning）——所以要加支撐層。</li>
+<li><b>提高介電常數（ε）</b>：ZrO<sub>2</sub>/Al<sub>2</sub>O<sub>3</sub>/ZrO<sub>2</sub>（ZAZ）疊層，Al<sub>2</sub>O<sub>3</sub> 夾層壓抑漏電；研究中的有 TiO<sub>2</sub>、SrTiO<sub>3</sub> 等更高 k 材料，但漏電和能隙是取捨。</li>
+<li><b>減薄（d）</b>：等效氧化層厚度（EOT）已低於 1 nm 等級，再薄漏電就急遽上升。</li>
+</ul>
+
+<h2 id="dram-litho">微影與 DRAM 節點命名</h2>
+<p>DRAM 世代以 1x、1y、1z、1α（1a）、1β（1b）、1γ（1c）命名，大約對應 10 多奈米的半節距，每代縮小約 1 nm 左右。密集重複的圖形適合用自我對準多重圖形（SADP / SAQP）製作，但光罩數與步驟數增加；各家在 1z 到 1γ 世代陸續把關鍵層導入 EUV，以減少多重圖形的步驟與疊對誤差。</p>
+<div class="callout"><b>重點</b>　DRAM 的微縮瓶頸已不在線寬，而在電容和存取電晶體：電容要維持容量、電晶體要在更小面積下維持低漏電與足夠驅動電流。這推動了下面的結構轉換。</div>
+<div class="callout co"><b>Micron 註記</b>　Micron 的 DRAM 節點：<b>1α</b>（2021）與 <b>1β</b>（2022）以多重圖形達成、未使用 EUV；<b>1γ</b>（1-gamma，2025）是 Micron 首次在關鍵層導入 EUV 的 DRAM 節點，公開資料提到日本廣島廠為量產據點之一。這是「延後導入 EUV、以多重圖形撐住成本」策略的典型例子。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+
+
+<h2 id="dram-future">下一代 DRAM：4F² 與 3D DRAM</h2>
+<ul>
+<li><b>4F² 垂直通道電晶體（VCT）</b>：存取電晶體改成垂直方向，字元線環繞或位於柱狀通道一側，位元線埋在下方，電容在上方，單元面積從 6F² 降到 4F²。周邊電路可能改用另一片晶圓製作再以混合鍵合接合（類似 3D NAND 的做法）。</li>
+<li><b>3D DRAM</b>：仿照 3D NAND，把水平方向的 1T1C 單元垂直堆疊多層。困難在於每層都要有電晶體和電容，矽通道要用 Si/SiGe 磊晶疊層製作，電容也要橫向製作。</li>
+<li><b>無電容 DRAM</b>：例如以氧化物半導體（IGZO）電晶體極低的關態漏電做 2T0C 增益單元，把資料存在讀取電晶體的閘極電容上。</li>
+</ul>
+
+<h2 id="nand3d-flow">3D NAND 製程流程</h2>
+<figure>
+<svg viewBox="0 0 680 260" role="img" aria-label="3D NAND 陣列與階梯區">
+  <g class="c5" style="stroke-width:1">
+    <rect x="40" y="200" width="600" height="14"/><rect x="40" y="180" width="555" height="14"/><rect x="40" y="160" width="510" height="14"/><rect x="40" y="140" width="465" height="14"/>
+    <rect x="40" y="120" width="420" height="14"/><rect x="40" y="100" width="375" height="14"/><rect x="40" y="80" width="330" height="14"/><rect x="40" y="60" width="285" height="14"/>
+  </g>
+  <rect class="sunk" x="40" y="214" width="600" height="30"/>
+  <text x="340" y="234" text-anchor="middle" class="ts">CMOS 周邊（CuA）或另一片晶圓接合（CBA）</text>
+  <g><rect class="c2" x="84" y="50" width="22" height="164"/><rect class="c2" x="134" y="50" width="22" height="164"/><rect class="c2" x="184" y="50" width="22" height="164"/><rect class="c2" x="234" y="50" width="22" height="164"/></g>
+  <g class="w" style="stroke-width:2"><path d="M618 200V30M573 180V30M528 160V30M483 140V30M438 120V30M393 100V30M348 80V30M303 60V30"/></g>
+  <path class="wm" d="M290 30H640"/>
+  <text x="170" y="38" text-anchor="middle" class="ts">陣列區：通道孔</text>
+  <text x="470" y="22" text-anchor="middle" class="ts">階梯區：每層字元線各自拉接觸</text>
+</svg>
+<figcaption>字元線層像階梯一樣逐層縮短，每一階露出一層字元線讓垂直接觸落下去。層數越多，階梯區越寬，因此也分成多段並在多個方向排列。</figcaption>
+</figure>
+<ol>
+<li><b>堆疊沉積</b>：交錯沉積 SiO<sub>2</sub> / Si<sub>3</sub>N<sub>4</sub>（ON）數十到上百對，每層數十奈米，要求厚度與應力極度均勻，否則晶圓會翹曲。</li>
+<li><b>通道孔蝕刻</b>：一次蝕刻穿過整個堆疊，深度數微米、直徑約 100 nm，深寬比 &gt; 50:1，而且每片晶圓要開上百億個孔，孔的上下直徑差、彎曲、扭轉都要控制。層數太多時分成 2–3 個 deck，先後蝕刻再對準接起來。</li>
+<li><b>孔壁成膜</b>：ALD 依序沉積阻擋氧化層、SiN 電荷捕捉層、穿隧氧化層、多晶矽通道，中間填氧化物（macaroni 通道）。</li>
+<li><b>階梯（staircase）</b>：反覆「光阻修剪 + 蝕刻一層」做出每層的台階。</li>
+<li><b>縫隙蝕刻與閘極置換（replacement gate）</b>：蝕刻切開陣列的長縫，從縫隙用熱磷酸把 SiN 犧牲層全部挖空，再用 ALD 填入 W（新世代改用 Mo，電阻更低、不需阻障層）形成字元線，然後在縫中做共用源極。</li>
+<li><b>接觸與後段</b>：階梯區上百個深度不同的字元線接觸、位元線、金屬層。</li>
+<li><b>CMOS 整合</b>：先做周邊電路再在上方疊陣列（CuA / PUC），或分別在兩片晶圓製作再以混合鍵合接合（CBA，如 Xtacking），周邊電路不必承受陣列製程的高溫，效能更好。</li>
+</ol>
+
+<h2 id="nand-scaling">3D NAND 微縮方向</h2>
+<ul>
+<li><b>垂直</b>：層數從 24、32、64、96、128、176 增加到 200–300 層以上；同時把每層減薄以壓低總高度。</li>
+<li><b>水平</b>：縮小通道孔間距、減少縫隙數量、提高孔的排列密度。</li>
+<li><b>邏輯</b>：每單元位元數 TLC → QLC → PLC。</li>
+<li><b>架構</b>：CuA / CBA 把周邊移到陣列下方或另一片晶圓，提升陣列面積佔比。</li>
+<li><b>材料</b>：字元線 W → Mo、通道遷移率改善、更低漏電的捕捉層。</li>
+</ul>
+<div class="callout co"><b>Micron 註記</b>　Micron 的 NAND 世代：<b>176 層</b>（2020，replacement gate + 電荷捕捉 + CuA）→ <b>232 層</b>（2022）→ <b>第九代 G9</b>（2024，公開資料為 276 層）。每一代除了層數，也提高介面速率與 plane 數（例如 232 層世代為 6 個 plane），對應<a href="designer.html#nand">規格設計器</a>中的 TLC 範例。<span class="note">（依公開資料整理，非官方資訊；細節以 Micron 官方公告為準）</span></div>
+
+
+<h2 id="logic-sram">邏輯製程中的 SRAM</h2>
+<p>SRAM 與邏輯共用製程，跟著電晶體結構演進：平面 → FinFET → GAA 奈米片（nanosheet）→ 研發中的 forksheet 與 CFET（NMOS/PMOS 垂直堆疊）。FinFET 的鰭片數只能是整數，限制了單元比例的調整；GAA 的通道寬度可連續調整，讓 SRAM 設計彈性回升。</p>
+<div class="tblwrap"><table>
+<tr><th>世代（代表）</th><th class="n">高密度位元胞面積</th><th>電晶體</th></tr>
+<tr><td>16 nm</td><td class="n">~0.074 µm²</td><td>FinFET</td></tr>
+<tr><td>7 nm</td><td class="n">~0.027 µm²</td><td>FinFET</td></tr>
+<tr><td>5 nm</td><td class="n">~0.021 µm²</td><td>FinFET</td></tr>
+<tr><td>3 nm</td><td class="n">~0.020–0.021 µm²</td><td>FinFET</td></tr>
+<tr><td>2 nm</td><td class="n">~0.0175 µm²（公開報導）</td><td>GAA 奈米片</td></tr>
+</table></div>
+<p>5 nm 之後 SRAM 幾乎停止縮小，原因包括金屬間距與接觸的限制、V<sub>t</sub> 變異、以及維持 V<sub>min</sub> 所需的最小尺寸。背面供電（backside power delivery）可以把電源線移到晶圓背面，釋出正面的繞線空間，有助於 SRAM 密度。</p>
+
+<h2 id="emerging-fab">新興記憶體的後段整合</h2>
+<ul>
+<li><b>MRAM</b>：在兩層金屬之間以 PVD 沉積十幾層超薄膜（種子層、合成反鐵磁參考層、CoFeB、MgO 約 1 nm、自由層、覆蓋層），再以離子束蝕刻（IBE）定義柱狀 MTJ。難點：蝕刻後的金屬再沉積會讓 MgO 側壁短路、後段製程溫度上限約 400 °C 會影響磁性與 TMR。</li>
+<li><b>ReRAM</b>：金屬氧化物（HfO<sub>x</sub>、TaO<sub>x</sub>）夾在電極之間，結構簡單；需要一次性的 forming 步驟形成初始細絲。</li>
+<li><b>PCM</b>：硫屬化物沉積與蝕刻容易受損、成分偏移；加熱器（heater）結構要縮小以降低 RESET 電流。</li>
+</ul>
+
+<h2 id="yield">良率與製程控制</h2>
+<p>最簡單的良率模型假設缺陷隨機均勻分佈（Poisson）：</p>
+<div class="eq">Y = e<sup>−A·D₀</sup>　　（A：晶粒關鍵面積，D₀：缺陷密度）</div>
+<p>實際缺陷會成群出現，常用負二項模型 Y = (1 + A·D₀/α)<sup>−α</sup>。記憶體的優勢在於<b>冗餘修補</b>：陣列中隨機的單點缺陷可以用備用列 / 行修好，所以真正致命的只有周邊電路缺陷和超出修補能力的群聚缺陷。修補前良率可能很低，修補後大幅提升。</p>
+<p>例：A = 0.7 cm²、D₀ = 0.2 /cm²，未修補 Poisson 良率 ≈ e<sup>−0.14</sup> ≈ 87%；若晶粒有 75% 面積是可修補陣列，致命面積只剩 0.175 cm²，良率約 97%（未計入修補資源用盡的情況）。</p>
+<ul>
+<li><b>線上監控</b>：缺陷檢測（明場 / 暗場光學、電子束）、CD-SEM / OCD 量測線寬與孔形、疊對量測、膜厚。</li>
+<li><b>WAT / PCM</b>：切割道上的測試結構（電晶體、接觸鏈、電容、電阻）在晶圓完成後量測，用 SPC 監控製程是否漂移。</li>
+<li><b>與測試的回饋</b>：CP 的失效位元圖（fail bit map）可以對應到特定製程層的缺陷樣式，例如整列失效指向字元線短路、規則棋盤樣式指向微影問題。見<a href="test.html#bitmap">封測章節</a>。</li>
+</ul>
+
+<h2 id="fab-terms">名詞解釋</h2>
+<dl class="terms">
+<div><dt>STI</dt><dd>Shallow Trench Isolation，淺溝槽隔離。</dd></div>
+<div><dt>SADP / SAQP</dt><dd>自我對準雙重 / 四重圖形，以側壁間隙壁把間距縮小為二分之一 / 四分之一。</dd></div>
+<div><dt>EUV</dt><dd>極紫外光微影（13.5 nm 波長）。</dd></div>
+<div><dt>ALD</dt><dd>Atomic Layer Deposition，逐原子層沉積，可在深孔內均勻成膜。</dd></div>
+<div><dt>Aspect ratio</dt><dd>深寬比，結構高度與寬度之比。</dd></div>
+<div><dt>ZAZ</dt><dd>ZrO<sub>2</sub>/Al<sub>2</sub>O<sub>3</sub>/ZrO<sub>2</sub> 疊層電容介電質。</dd></div>
+<div><dt>EOT</dt><dd>Equivalent Oxide Thickness，換算成 SiO<sub>2</sub> 的等效厚度。</dd></div>
+<div><dt>Landing pad</dt><dd>位於儲存節點接觸上方，提供電容對準容許度的導電墊。</dd></div>
+<div><dt>VCT</dt><dd>Vertical Channel Transistor，4F² DRAM 的垂直存取電晶體。</dd></div>
+<div><dt>ON stack</dt><dd>3D NAND 的氧化物 / 氮化物交錯堆疊。</dd></div>
+<div><dt>Replacement gate</dt><dd>先以 SiN 佔位，之後挖空換成金屬字元線的製程。</dd></div>
+<div><dt>Staircase</dt><dd>3D NAND 字元線接觸用的階梯結構。</dd></div>
+<div><dt>CuA / CBA</dt><dd>CMOS under Array / CMOS Bonded Array。</dd></div>
+<div><dt>Hybrid bonding</dt><dd>Cu–Cu 與介電層同時直接鍵合，無凸塊、間距極小。</dd></div>
+<div><dt>IBE</dt><dd>Ion Beam Etching，以物理轟擊為主的蝕刻，用於 MTJ。</dd></div>
+<div><dt>D₀</dt><dd>每單位面積的致命缺陷密度。</dd></div>
+<div><dt>WAT / PCM</dt><dd>晶圓允收測試 / 製程控制監測結構。</dd></div>
+<div><dt>SPC</dt><dd>統計製程管制。</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">製程細節依廠商而異，此處為公開文獻中的通用描述與量級。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

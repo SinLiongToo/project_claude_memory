@@ -1,0 +1,253 @@
+/* Memory Lab — reliability / fab tabs: row hammer mitigation, wafer yield with repair, HBM stack yield, cost per Gb. */
+(function(){
+  const {plot, Phi, fmtSci} = window.MemPlot;
+  const {INIT, metrics, toggle, range, $, clamp} = window.MemLab;
+  const fmtK = v => v >= 1e6 ? +(v / 1e6).toPrecision(3) + 'M' : v >= 1e3 ? +(v / 1e3).toPrecision(3) + 'K' : String(Math.round(v));
+  function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function lgamma(x){ // Lanczos
+    const g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if(x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+    x -= 1; let a = c[0]; const t = x + g + 0.5;
+    for(let i = 1; i < g + 2; i++) a += c[i] / (x + i);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+
+  /* =====================================================================
+     Row hammer: activations per refresh window vs per-cell flip thresholds, with TRR / RFM / PRAC
+     ===================================================================== */
+  INIT.rowhammer = function(){
+    const hcOf = v => Math.pow(10, 2 + 3.3 * v / 100);
+    const hc = range('rh-hc', v => fmtK(hcOf(v)), render);
+    const duty = range('rh-duty', v => v + '%', render);
+    const trrn = range('rh-trrn', v => v + ' 列', render);
+    const raa = range('rh-raa', v => v + ' ACT', render);
+    const prac = range('rh-prac', v => fmtK(Math.pow(2, v)), render);
+    ['rh-k', 'rh-win', 'rh-mit'].forEach(id => $(id).addEventListener('change', render));
+    const BITS = 65536, SIG = 0.15, MED = Math.pow(10, 4 * SIG);   // weakest of 65 536 cells sits ~4σ below the median
+    const flips = (d, HC) => d <= 0 ? 0 : BITS * Phi((Math.log10(d) - Math.log10(HC * MED)) / SIG);
+    function model(p, mit){
+      const maxAct = p.win * 1e6 / 48, total = maxAct * p.duty, a = total / p.k, sides = p.k >= 2 ? 2 : 1;
+      let d = sides * a, ovh = 0, note = '';
+      if(mit === 'trr'){
+        if(p.k <= p.trrn){ d = sides * total / 8192; note = '攻擊列都在追蹤表內：每次 REF 都更新受害列'; }
+        else note = '攻擊列數 > 追蹤表：追蹤被洗掉，TRR 失效';
+      } else if(mit === 'rfm'){
+        d = sides * Math.min(a, p.raa); ovh = total / p.raa * 200 / (p.win * 1e6); note = '每 ' + p.raa + ' 次 ACT 一次 RFM';
+      } else if(mit === 'prac'){
+        d = sides * Math.min(a, p.prac); ovh = 0.06 + total / p.prac * 350 / (p.win * 1e6); note = '計數器達 ' + fmtK(p.prac) + ' 即緩解';
+      }
+      return {a, d, f: flips(d, p.hc), ovh: Math.min(ovh, 1), note, sides};
+    }
+    function render(){
+      const mit = $('rh-mit').value;
+      document.querySelectorAll('#tab-rowhammer [data-mit]').forEach(el => el.hidden = el.dataset.mit !== mit);
+      const p = {hc:hcOf(hc.get()), k:+$('rh-k').value, duty:duty.get() / 100, win:+$('rh-win').value, trrn:trrn.get(), raa:raa.get(), prac:Math.pow(2, prac.get())};
+      const M = model(p, mit);
+      const safe = M.f < 1;
+      metrics($('rh-metrics'), [
+        {l:'每條攻擊列 ACT 數', v:fmtK(M.a), s:'視窗 ' + p.win + ' ms · ' + p.k + ' 條攻擊列'},
+        {l:'受害列有效擾動', v:fmtK(M.d), s: M.sides === 2 ? '兩側攻擊列合計' : '單側'},
+        {l:'受害列預期翻轉位元', v: M.f < 0.01 ? '≈ 0' : M.f < 10 ? M.f.toFixed(2) : fmtK(M.f), cls: safe ? 'ok' : 'bad', s: safe ? '低於 1 個位元' : '會發生位元翻轉'},
+        {l:'緩解開銷（攻擊時）', v: mit === 'none' || mit === 'trr' ? '—' : (M.ovh * 100).toFixed(1), u: mit === 'none' || mit === 'trr' ? '' : '%', s:M.note || '無緩解'}
+      ]);
+      // rows picture
+      const N = 11, H = 22, W = 420, rows = [];
+      const aggr = new Set(p.k === 1 ? [5] : p.k === 2 ? [4, 6] : [1, 3, 5, 7, 9]);
+      for(let i = 0; i < N; i++){
+        const isA = aggr.has(i), nb = (aggr.has(i - 1) ? 1 : 0) + (aggr.has(i + 1) ? 1 : 0);
+        const d = isA ? 0 : nb === 0 ? 0 : (M.d / M.sides) * nb, f = isA ? 0 : flips(d, p.hc);
+        rows.push({isA, d, f});
+      }
+      let s = '';
+      rows.forEach((r, i) => {
+        const y = 10 + i * (H + 4);
+        const fill = r.isA ? 'color-mix(in srgb,var(--bad) 35%,var(--surface))' : r.f >= 1 ? 'color-mix(in srgb,var(--warn) ' + Math.round(clamp(20 + Math.log10(r.f) * 15, 20, 80)) + '%,var(--surface))' : 'var(--surface)';
+        s += '<rect x="70" y="' + y + '" width="' + (W - 80) + '" height="' + H + '" rx="3" style="fill:' + fill + ';stroke:' + (r.isA ? 'var(--bad)' : 'var(--line)') + '"/>' +
+          '<text x="62" y="' + (y + 15) + '" text-anchor="end" class="ts t-mono t-mut">Row ' + (i - 5 >= 0 ? '+' : '') + (i - 5) + '</text>' +
+          '<text x="80" y="' + (y + 15) + '" class="ts">' + (r.isA ? '攻擊列 · ACT ' + fmtK(M.a) : r.d > 0 ? '擾動 ' + fmtK(r.d) + ' · 翻轉 ' + (r.f < 0.01 ? '≈0' : r.f < 10 ? r.f.toFixed(1) : fmtK(r.f)) : '未受影響') + '</text>';
+      });
+      if(p.k > 5) s += '<text x="' + (W / 2) + '" y="' + (10 + N * (H + 4) + 12) + '" text-anchor="middle" class="ts t-mut">另有 ' + (p.k - 5) + ' 條攻擊列在其他位置</text>';
+      const svg = $('rh-rows'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (N * (H + 4) + 34)); svg.innerHTML = s;
+      // curves
+      const mk = m => { const a = []; for(let x = 2; x <= 5.31; x += 0.03){ const P = Object.assign({}, p, {hc:Math.pow(10, x)}); a.push([Math.pow(10, x), Math.max(1e-3, model(P, m).f)]); } return a; };
+      plot($('rh-plot'), {W:420, H:300, m:{l:56, r:12, t:12, b:44}, x:[100, 2e5], logx:true, y:[1e-3, 65536], logy:true, xlabel:'HC_first（最弱單元的翻轉門檻 ACT 數）', ylabel:'翻轉位元 / 受害列',
+        xfmt:fmtK, yticks:[1e-3, 1e-1, 10, 1e3, 1e5].filter(v => v <= 65536).concat([65536]).slice(0, 5),
+        series:[{pts:mk('none'), color:'var(--muted)', w:1.8}, {pts:mk('trr'), color:'var(--s1)', w: mit === 'trr' ? 3 : 1.6}, {pts:mk('rfm'), color:'var(--s2)', w: mit === 'rfm' ? 3 : 1.6}, {pts:mk('prac'), color:'var(--s3)', w: mit === 'prac' ? 3 : 1.6}],
+        hlines:[{y:1, color:'var(--bad)', label:'1 個位元'}],
+        vlines:[{x:p.hc, color:'var(--ink)', dash:false, w:1.2, label:'目前'}]});
+    }
+    render();
+  };
+
+  /* =====================================================================
+     Wafer map: negative-binomial defects, repairable array area, analytic models
+     ===================================================================== */
+  function gammaSample(a, R){
+    if(a < 1) return gammaSample(a + 1, R) * Math.pow(R(), 1 / a);
+    const d = a - 1 / 3, c = 1 / Math.sqrt(9 * d);
+    for(;;){
+      let x, v;
+      do { const u1 = R(), u2 = R(); x = Math.sqrt(-2 * Math.log(u1 || 1e-12)) * Math.cos(2 * Math.PI * u2); v = 1 + c * x; } while(v <= 0);
+      v = v * v * v; const u = R();
+      if(u < 1 - 0.0331 * x * x * x * x || Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+    }
+  }
+  function poissonSample(l, R){ const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while(p > L); return k - 1; }
+  // P(no periphery defect and array defects <= cap), defects ~ gamma-Poisson with mean mu, shape alpha (0 = Poisson)
+  function yieldRepair(mu, alpha, f, cap){
+    let s = 0;
+    for(let j = 0; j <= cap; j++){
+      if(alpha === 0) s += Math.exp(-mu + j * Math.log(mu * f + 1e-300) - lgamma(j + 1));
+      else { const th = mu / alpha; s += Math.exp(j * Math.log(f + 1e-300) - lgamma(j + 1) + lgamma(alpha + j) - lgamma(alpha) + j * Math.log(th) - (alpha + j) * Math.log(1 + th)); }
+    }
+    return Math.min(1, s);
+  }
+  INIT.wafer = function(){
+    let seed = 7, edge = true;
+    const area = range('wf-area', v => v + ' mm²', render);
+    const d0 = range('wf-d0', v => v.toFixed(2) + ' /cm²', render);
+    const arr = range('wf-arr', v => v + '%', render);
+    const cap = range('wf-cap', v => v + ' 個', render);
+    $('wf-alpha').addEventListener('change', render);
+    toggle('wf-edge', v => { edge = v === '1'; render(); });
+    $('wf-roll').addEventListener('click', () => { seed = Math.floor(Math.random() * 1e9); render(); });
+    function render(){
+      const A = area.get(), D = d0.get(), al = +$('wf-alpha').value, f = arr.get() / 100, C = cap.get();
+      const R = rng(seed), s = Math.sqrt(A), Rw = 150, ex = 3, mu = A / 100 * D;
+      const dies = [];
+      for(let y = -Rw; y < Rw; y += s) for(let x = -Rw; x < Rw; x += s){
+        const xs = x + ((Rw * 2) % s) / 2, ys = y + ((Rw * 2) % s) / 2;
+        const ok = [[xs, ys], [xs + s, ys], [xs, ys + s], [xs + s, ys + s]].every(([a, b]) => a * a + b * b <= (Rw - ex) * (Rw - ex));
+        if(!ok) continue;
+        const r = Math.hypot(xs + s / 2, ys + s / 2) / Rw;
+        let lam = mu * (edge ? 0.8 + 2.2 * Math.pow(r, 8) : 1);
+        if(al > 0) lam *= gammaSample(al, R) / al;
+        const n = poissonSample(lam, R);
+        let pa = 0, pp = 0; for(let i = 0; i < n; i++) (R() < f ? pa++ : pp++);
+        dies.push({x:xs, y:ys, st: pp > 0 || pa > C ? 'bad' : pa > 0 ? 'rep' : 'good'});
+      }
+      const g = dies.filter(d => d.st === 'good').length, rp = dies.filter(d => d.st === 'rep').length, n = dies.length;
+      const yp = Math.exp(-mu), ynb = al === 0 ? yp : Math.pow(1 + mu / al, -al), yr = yieldRepair(mu, al, f, C);
+      metrics($('wf-metrics'), [
+        {l:'每片晶粒數', v:n, s:'晶粒 ' + s.toFixed(2) + ' mm 見方 · 邊緣除外 3 mm'},
+        {l:'本片良率（含修補）', v:((g + rp) / n * 100).toFixed(1), u:'%', cls: (g + rp) / n > 0.85 ? 'ok' : (g + rp) / n > 0.6 ? 'warn' : 'bad', s:'良品 ' + g + ' + 修補 ' + rp + ' 顆'},
+        {l:'修補前良率', v:(g / n * 100).toFixed(1), u:'%', s:'修補救回 ' + (rp / n * 100).toFixed(1) + ' 個百分點'},
+        {l:'模型預測', v:(yr * 100).toFixed(1), u:'%', s:'Poisson ' + (yp * 100).toFixed(1) + '% · 負二項 ' + (ynb * 100).toFixed(1) + '%（皆未修補）'}
+      ]);
+      $('wf-sub').textContent = 'A·D₀ = ' + mu.toFixed(2);
+      const W = 400, k = (W - 20) / (2 * Rw), cx = W / 2, cy = W / 2;
+      const col = {good:'var(--ok)', rep:'var(--s1)', bad:'var(--bad)'};
+      let svg = '<circle cx="' + cx + '" cy="' + cy + '" r="' + (Rw * k) + '" style="fill:var(--sunk);stroke:var(--line)"/>';
+      dies.forEach(d => { svg += '<rect x="' + (cx + d.x * k + 0.6).toFixed(1) + '" y="' + (cy + d.y * k + 0.6).toFixed(1) + '" width="' + Math.max(0.5, s * k - 1.2).toFixed(1) + '" height="' + Math.max(0.5, s * k - 1.2).toFixed(1) + '" style="fill:' + col[d.st] + ';fill-opacity:.75"/>'; });
+      svg += '<rect x="' + (cx - 8) + '" y="' + (cy + Rw * k - 3) + '" width="16" height="6" style="fill:var(--surface)"/>';
+      const el = $('wf-map'); el.setAttribute('viewBox', '0 0 ' + W + ' ' + W); el.innerHTML = svg;
+      const P = [], NB = [], RP = [];
+      for(let a = 5; a <= 200; a += 2.5){ const m = a / 100 * D; P.push([a, Math.exp(-m) * 100]); NB.push([a, (al === 0 ? Math.exp(-m) : Math.pow(1 + m / al, -al)) * 100]); RP.push([a, yieldRepair(m, al, f, C) * 100]); }
+      plot($('wf-plot'), {W:420, H:400, m:{l:52, r:12, t:12, b:44}, x:[5, 200], y:[0, 100], xlabel:'晶粒面積 (mm²)', ylabel:'良率 (%)',
+        series:[{pts:P, color:'var(--muted)', w:1.8}, {pts:NB, color:'var(--s2)', w:2}, {pts:RP, color:'var(--s1)', w:2.6}],
+        vlines:[{x:A, color:'var(--ink)', dash:false, w:1.2, label:'目前'}]});
+    }
+    render();
+  };
+
+  /* =====================================================================
+     HBM stack yield: KGD test escapes, per-layer bond / TSV yield, TSV repair
+     ===================================================================== */
+  INIT.hbm = function(){
+    let rep = true, seed = 11;
+    const yd = range('hb-y', v => v + '%', render);
+    const esc = range('hb-esc', v => v + '%', render);
+    const bond = range('hb-bond', v => v.toFixed(2) + '%', render);
+    const base = range('hb-base', v => v + '%', render);
+    $('hb-n').addEventListener('change', render);
+    toggle('hb-rep', v => { rep = v === '1'; render(); });
+    function calc(n, o){
+      const Y = o.yd, e = o.esc, pass = Y + (1 - Y) * e, q = o.kgd ? Y / pass : Y;
+      const b0 = o.bond, m = -Math.log(b0), b = o.rep ? Math.exp(-m) * (1 + m) : b0;
+      const ys = o.base * Math.pow(q, n) * Math.pow(b, n);
+      return {ys, q, b, pass};
+    }
+    function render(){
+      const n = +$('hb-n').value;
+      const o = {yd:yd.get() / 100, esc:esc.get() / 100, bond:bond.get() / 100, base:base.get() / 100, rep, kgd:true};
+      const C = calc(n, o), noK = calc(n, Object.assign({}, o, {kgd:false}));
+      const cost = (n + 1.5 + 2) / C.ys;
+      const diesPerGood = n / C.ys / C.pass;
+      metrics($('hb-metrics'), [
+        {l:'堆疊良率', v:(C.ys * 100).toFixed(1), u:'%', cls: C.ys > 0.85 ? 'ok' : C.ys > 0.6 ? 'warn' : 'bad', s:'不做 KGD 測試：' + (noK.ys * 100).toFixed(1) + '%'},
+        {l:'通過測試的晶粒真的是好的', v:(C.q * 100).toFixed(2), u:'%', s:'測試通過率 ' + (C.pass * 100).toFixed(1) + '%'},
+        {l:'每層接合良率（有效）', v:(C.b * 100).toFixed(3), u:'%', s: rep ? 'TSV 備援修補後' : '無修補'},
+        {l:'每個良品堆疊消耗晶圓晶粒', v:diesPerGood.toFixed(1), u:'顆', s:'成本指數 ' + cost.toFixed(1) + '（理想值 ' + (n + 3.5).toFixed(1) + '）'}
+      ]);
+      $('hb-sub').textContent = n + '-Hi + 基底晶粒';
+      // stack drawing + 24 sampled stacks
+      const W = 420, H = 300, lh = Math.min(14, 200 / (n + 1));
+      let s = '<rect x="20" y="' + (H - 40) + '" width="160" height="16" rx="2" class="c6" style="stroke-width:1"/><text x="100" y="' + (H - 28) + '" text-anchor="middle" class="ts">基底晶粒</text>';
+      for(let i = 0; i < n; i++){
+        const y = H - 44 - (i + 1) * (lh + 2);
+        s += '<rect x="30" y="' + y.toFixed(1) + '" width="140" height="' + lh.toFixed(1) + '" rx="2" class="c1" style="stroke-width:1"/>';
+        if(lh >= 11) s += '<text x="100" y="' + (y + lh - 3).toFixed(1) + '" text-anchor="middle" class="ts">' + 'DRAM ' + (i + 1) + '</text>';
+      }
+      s += '<path d="M60 ' + (H - 40) + 'V' + (H - 44 - n * (lh + 2)) + 'M140 ' + (H - 40) + 'V' + (H - 44 - n * (lh + 2)) + '" style="stroke:var(--ink);stroke-width:1.5;stroke-dasharray:2 2"/>';
+      s += '<text x="100" y="' + (H - 6) + '" text-anchor="middle" class="ts t-mut">虛線：TSV</text>';
+      const R = rng(seed + n * 7 + Math.round(C.ys * 1000)); let goodN = 0;
+      s += '<text x="300" y="20" text-anchor="middle" class="ts">抽樣 24 個堆疊</text>';
+      for(let i = 0; i < 24; i++){
+        const ok = R() < C.ys; if(ok) goodN++;
+        const x = 210 + (i % 6) * 34, y = 34 + Math.floor(i / 6) * 58;
+        for(let j = 0; j < Math.min(n, 16); j++) s += '<rect x="' + x + '" y="' + (y + 44 - j * 2.8).toFixed(1) + '" width="26" height="2.2" style="fill:' + (ok ? 'var(--ok)' : 'var(--bad)') + ';opacity:.8"/>';
+        s += '<rect x="' + (x - 2) + '" y="' + (y + 47) + '" width="30" height="4" style="fill:var(--muted)"/>';
+      }
+      s += '<text x="300" y="' + (H - 6) + '" text-anchor="middle" class="ts t-mut">' + goodN + ' / 24 良品</text>';
+      const el = $('hb-stack'); el.setAttribute('viewBox', '0 0 ' + W + ' ' + H); el.innerHTML = s;
+      const c1 = [], c2 = [], c3 = [];
+      for(let k = 1; k <= 16; k++){
+        c1.push([k, calc(k, Object.assign({}, o, {kgd:false})).ys * 100]);
+        c2.push([k, calc(k, Object.assign({}, o, {rep:false})).ys * 100]);
+        c3.push([k, calc(k, Object.assign({}, o, {rep:true})).ys * 100]);
+      }
+      plot($('hb-plot'), {W:420, H:300, m:{l:52, r:12, t:12, b:44}, x:[1, 16], y:[0, 100], xticks:[1, 4, 8, 12, 16], xlabel:'堆疊層數', ylabel:'堆疊良率 (%)',
+        series:[{pts:c1, color:'var(--muted)', w:1.8}, {pts:c2, color:'var(--s2)', w:2}, {pts:c3, color:'var(--s1)', w:2.6}],
+        vlines:[{x:n, color:'var(--ink)', dash:false, w:1.2, label:n + '-Hi'}]});
+    }
+    render();
+  };
+
+  /* =====================================================================
+     Cost per Gb: dies per wafer, yield, back-end cost, next-node comparison
+     ===================================================================== */
+  INIT.cost = function(){
+    const PRE = {dram:{wafer:7000, area:38, gb:16, y:85, be:0.6}, hbm:{wafer:8000, area:110, gb:24, y:70, be:2}, nand:{wafer:5000, area:70, gb:1024, y:90, be:0.8}};
+    const wafer = range('co-wafer', v => '$' + v.toLocaleString(), render);
+    const area = range('co-area', v => v + ' mm²', render);
+    const gb = range('co-gb', v => v >= 1024 ? v / 1024 + ' Tb' : v + ' Gb', render);
+    const yl = range('co-y', v => v + '%', render);
+    const be = range('co-be', v => '$' + v.toFixed(2), render);
+    const shr = range('co-shr', v => v + '%', render);
+    const wup = range('co-wup', v => '+' + v + '%', render);
+    const ydrop = range('co-ydrop', v => '−' + v + ' 點', render);
+    toggle('co-pre', v => { const p = PRE[v]; wafer.set(p.wafer); area.set(p.area); gb.set(p.gb); yl.set(p.y); be.set(p.be); render(); });
+    const dpw = A => Math.max(0, Math.floor(Math.PI * 150 * 150 / A - Math.PI * 300 / Math.sqrt(2 * A)));
+    const cpg = (W, A, G, Y, B) => (W / (dpw(A) * Y) + B) / G;
+    function render(){
+      const W = wafer.get(), A = area.get(), G = gb.get(), Y = yl.get() / 100, B = be.get();
+      const W2 = W * (1 + wup.get() / 100), A2 = A * shr.get() / 100, Y2 = Math.max(0.05, Y - ydrop.get() / 100);
+      const n = dpw(A), good = n * Y, c = cpg(W, A, G, Y, B), c2 = cpg(W2, A2, G, Y2, B), c2m = cpg(W2, A2, G, Y, B);
+      const ch = (c2 / c - 1) * 100;
+      metrics($('co-metrics'), [
+        {l:'每片晶圓晶粒數', v:n.toLocaleString(), s:'良品 ' + Math.round(good).toLocaleString() + ' 顆'},
+        {l:'每片晶圓良品位元', v:(good * G / 8 / 1024).toFixed(1), u:'TB'},
+        {l:'每顆良品成本', v:'$' + (c * G).toFixed(2), s:'前段 $' + (W / good).toFixed(2) + ' + 後段 $' + B.toFixed(2)},
+        {l:'每 Gb 成本', v:'$' + (c < 0.01 ? c.toFixed(4) : c.toFixed(3)), s:'每 GB $' + (c * 8).toFixed(2)},
+        {l:'下一代（初期良率）', v:(ch >= 0 ? '+' : '') + ch.toFixed(1), u:'%', cls: ch < 0 ? 'ok' : 'bad', s:'良率爬回原水準後 ' + ((c2m / c - 1) * 100).toFixed(1) + '%'}
+      ]);
+      const a1 = [], a2 = [];
+      for(let y = 30; y <= 99; y += 1){ a1.push([y, cpg(W, A, G, y / 100, B)]); a2.push([y, cpg(W2, A2, G, y / 100, B)]); }
+      const ymax = Math.max(a1[0][1], a2[0][1]) * 1.05;
+      plot($('co-plot'), {W:640, H:300, x:[30, 99], y:[0, ymax], xlabel:'良率 (%)', ylabel:'每 Gb 成本 ($)', yfmt: v => '$' + (+v.toPrecision(3)),
+        series:[{pts:a1, color:'var(--accent)', w:2.6}, {pts:a2, color:'var(--s2)', w:2.2}],
+        vlines:[{x:Y * 100, color:'var(--accent)', label:'目前'}, {x:Y2 * 100, color:'var(--s2)', label:'下一代初期', dy:16, anchor:'end'}]});
+    }
+    render();
+  };
+})();

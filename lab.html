@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>記憶體互動實驗室 · Memory Notes</title>
+<meta name="description" content="互動模擬：DRAM 電荷分享與感測、SRAM 蝴蝶曲線、NAND Vt 分佈、DRAM 保存與 refresh、Row hammer 緩解、March 測試、晶圓良率、HBM 堆疊良率、每 Gb 成本。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="lab">
+<main class="app-wrap">
+<div class="app-head">
+  <div class="eyebrow">Memory Lab · 互動實驗室</div>
+  <h1>動手調參數，看記憶體怎麼運作、怎麼失效</h1>
+  <p>每個分頁都是簡化的物理 / 行為模型，用來建立直覺，不是 SPICE。調整左邊的參數，右邊的圖會即時更新。</p>
+</div>
+
+<div class="seg" role="tablist" aria-label="實驗">
+  <button role="tab" data-tab="dram" aria-selected="true">DRAM 讀取</button>
+  <button role="tab" data-tab="sram" aria-selected="false">SRAM 蝴蝶曲線</button>
+  <button role="tab" data-tab="nand" aria-selected="false">NAND V<sub>t</sub> 分佈</button>
+  <button role="tab" data-tab="retention" aria-selected="false">保存與 Refresh</button>
+  <button role="tab" data-tab="rowhammer" aria-selected="false">Row Hammer</button>
+  <button role="tab" data-tab="march" aria-selected="false">March 測試</button>
+  <button role="tab" data-tab="wafer" aria-selected="false">晶圓良率</button>
+  <button role="tab" data-tab="hbm" aria-selected="false">HBM 堆疊良率</button>
+  <button role="tab" data-tab="cost" aria-selected="false">每 Gb 成本</button>
+</div>
+
+<!-- ============ DRAM ============ -->
+<section class="tabp" id="tab-dram" role="tabpanel">
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>1T1C</small></h3>
+    <div class="ctl"><label>儲存資料</label>
+      <div class="btnrow" id="dr-bit"><button class="btn" data-v="1" aria-pressed="true">存「1」</button><button class="btn" data-v="0" aria-pressed="false">存「0」</button></div></div>
+    <div class="ctl"><label for="dr-vdd">陣列電壓 V<sub>DD</sub> <output id="dr-vdd-o"></output></label><input id="dr-vdd" type="range" min="0.9" max="1.3" step="0.05" value="1.1"></div>
+    <div class="ctl"><label for="dr-cs">單元電容 C<sub>s</sub> <output id="dr-cs-o"></output></label><input id="dr-cs" type="range" min="2" max="30" step="1" value="10"></div>
+    <div class="ctl"><label for="dr-cbl">位元線電容 C<sub>BL</sub> <output id="dr-cbl-o"></output></label><input id="dr-cbl" type="range" min="10" max="150" step="5" value="50"></div>
+    <div class="ctl"><label for="dr-off">SA 偏移（最差方向） <output id="dr-off-o"></output></label><input id="dr-off" type="range" min="0" max="60" step="1" value="15"></div>
+    <div class="ctl"><label for="dr-cell">單元類型</label><select id="dr-cell"><option value="5">典型單元（85 °C 保存 ≈ 5 s）</option><option value="0.15" selected>尾端弱單元（85 °C 保存 ≈ 0.15 s）</option></select></div>
+    <div class="ctl"><label for="dr-temp">溫度 <output id="dr-temp-o"></output></label><input id="dr-temp" type="range" min="25" max="125" step="5" value="85"></div>
+    <div class="ctl"><label for="dr-tw">距上次寫入 / 更新 <output id="dr-tw-o"></output></label><input id="dr-tw" type="range" min="0" max="100" step="1" value="45"></div>
+    <div class="btnrow"><button class="btn pri" id="dr-play" type="button">▶ 播放一次讀取</button></div>
+    <p class="note">保存時間以「每升高 10 °C 減半」近似；儲存「0」的單元假設不漏電。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="dr-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>陣列狀態 <small id="dr-phase">—</small></h3><svg class="viz" id="dr-sch" role="img" aria-label="單元、位元線與感測放大器狀態"></svg></div>
+      <div class="panel"><h3>讀取波形 <small>0–40 ns</small></h3><svg class="viz" id="dr-wave" role="img" aria-label="讀取波形"></svg>
+        <div class="legend"><span><i style="background:var(--s1)"></i>BL</span><span><i style="background:var(--s2)"></i>BLB（參考）</span><span><i style="background:var(--s3)"></i>單元 SN</span><span><i style="background:var(--muted)"></i>WL（示意）</span></div></div>
+    </div>
+    <div class="panel"><h3>感測訊號 vs 等待時間 <small>存「1」時的 ΔV</small></h3><svg class="viz" id="dr-ret" role="img" aria-label="ΔV 隨時間衰減"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>目前溫度</span><span><i style="background:var(--muted)"></i>45 °C</span><span><i style="background:var(--bad)"></i>SA 偏移門檻</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>讀取一個位元的五個步驟</h3><ol>
+    <li><b>預充</b>：BL 與 BLB 等化到 V<sub>DD</sub>/2。</li>
+    <li><b>字元線開啟</b>：電容與 BL 分享電荷，ΔV = (V<sub>cell</sub> − V<sub>DD</sub>/2)·C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)。</li>
+    <li><b>SA 放大</b>：若 |ΔV| 大於 SA 偏移，就放大到正確方向；否則可能放大到錯誤方向。</li>
+    <li><b>回寫</b>：WL 仍開著，放大後的值寫回電容。讀錯時，錯的值也會被寫回去，資料就永久錯了。</li>
+    <li><b>預充</b>：關 WL，位元線回到 V<sub>DD</sub>/2。</li></ol></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>把 C<sub>BL</sub> 拉大、C<sub>s</sub> 縮小：訊號變小，這就是為什麼位元線要切短、電容要做高。</li>
+    <li>選「尾端弱單元」，把溫度從 85 °C 升到 95 °C：64 ms 內就讀錯了，這就是高溫要加倍 refresh 的原因。</li>
+    <li>V<sub>DD</sub> 降低：ΔV 等比例縮小，低電壓 DRAM 更依賴低偏移的 SA。</li>
+    <li>延伸閱讀：<a href="device.html#charge-sharing">電荷分享</a>、<a href="design.html#sense-amp">感測放大器</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ SRAM ============ -->
+<section class="tabp" id="tab-sram" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>6T 單元</small></h3>
+    <div class="ctl"><label>操作模式</label>
+      <div class="btnrow" id="sr-mode"><button class="btn" data-v="hold" aria-pressed="false">保持 Hold</button><button class="btn" data-v="read" aria-pressed="true">讀取 Read</button></div></div>
+    <div class="ctl"><label for="sr-vdd">V<sub>DD</sub> <output id="sr-vdd-o"></output></label><input id="sr-vdd" type="range" min="0.4" max="1.2" step="0.02" value="0.8"></div>
+    <div class="ctl"><label for="sr-beta">Cell ratio β = PD/PG <output id="sr-beta-o"></output></label><input id="sr-beta" type="range" min="0.6" max="3" step="0.1" value="1.6"></div>
+    <div class="ctl"><label for="sr-gam">Pull-up 強度 PU/PG <output id="sr-gam-o"></output></label><input id="sr-gam" type="range" min="0.2" max="1.5" step="0.05" value="0.5"></div>
+    <div class="ctl"><label for="sr-vt">臨界電壓 V<sub>t</sub> <output id="sr-vt-o"></output></label><input id="sr-vt" type="range" min="0.2" max="0.45" step="0.01" value="0.32"></div>
+    <div class="ctl"><label for="sr-dvt">PD1 的 V<sub>t</sub> 失配 ΔV<sub>t</sub> <output id="sr-dvt-o"></output></label><input id="sr-dvt" type="range" min="-0.12" max="0.12" step="0.005" value="0"></div>
+    <p class="note">簡化的平方律 + 次臨界平滑模型；強度比以 W/L 與遷移率合併表示。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="sr-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>蝴蝶曲線 <small>V(Q) vs V(QB)</small></h3><svg class="viz" id="sr-bfly" role="img" aria-label="SRAM 蝴蝶曲線"></svg>
+        <div class="legend"><span><i style="background:var(--s1)"></i>INV2：QB = f(Q)</span><span><i style="background:var(--s2)"></i>INV1（含失配）：Q = f(QB)</span><span><i style="background:var(--accent)"></i>最大內接正方形</span></div></div>
+      <div class="panel"><h3>SNM vs V<sub>DD</sub></h3><svg class="viz" id="sr-sweep" role="img" aria-label="SNM 對電壓"></svg>
+        <div class="legend"><span><i style="background:var(--s3)"></i>Hold SNM</span><span><i style="background:var(--s4)"></i>Read SNM</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>怎麼看蝴蝶曲線</h3><ul>
+    <li>兩條曲線是兩個反相器的電壓轉移特性，一條把 Q 當輸入、一條把 QB 當輸入（鏡像畫）。</li>
+    <li>交點在左上和右下是兩個穩定態（存 0 / 存 1），中間交點是不穩定的亞穩態。</li>
+    <li>每個「眼睛」裡能放的最大正方形邊長就是該狀態的雜訊邊限，SNM 取兩者較小值。</li>
+    <li>讀取時 PG 打開，把存 0 的節點往上拉，曲線的低電位端被抬高，眼睛變小。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>Read 模式下把 β 從 1.6 降到 0.8：眼睛快閉上，讀取時可能把資料翻掉。</li>
+    <li>把 ΔV<sub>t</sub> 調到 ±80 mV：兩個眼睛一大一小，SNM 由小的那個決定，這就是失配限制 V<sub>min</sub> 的方式。</li>
+    <li>看右邊的 SNM vs V<sub>DD</sub>：Read SNM 掉到 0 的電壓，大約就是這顆單元的讀取 V<sub>min</sub>。</li>
+    <li>延伸閱讀：<a href="device.html#snm">SNM</a>、<a href="design.html#sram-assist">讀寫輔助電路</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ NAND ============ -->
+<section class="tabp" id="tab-nand" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>電荷捕捉單元</small></h3>
+    <div class="ctl"><label>每單元位元數</label>
+      <div class="btnrow" id="nd-bits"><button class="btn" data-v="1" aria-pressed="false">SLC</button><button class="btn" data-v="2" aria-pressed="false">MLC</button><button class="btn" data-v="3" aria-pressed="true">TLC</button><button class="btn" data-v="4" aria-pressed="false">QLC</button></div></div>
+    <div class="ctl"><label for="nd-step">ISPP 步進 ΔV<sub>PGM</sub> <output id="nd-step-o"></output></label><input id="nd-step" type="range" min="0.06" max="0.6" step="0.01" value="0.2"></div>
+    <div class="ctl"><label for="nd-pe">P/E 次數 <output id="nd-pe-o"></output></label><input id="nd-pe" type="range" min="0" max="10" step="1" value="0"></div>
+    <div class="ctl"><label for="nd-ret">保存時間 <output id="nd-ret-o"></output></label><input id="nd-ret" type="range" min="0" max="8" step="1" value="0"></div>
+    <div class="ctl"><label for="nd-temp">保存溫度 <output id="nd-temp-o"></output></label><input id="nd-temp" type="range" min="25" max="85" step="5" value="30"></div>
+    <div class="ctl"><label>讀取參考電壓</label>
+      <div class="btnrow" id="nd-rr"><button class="btn" data-v="0" aria-pressed="true">固定（出廠值）</button><button class="btn" data-v="1" aria-pressed="false">Read retry（追蹤谷底）</button></div></div>
+    <div class="ctl"><label>Y 軸</label>
+      <div class="btnrow" id="nd-log"><button class="btn" data-v="0" aria-pressed="false">線性</button><button class="btn" data-v="1" aria-pressed="true">對數（看尾端）</button></div></div>
+    <p class="note">保存以 E<sub>a</sub> = 1.1 eV 換算成 25 °C 等效時間；高 V<sub>t</sub> 狀態漏失較多，循環越多漏失越快。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="nd-metrics"></div>
+    <div class="panel"><h3>V<sub>t</sub> 分佈 <small id="nd-sub"></small></h3><svg class="viz" id="nd-plot" role="img" aria-label="NAND Vt 分佈"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>目前使用的讀取參考電壓</span><span><i style="background:var(--muted)"></i>出廠參考電壓</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>模型在做什麼</h3><ul>
+    <li>每個狀態是一個高斯分佈。寬度來自 ISPP 步進（量化誤差 ≈ 步進/√12）、單元雜訊，以及 P/E 循環造成的陷阱。</li>
+    <li>保存讓狀態往中性電壓漂移，V<sub>t</sub> 越高漂得越多，所以上面的狀態會互相擠壓、也會整體左移。</li>
+    <li>RBER 由分佈落到錯誤區間的機率算出；用格雷碼，越過一條參考電壓只錯 1 位元。</li>
+    <li>LDPC 硬判決大約能處理 10<sup>−3</sup> 量級的 RBER，再高就需要軟判決或重讀。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>TLC → QLC：狀態數加倍，空隙減半，同樣條件下 RBER 高很多。</li>
+    <li>把 P/E 拉到 3000、保存 1 年：固定參考電壓下錯誤爆增；切到 Read retry，大部分可救回來。這就是控制器做讀取電壓校準的原因。</li>
+    <li>ISPP 步進加大：寫得快（估計 t<sub>PROG</sub> 下降），但分佈變寬，錯誤率上升。</li>
+    <li>延伸閱讀：<a href="device.html#mlc">多階儲存</a>、<a href="reliability.html#flash-retention">Flash 保存</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ RETENTION ============ -->
+<section class="tabp" id="tab-retention" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>DRAM 晶片</small></h3>
+    <div class="ctl"><label for="rt-temp">溫度 <output id="rt-temp-o"></output></label><input id="rt-temp" type="range" min="25" max="125" step="5" value="85"></div>
+    <div class="ctl"><label for="rt-win">Refresh 視窗 tREFW <output id="rt-win-o"></output></label><input id="rt-win" type="range" min="0" max="100" step="0.1" value="29.2"></div>
+    <div class="ctl"><label for="rt-den">容量 / tRFC</label><select id="rt-den">
+      <option value="8,350">8 Gb · tRFC 350 ns</option><option value="16,295" selected>16 Gb · tRFC 295 ns</option><option value="24,410">24 Gb · tRFC 410 ns</option><option value="32,410">32 Gb · tRFC 410 ns</option></select></div>
+    <div class="ctl"><label for="rt-tail">弱單元尾端比例 <output id="rt-tail-o"></output></label><input id="rt-tail" type="range" min="-7" max="-3" step="0.25" value="-5"></div>
+    <div class="btnrow"><button class="btn" id="rt-std" type="button">套用 JEDEC 規則（≤85 °C 64 ms，以上 32 ms）</button></div>
+    <p class="note">保存時間分佈為兩個對數常態的混合：主體（85 °C 中位數 ≈ 6 s）與弱單元尾端（中位數 ≈ 0.5 s）。保存時間以每 10 °C 減半換算。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="rt-metrics"></div>
+    <div class="panel"><h3>失效位元比例 vs Refresh 視窗</h3><svg class="viz" id="rt-plot" role="img" aria-label="失效比例與刷新視窗"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>目前溫度</span><span><i style="background:var(--s3)"></i>45 °C</span><span><i style="background:var(--s2)"></i>85 °C</span><span><i style="background:var(--s4)"></i>105 °C</span></div></div>
+    <div class="panel"><h3>Refresh 開銷 vs 視窗 <small>tRFC × 8192 ÷ tREFW</small></h3><svg class="viz" id="rt-ovh" role="img" aria-label="刷新開銷"></svg></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>取捨</h3><ul>
+    <li>Refresh 視窗越短，越少單元在被更新前漏光；但 refresh 佔用的時間與功耗越多。</li>
+    <li>每升高 10 °C，曲線往左移一倍時間；要維持同樣的失效比例，視窗就要減半。</li>
+    <li>容量越大 tRFC 越長，同樣視窗下的開銷越高，這推動了 DDR5 的 same-bank refresh。</li>
+    <li>測試時找到的弱單元會用備用列 / 行修掉，所以真正的目標是：在最差溫度下，修補後沒有剩下會失效的單元。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>溫度 85 → 95 °C、視窗不變：失效位元約增加一個數量級。按「套用 JEDEC 規則」看視窗減半後恢復。</li>
+    <li>把弱單元尾端比例調高：代表製程變差，需要更多修補資源或更短的視窗。</li>
+    <li>延伸閱讀：<a href="design.html#refresh">Refresh 機制</a>、<a href="reliability.html#dram-retention">DRAM 保存</a>。</li></ul></div>
+</div>
+</section>
+
+
+<!-- ============ ROW HAMMER ============ -->
+<section class="tabp" id="tab-rowhammer" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>單一 bank</small></h3>
+    <div class="ctl"><label for="rh-hc">翻轉門檻 HC<sub>first</sub> <output id="rh-hc-o"></output></label><input id="rh-hc" type="range" min="0" max="100" step="0.5" value="51"></div>
+    <div class="ctl"><label for="rh-k">攻擊列數（n-sided）</label><select id="rh-k"><option value="1">1：單邊</option><option value="2" selected>2：雙邊</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="20">20（多邊，類 TRRespass）</option></select></div>
+    <div class="ctl"><label for="rh-duty">攻擊佔用的 ACT 頻寬 <output id="rh-duty-o"></output></label><input id="rh-duty" type="range" min="1" max="100" step="1" value="100"></div>
+    <div class="ctl"><label for="rh-win">Refresh 視窗</label><select id="rh-win"><option value="32" selected>32 ms（DDR5）</option><option value="64">64 ms（DDR4）</option></select></div>
+    <div class="ctl"><label for="rh-mit">緩解機制</label><select id="rh-mit"><option value="none">無</option><option value="trr" selected>TRR（晶片內追蹤表）</option><option value="rfm">RFM（控制器依 bank 啟動數發指令）</option><option value="prac">PRAC（每列計數器）</option></select></div>
+    <div class="ctl" data-mit="trr"><label for="rh-trrn">TRR 追蹤表大小 <output id="rh-trrn-o"></output></label><input id="rh-trrn" type="range" min="1" max="16" step="1" value="4"></div>
+    <div class="ctl" data-mit="rfm"><label for="rh-raa">RFM 門檻 RAAIMT <output id="rh-raa-o"></output></label><input id="rh-raa" type="range" min="16" max="256" step="8" value="64"></div>
+    <div class="ctl" data-mit="prac"><label for="rh-prac">PRAC 警示門檻 <output id="rh-prac-o"></output></label><input id="rh-prac" type="range" min="7" max="13" step="0.25" value="10"></div>
+    <p class="note">每個 refresh 視窗內，一個 bank 最多能被 ACT 約 tREFW ÷ tRC 次（tRC ≈ 48 ns）。單元翻轉門檻以對數常態分佈近似，HC<sub>first</sub> 是該列最弱單元的門檻。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="rh-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>列的狀態 <small>一個 refresh 視窗後</small></h3><svg class="viz" id="rh-rows" role="img" aria-label="攻擊列與受害列"></svg></div>
+      <div class="panel"><h3>受害列預期翻轉位元 vs HC<sub>first</sub></h3><svg class="viz" id="rh-plot" role="img" aria-label="翻轉數與門檻"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>無緩解</span><span><i style="background:var(--s1)"></i>TRR</span><span><i style="background:var(--s2)"></i>RFM</span><span><i style="background:var(--s3)"></i>PRAC</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>模型在做什麼</h3><ul>
+    <li>攻擊者在一個 refresh 視窗內輪流啟動 n 條攻擊列，每條分到總 ACT 數的 1/n。</li>
+    <li>受害列累積兩側攻擊列的啟動次數（夾在兩條攻擊列中間時加倍），超過單元門檻就翻轉。</li>
+    <li><b>TRR</b>：只能追蹤少數列；攻擊列數超過追蹤表大小時，追蹤表被洗掉，保護失效。</li>
+    <li><b>RFM</b>：每累積 RAAIMT 次 ACT，控制器給 DRAM 時間更新被追蹤列的鄰居。</li>
+    <li><b>PRAC</b>：每一列都有計數器，到門檻就要求緩解，保護最完整，但要付出時序代價。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>選 TRR、追蹤表 4，把攻擊列從 2 改成 8 或 20：多邊攻擊繞過 TRR，這就是 TRRespass 的原理。</li>
+    <li>把 HC<sub>first</sub> 從 50K 降到 2K：代表越微縮越脆弱，連 RFM 也需要更低的門檻。</li>
+    <li>比較各機制的效能開銷：保護越強，付出的頻寬越多。</li>
+    <li>延伸閱讀：<a href="reliability.html#rowhammer">Row Hammer</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ MARCH ============ -->
+<section class="tabp" id="tab-march" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>測試設定 <small>8 × 8 = 64 位元</small></h3>
+    <div class="ctl"><label for="mt-alg">測試演算法</label><select id="mt-alg"></select></div>
+    <div class="note" id="mt-notation" style="font-family:var(--mono);margin:-6px 0 12px"></div>
+    <div class="ctl"><label for="mt-ftype">注入故障（選類型後點右邊的格子）</label><select id="mt-ftype">
+      <option value="SA0">SA0：固定為 0</option><option value="SA1">SA1：固定為 1</option>
+      <option value="TFu">TF↑：無法 0→1</option><option value="TFd">TF↓：無法 1→0</option>
+      <option value="CFin">CFin⟨↑;↕⟩：攻擊者 0→1 時受害者反轉</option>
+      <option value="CFid">CFid⟨↓;1⟩：攻擊者 1→0 時受害者變 1</option>
+      <option value="CFst">CFst⟨1;0⟩：攻擊者為 1 時受害者被拉成 0</option>
+      <option value="AF">AF：位址 a 實際存取到 b</option></select></div>
+    <div class="note" id="mt-hint" style="margin:-6px 0 12px"></div>
+    <div class="btnrow"><button class="btn" id="mt-rand" type="button">隨機注入 3 個</button><button class="btn" id="mt-clear" type="button">清除故障</button></div>
+    <div class="ctl"><label for="mt-speed">執行速度 <output id="mt-speed-o"></output></label><input id="mt-speed" type="range" min="1" max="10" step="1" value="6"></div>
+    <div class="btnrow"><button class="btn pri" id="mt-run" type="button">▶ 執行</button><button class="btn" id="mt-step" type="button">單步</button><button class="btn" id="mt-reset" type="button">重設</button></div>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="mt-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>記憶體陣列 <small id="mt-pos">—</small></h3><div class="grid-cells" id="mt-grid" style="grid-template-columns:repeat(8,1fr)"></div>
+        <div class="legend"><span><i style="background:var(--warn)"></i>注入的故障</span><span><i style="background:var(--bad)"></i>讀取不符（偵測到）</span><span><i style="background:var(--ink)"></i>目前位址</span></div></div>
+      <div class="panel"><h3>故障清單與結果</h3><div id="mt-faults" class="log" style="max-height:140px"></div><h3 style="margin-top:12px">讀取不符紀錄</h3><div id="mt-log" class="log"></div></div>
+    </div>
+    <div class="panel"><h3>覆蓋率實驗 <small>每種故障隨機放 200 次</small></h3><div class="tblwrap" style="margin:0"><table id="mt-cov"></table></div>
+      <p class="note" style="margin-top:8px">在同一個記憶體模型上，讓每個演算法對每種單一故障跑 200 個隨機位置（耦合與位址故障的攻擊者 / 受害者也隨機），統計偵測到的比例。</p></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>符號</h3><ul>
+    <li><b>⇑ / ⇓ / ⇕</b>：位址遞增 / 遞減 / 任意順序走過所有單元。</li>
+    <li><b>w0 / w1</b>：寫入 0 / 1；<b>r0 / r1</b>：讀取並預期 0 / 1。</li>
+    <li>一個括號是一個 March 元素：對每個位址依序做完括號內所有操作，再換下一個位址。</li>
+    <li>Checkerboard 的 0 / 1 代表「棋盤圖形 / 反棋盤圖形」。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>注入 CFid，比較 MATS+ 和 March C−：MATS+ 常常漏掉耦合故障。</li>
+    <li>注入 AF：MATS+ 就能抓到，因為每個元素都「先讀再寫」。</li>
+    <li>看覆蓋率表：March C− 對所有這些單一故障都是 100%，代價是 10N；Checkerboard 雖然便宜，對 TF 與耦合故障的覆蓋很差。</li>
+    <li>延伸閱讀：<a href="test.html#fault-models">故障模型</a>、<a href="test.html#march">March 演算法</a>。</li></ul></div>
+</div>
+</section>
+
+
+<!-- ============ WAFER YIELD ============ -->
+<section class="tabp" id="tab-wafer" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>300 mm 晶圓</small></h3>
+    <div class="ctl"><label for="wf-area">晶粒面積 <output id="wf-area-o"></output></label><input id="wf-area" type="range" min="10" max="200" step="1" value="40"></div>
+    <div class="ctl"><label for="wf-d0">缺陷密度 D₀ <output id="wf-d0-o"></output></label><input id="wf-d0" type="range" min="0.02" max="2" step="0.01" value="0.5"></div>
+    <div class="ctl"><label for="wf-alpha">群聚參數 α</label><select id="wf-alpha"><option value="0.5">0.5（強群聚）</option><option value="1">1</option><option value="2" selected>2</option><option value="5">5</option><option value="0">∞（完全隨機 · Poisson）</option></select></div>
+    <div class="ctl"><label for="wf-arr">可修補的陣列面積比例 <output id="wf-arr-o"></output></label><input id="wf-arr" type="range" min="0" max="90" step="1" value="60"></div>
+    <div class="ctl"><label for="wf-cap">每顆晶粒可修補缺陷數 <output id="wf-cap-o"></output></label><input id="wf-cap" type="range" min="0" max="30" step="1" value="6"></div>
+    <div class="ctl"><label>晶圓邊緣缺陷較多</label><div class="btnrow" id="wf-edge"><button class="btn" data-v="1" aria-pressed="true">是</button><button class="btn" data-v="0" aria-pressed="false">否</button></div></div>
+    <div class="btnrow"><button class="btn pri" id="wf-roll" type="button">↻ 重新抽一片晶圓</button></div>
+    <p class="note">每顆晶粒的缺陷數以 gamma–Poisson（負二項）抽樣。落在陣列的缺陷可用備用列 / 行修補，落在周邊電路的缺陷直接致命。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="wf-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>晶圓圖 <small id="wf-sub"></small></h3><svg class="viz" id="wf-map" role="img" aria-label="晶圓圖"></svg>
+        <div class="legend"><span><i style="background:var(--ok)"></i>良品</span><span><i style="background:var(--s1)"></i>修補後良品</span><span><i style="background:var(--bad)"></i>不良</span></div></div>
+      <div class="panel"><h3>良率模型 vs 晶粒面積</h3><svg class="viz" id="wf-plot" role="img" aria-label="良率與晶粒面積"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>Poisson e<sup>−AD</sup></span><span><i style="background:var(--s2)"></i>負二項（群聚）</span><span><i style="background:var(--s1)"></i>負二項 + 修補</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>重點</h3><ul>
+    <li>同樣的平均缺陷密度，缺陷越群聚（α 越小），良率反而越高：缺陷集中在少數晶粒，其他晶粒乾淨。</li>
+    <li>晶粒越大，良率掉得越快；這是大晶粒（HBM 核心晶粒、大容量 DRAM）成本高的原因之一。</li>
+    <li>記憶體的冗餘修補把大部分陣列缺陷「救回來」，所以真正致命的是周邊電路缺陷與超出修補能力的群聚缺陷。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>把可修補缺陷數設為 0，再調回 6：看修補前後良率差多少。</li>
+    <li>α 改成 ∞（Poisson）：同樣 D₀ 下良率比群聚時低，這就是 Poisson 模型通常偏悲觀的原因。</li>
+    <li>延伸閱讀：<a href="process.html#yield">良率與製程控制</a>、<a href="test.html#bitmap">失效位元圖</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ HBM STACK YIELD ============ -->
+<section class="tabp" id="tab-hbm" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>HBM 堆疊</small></h3>
+    <div class="ctl"><label for="hb-y">核心晶粒良率（測試前） <output id="hb-y-o"></output></label><input id="hb-y" type="range" min="50" max="99.5" step="0.5" value="85"></div>
+    <div class="ctl"><label for="hb-esc">KGD 測試漏網率 <output id="hb-esc-o"></output></label><input id="hb-esc" type="range" min="0" max="30" step="0.5" value="3"></div>
+    <div class="ctl"><label for="hb-n">堆疊層數</label><select id="hb-n"><option>4</option><option>8</option><option selected>12</option><option>16</option></select></div>
+    <div class="ctl"><label for="hb-bond">每層接合 / TSV 良率 <output id="hb-bond-o"></output></label><input id="hb-bond" type="range" min="97" max="99.99" step="0.01" value="99.5"></div>
+    <div class="ctl"><label>TSV 備援修補</label><div class="btnrow" id="hb-rep"><button class="btn" data-v="1" aria-pressed="true">有</button><button class="btn" data-v="0" aria-pressed="false">無</button></div></div>
+    <div class="ctl"><label for="hb-base">基底晶粒良率 <output id="hb-base-o"></output></label><input id="hb-base" type="range" min="90" max="100" step="0.5" value="98"></div>
+    <p class="note">漏網率 = 壞晶粒通過 KGD 測試的比例。成本以「核心晶粒 = 1」計，基底晶粒 1.5，堆疊組裝 2。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="hb-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>堆疊示意 <small id="hb-sub"></small></h3><svg class="viz" id="hb-stack" role="img" aria-label="HBM 堆疊"></svg></div>
+      <div class="panel"><h3>堆疊良率 vs 層數</h3><svg class="viz" id="hb-plot" role="img" aria-label="堆疊良率"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>不做 KGD 測試</span><span><i style="background:var(--s2)"></i>KGD 測試</span><span><i style="background:var(--s1)"></i>KGD + TSV 修補</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>為什麼 KGD 這麼重要</h3><ul>
+    <li>堆疊良率約是每一層良率的 n 次方：0.95<sup>12</sup> ≈ 54%，0.99<sup>12</sup> ≈ 89%。</li>
+    <li>一個堆疊壞掉，上面所有好的晶粒一起報廢，所以每多一層，對單顆晶粒品質的要求就更嚴。</li>
+    <li>測試前良率影響的是晶粒用量；決定堆疊良率的是「通過測試的晶粒真的是好的」機率，這由測試覆蓋率決定。</li>
+    <li>TSV 備援可以修補少量接合失效，讓每層接合良率明顯提升。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>把漏網率從 3% 拉到 15%，再把層數從 12 換成 16：看良率怎麼崩。</li>
+    <li>關掉 TSV 修補：接合良率 99.5% 時，12 層的影響有多大？</li>
+    <li>延伸閱讀：<a href="test.html#hbm-stack">HBM 堆疊與 TSV</a>、<a href="test.html#repair">修補流程與 KGD</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ COST PER GB ============ -->
+<section class="tabp" id="tab-cost" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>示意用的假設值</small></h3>
+    <div class="ctl"><label>範例</label><div class="btnrow" id="co-pre"><button class="btn" data-v="dram" aria-pressed="true">DRAM 16Gb</button><button class="btn" data-v="hbm" aria-pressed="false">HBM 核心晶粒 24Gb</button><button class="btn" data-v="nand" aria-pressed="false">TLC NAND 1Tb</button></div></div>
+    <div class="ctl"><label for="co-wafer">晶圓加工成本 <output id="co-wafer-o"></output></label><input id="co-wafer" type="range" min="2000" max="25000" step="100" value="7000"></div>
+    <div class="ctl"><label for="co-area">晶粒面積 <output id="co-area-o"></output></label><input id="co-area" type="range" min="10" max="200" step="0.5" value="38"></div>
+    <div class="ctl"><label for="co-gb">晶粒容量 <output id="co-gb-o"></output></label><input id="co-gb" type="range" min="4" max="2048" step="4" value="16"></div>
+    <div class="ctl"><label for="co-y">良率 <output id="co-y-o"></output></label><input id="co-y" type="range" min="30" max="99" step="1" value="85"></div>
+    <div class="ctl"><label for="co-be">後段成本（測試 + 封裝）每顆 <output id="co-be-o"></output></label><input id="co-be" type="range" min="0" max="10" step="0.05" value="0.6"></div>
+    <div class="eyebrow" style="margin:18px 0 10px;color:var(--muted)">下一代製程</div>
+    <div class="ctl"><label for="co-shr">晶粒面積縮為 <output id="co-shr-o"></output></label><input id="co-shr" type="range" min="50" max="100" step="1" value="80"></div>
+    <div class="ctl"><label for="co-wup">晶圓成本增加 <output id="co-wup-o"></output></label><input id="co-wup" type="range" min="0" max="50" step="1" value="12"></div>
+    <div class="ctl"><label for="co-ydrop">初期良率下降 <output id="co-ydrop-o"></output></label><input id="co-ydrop" type="range" min="0" max="40" step="1" value="10"></div>
+    <p class="note">所有成本數字都是為了示範比例關係的假設值，不代表任何公司的實際成本。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="co-metrics"></div>
+    <div class="panel"><h3>每 Gb 成本 vs 良率</h3><svg class="viz" id="co-plot" role="img" aria-label="成本與良率"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>目前製程</span><span><i style="background:var(--s2)"></i>下一代製程</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>公式</h3><ul>
+    <li>每片晶圓晶粒數 DPW ≈ π r² / A − π d / √(2A)。</li>
+    <li>每顆良品成本 = 晶圓成本 ÷ (DPW × 良率) + 後段成本。</li>
+    <li>每 Gb 成本 = 每顆良品成本 ÷ 晶粒容量。</li>
+    <li>記憶體產業的核心競爭就是每一代把每 Gb 成本降下來（bit cost reduction）：靠微縮增加每片晶圓的位元數，同時讓良率盡快爬升。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>下一代面積縮到 80%、晶圓成本 +12%：如果良率掉 10 個百分點，還有沒有成本優勢？這就是新節點「良率爬坡」的壓力。</li>
+    <li>切到 HBM 核心晶粒：晶粒大（TSV 佔面積）、容量相近，每 Gb 成本明顯比一般 DRAM 高；再加上堆疊良率（見 HBM 分頁）就更高。</li>
+    <li>延伸閱讀：<a href="process.html#yield">良率</a>、<a href="application.html#hbm-system">HBM 系統整合</a>。</li></ul></div>
+</div>
+</section>
+
+<p class="foot">模型為教學用簡化版本，數值為量級示意。內容問題或建議歡迎回饋。</p>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/plot.js"></script>
+<script src="assets/lab.js"></script>
+<script src="assets/lab-fab.js"></script>
+</body>
+</html>
