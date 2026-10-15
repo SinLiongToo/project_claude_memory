@@ -1,5 +1,6 @@
 /* Memory Lab — reliability / fab tabs: row hammer mitigation, wafer yield with repair, HBM stack yield, cost per Gb. */
 (function(){
+  const t = (window.MemSite && window.MemSite.t) || (zh => zh);
   const {plot, Phi, fmtSci} = window.MemPlot;
   const {INIT, metrics, toggle, range, $, clamp} = window.MemLab;
   const fmtK = v => v >= 1e6 ? +(v / 1e6).toPrecision(3) + 'M' : v >= 1e3 ? +(v / 1e3).toPrecision(3) + 'K' : String(Math.round(v));
@@ -19,7 +20,7 @@
     const hcOf = v => Math.pow(10, 2 + 3.3 * v / 100);
     const hc = range('rh-hc', v => fmtK(hcOf(v)), render);
     const duty = range('rh-duty', v => v + '%', render);
-    const trrn = range('rh-trrn', v => v + ' 列', render);
+    const trrn = range('rh-trrn', v => v + t(' 列', ' rows'), render);
     const raa = range('rh-raa', v => v + ' ACT', render);
     const prac = range('rh-prac', v => fmtK(Math.pow(2, v)), render);
     ['rh-k', 'rh-win', 'rh-mit'].forEach(id => $(id).addEventListener('change', render));
@@ -29,12 +30,12 @@
       const maxAct = p.win * 1e6 / 48, total = maxAct * p.duty, a = total / p.k, sides = p.k >= 2 ? 2 : 1;
       let d = sides * a, ovh = 0, note = '';
       if(mit === 'trr'){
-        if(p.k <= p.trrn){ d = sides * total / 8192; note = '攻擊列都在追蹤表內：每次 REF 都更新受害列'; }
-        else note = '攻擊列數 > 追蹤表：追蹤被洗掉，TRR 失效';
+        if(p.k <= p.trrn){ d = sides * total / 8192; note = t('攻擊列都在追蹤表內：每次 REF 都更新受害列', 'All aggressors fit in the table: victims refreshed at every REF'); }
+        else note = t('攻擊列數 > 追蹤表：追蹤被洗掉，TRR 失效', 'More aggressors than table entries: tracking thrashes, TRR fails');
       } else if(mit === 'rfm'){
-        d = sides * Math.min(a, p.raa); ovh = total / p.raa * 200 / (p.win * 1e6); note = '每 ' + p.raa + ' 次 ACT 一次 RFM';
+        d = sides * Math.min(a, p.raa); ovh = total / p.raa * 200 / (p.win * 1e6); note = t('每 ', 'One RFM every ') + p.raa + t(' 次 ACT 一次 RFM', ' ACTs');
       } else if(mit === 'prac'){
-        d = sides * Math.min(a, p.prac); ovh = 0.06 + total / p.prac * 350 / (p.win * 1e6); note = '計數器達 ' + fmtK(p.prac) + ' 即緩解';
+        d = sides * Math.min(a, p.prac); ovh = 0.06 + total / p.prac * 350 / (p.win * 1e6); note = t('計數器達 ', 'Mitigate when a counter reaches ') + fmtK(p.prac) + t(' 即緩解', '');
       }
       return {a, d, f: flips(d, p.hc), ovh: Math.min(ovh, 1), note, sides};
     }
@@ -45,10 +46,10 @@
       const M = model(p, mit);
       const safe = M.f < 1;
       metrics($('rh-metrics'), [
-        {l:'每條攻擊列 ACT 數', v:fmtK(M.a), s:'視窗 ' + p.win + ' ms · ' + p.k + ' 條攻擊列'},
-        {l:'受害列有效擾動', v:fmtK(M.d), s: M.sides === 2 ? '兩側攻擊列合計' : '單側'},
-        {l:'受害列預期翻轉位元', v: M.f < 0.01 ? '≈ 0' : M.f < 10 ? M.f.toFixed(2) : fmtK(M.f), cls: safe ? 'ok' : 'bad', s: safe ? '低於 1 個位元' : '會發生位元翻轉'},
-        {l:'緩解開銷（攻擊時）', v: mit === 'none' || mit === 'trr' ? '—' : (M.ovh * 100).toFixed(1), u: mit === 'none' || mit === 'trr' ? '' : '%', s:M.note || '無緩解'}
+        {l:t('每條攻擊列 ACT 數', 'ACTs per aggressor row'), v:fmtK(M.a), s:t('視窗 ', 'Window ') + p.win + ' ms · ' + p.k + t(' 條攻擊列', ' aggressor rows')},
+        {l:t('受害列有效擾動', 'Effective victim disturbance'), v:fmtK(M.d), s: M.sides === 2 ? t('兩側攻擊列合計', 'Both neighbours combined') : t('單側', 'One side')},
+        {l:t('受害列預期翻轉位元', 'Expected flips per victim row'), v: M.f < 0.01 ? '≈ 0' : M.f < 10 ? M.f.toFixed(2) : fmtK(M.f), cls: safe ? 'ok' : 'bad', s: safe ? t('低於 1 個位元', 'Below 1 bit') : t('會發生位元翻轉', 'Bit flips will occur')},
+        {l:t('緩解開銷（攻擊時）', 'Mitigation overhead (under attack)'), v: mit === 'none' || mit === 'trr' ? '—' : (M.ovh * 100).toFixed(1), u: mit === 'none' || mit === 'trr' ? '' : '%', s:M.note || t('無緩解', 'No mitigation')}
       ]);
       // rows picture
       const N = 11, H = 22, W = 420, rows = [];
@@ -64,17 +65,17 @@
         const fill = r.isA ? 'color-mix(in srgb,var(--bad) 35%,var(--surface))' : r.f >= 1 ? 'color-mix(in srgb,var(--warn) ' + Math.round(clamp(20 + Math.log10(r.f) * 15, 20, 80)) + '%,var(--surface))' : 'var(--surface)';
         s += '<rect x="70" y="' + y + '" width="' + (W - 80) + '" height="' + H + '" rx="3" style="fill:' + fill + ';stroke:' + (r.isA ? 'var(--bad)' : 'var(--line)') + '"/>' +
           '<text x="62" y="' + (y + 15) + '" text-anchor="end" class="ts t-mono t-mut">Row ' + (i - 5 >= 0 ? '+' : '') + (i - 5) + '</text>' +
-          '<text x="80" y="' + (y + 15) + '" class="ts">' + (r.isA ? '攻擊列 · ACT ' + fmtK(M.a) : r.d > 0 ? '擾動 ' + fmtK(r.d) + ' · 翻轉 ' + (r.f < 0.01 ? '≈0' : r.f < 10 ? r.f.toFixed(1) : fmtK(r.f)) : '未受影響') + '</text>';
+          '<text x="80" y="' + (y + 15) + '" class="ts">' + (r.isA ? t('攻擊列 · ACT ', 'Aggressor · ACT ') + fmtK(M.a) : r.d > 0 ? t('擾動 ', 'Disturb ') + fmtK(r.d) + t(' · 翻轉 ', ' · flips ') + (r.f < 0.01 ? '≈0' : r.f < 10 ? r.f.toFixed(1) : fmtK(r.f)) : t('未受影響', 'Unaffected')) + '</text>';
       });
-      if(p.k > 5) s += '<text x="' + (W / 2) + '" y="' + (10 + N * (H + 4) + 12) + '" text-anchor="middle" class="ts t-mut">另有 ' + (p.k - 5) + ' 條攻擊列在其他位置</text>';
+      if(p.k > 5) s += '<text x="' + (W / 2) + '" y="' + (10 + N * (H + 4) + 12) + t('" text-anchor="middle" class="ts t-mut">另有 ', '" text-anchor="middle" class="ts t-mut">') + (p.k - 5) + t(' 條攻擊列在其他位置</text>', ' more aggressor rows elsewhere</text>');
       const svg = $('rh-rows'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (N * (H + 4) + 34)); svg.innerHTML = s;
       // curves
       const mk = m => { const a = []; for(let x = 2; x <= 5.31; x += 0.03){ const P = Object.assign({}, p, {hc:Math.pow(10, x)}); a.push([Math.pow(10, x), Math.max(1e-3, model(P, m).f)]); } return a; };
-      plot($('rh-plot'), {W:420, H:300, m:{l:56, r:12, t:12, b:44}, x:[100, 2e5], logx:true, y:[1e-3, 65536], logy:true, xlabel:'HC_first（最弱單元的翻轉門檻 ACT 數）', ylabel:'翻轉位元 / 受害列',
+      plot($('rh-plot'), {W:420, H:300, m:{l:56, r:12, t:12, b:44}, x:[100, 2e5], logx:true, y:[1e-3, 65536], logy:true, xlabel:t('HC_first（最弱單元的翻轉門檻 ACT 數）', 'HC_first (ACTs to flip the weakest cell)'), ylabel:t('翻轉位元 / 受害列', 'Flips per victim row'),
         xfmt:fmtK, yticks:[1e-3, 1e-1, 10, 1e3, 1e5].filter(v => v <= 65536).concat([65536]).slice(0, 5),
         series:[{pts:mk('none'), color:'var(--muted)', w:1.8}, {pts:mk('trr'), color:'var(--s1)', w: mit === 'trr' ? 3 : 1.6}, {pts:mk('rfm'), color:'var(--s2)', w: mit === 'rfm' ? 3 : 1.6}, {pts:mk('prac'), color:'var(--s3)', w: mit === 'prac' ? 3 : 1.6}],
-        hlines:[{y:1, color:'var(--bad)', label:'1 個位元'}],
-        vlines:[{x:p.hc, color:'var(--ink)', dash:false, w:1.2, label:'目前'}]});
+        hlines:[{y:1, color:'var(--bad)', label:t('1 個位元', '1 bit')}],
+        vlines:[{x:p.hc, color:'var(--ink)', dash:false, w:1.2, label:t('目前', 'now')}]});
     }
     render();
   };
@@ -107,7 +108,7 @@
     const area = range('wf-area', v => v + ' mm²', render);
     const d0 = range('wf-d0', v => v.toFixed(2) + ' /cm²', render);
     const arr = range('wf-arr', v => v + '%', render);
-    const cap = range('wf-cap', v => v + ' 個', render);
+    const cap = range('wf-cap', v => v + t(' 個', ''), render);
     $('wf-alpha').addEventListener('change', render);
     toggle('wf-edge', v => { edge = v === '1'; render(); });
     $('wf-roll').addEventListener('click', () => { seed = Math.floor(Math.random() * 1e9); render(); });
@@ -129,10 +130,10 @@
       const g = dies.filter(d => d.st === 'good').length, rp = dies.filter(d => d.st === 'rep').length, n = dies.length;
       const yp = Math.exp(-mu), ynb = al === 0 ? yp : Math.pow(1 + mu / al, -al), yr = yieldRepair(mu, al, f, C);
       metrics($('wf-metrics'), [
-        {l:'每片晶粒數', v:n, s:'晶粒 ' + s.toFixed(2) + ' mm 見方 · 邊緣除外 3 mm'},
-        {l:'本片良率（含修補）', v:((g + rp) / n * 100).toFixed(1), u:'%', cls: (g + rp) / n > 0.85 ? 'ok' : (g + rp) / n > 0.6 ? 'warn' : 'bad', s:'良品 ' + g + ' + 修補 ' + rp + ' 顆'},
-        {l:'修補前良率', v:(g / n * 100).toFixed(1), u:'%', s:'修補救回 ' + (rp / n * 100).toFixed(1) + ' 個百分點'},
-        {l:'模型預測', v:(yr * 100).toFixed(1), u:'%', s:'Poisson ' + (yp * 100).toFixed(1) + '% · 負二項 ' + (ynb * 100).toFixed(1) + '%（皆未修補）'}
+        {l:t('每片晶粒數', 'Dies per wafer'), v:n, s:t('晶粒 ', 'Die ') + s.toFixed(2) + t(' mm 見方 · 邊緣除外 3 mm', ' mm square · 3 mm edge exclusion')},
+        {l:t('本片良率（含修補）', 'This wafer\'s yield (with repair)'), v:((g + rp) / n * 100).toFixed(1), u:'%', cls: (g + rp) / n > 0.85 ? 'ok' : (g + rp) / n > 0.6 ? 'warn' : 'bad', s:t('良品 ', 'Good ') + g + t(' + 修補 ', ' + repaired ') + rp + t(' 顆', ' dies')},
+        {l:t('修補前良率', 'Yield before repair'), v:(g / n * 100).toFixed(1), u:'%', s:t('修補救回 ', 'Repair recovers ') + (rp / n * 100).toFixed(1) + t(' 個百分點', ' points')},
+        {l:t('模型預測', 'Model prediction'), v:(yr * 100).toFixed(1), u:'%', s:'Poisson ' + (yp * 100).toFixed(1) + t('% · 負二項 ', '% · neg. binomial ') + (ynb * 100).toFixed(1) + t('%（皆未修補）', '% (both without repair)')}
       ]);
       $('wf-sub').textContent = 'A·D₀ = ' + mu.toFixed(2);
       const W = 400, k = (W - 20) / (2 * Rw), cx = W / 2, cy = W / 2;
@@ -143,9 +144,9 @@
       const el = $('wf-map'); el.setAttribute('viewBox', '0 0 ' + W + ' ' + W); el.innerHTML = svg;
       const P = [], NB = [], RP = [];
       for(let a = 5; a <= 200; a += 2.5){ const m = a / 100 * D; P.push([a, Math.exp(-m) * 100]); NB.push([a, (al === 0 ? Math.exp(-m) : Math.pow(1 + m / al, -al)) * 100]); RP.push([a, yieldRepair(m, al, f, C) * 100]); }
-      plot($('wf-plot'), {W:420, H:400, m:{l:52, r:12, t:12, b:44}, x:[5, 200], y:[0, 100], xlabel:'晶粒面積 (mm²)', ylabel:'良率 (%)',
+      plot($('wf-plot'), {W:420, H:400, m:{l:52, r:12, t:12, b:44}, x:[5, 200], y:[0, 100], xlabel:t('晶粒面積 (mm²)', 'Die area (mm²)'), ylabel:t('良率 (%)', 'Yield (%)'),
         series:[{pts:P, color:'var(--muted)', w:1.8}, {pts:NB, color:'var(--s2)', w:2}, {pts:RP, color:'var(--s1)', w:2.6}],
-        vlines:[{x:A, color:'var(--ink)', dash:false, w:1.2, label:'目前'}]});
+        vlines:[{x:A, color:'var(--ink)', dash:false, w:1.2, label:t('目前', 'now')}]});
     }
     render();
   };
@@ -174,31 +175,31 @@
       const cost = (n + 1.5 + 2) / C.ys;
       const diesPerGood = n / C.ys / C.pass;
       metrics($('hb-metrics'), [
-        {l:'堆疊良率', v:(C.ys * 100).toFixed(1), u:'%', cls: C.ys > 0.85 ? 'ok' : C.ys > 0.6 ? 'warn' : 'bad', s:'不做 KGD 測試：' + (noK.ys * 100).toFixed(1) + '%'},
-        {l:'通過測試的晶粒真的是好的', v:(C.q * 100).toFixed(2), u:'%', s:'測試通過率 ' + (C.pass * 100).toFixed(1) + '%'},
-        {l:'每層接合良率（有效）', v:(C.b * 100).toFixed(3), u:'%', s: rep ? 'TSV 備援修補後' : '無修補'},
-        {l:'每個良品堆疊消耗晶圓晶粒', v:diesPerGood.toFixed(1), u:'顆', s:'成本指數 ' + cost.toFixed(1) + '（理想值 ' + (n + 3.5).toFixed(1) + '）'}
+        {l:t('堆疊良率', 'Stack yield'), v:(C.ys * 100).toFixed(1), u:'%', cls: C.ys > 0.85 ? 'ok' : C.ys > 0.6 ? 'warn' : 'bad', s:t('不做 KGD 測試：', 'Without KGD test: ') + (noK.ys * 100).toFixed(1) + '%'},
+        {l:t('通過測試的晶粒真的是好的', 'Passed dies that are truly good'), v:(C.q * 100).toFixed(2), u:'%', s:t('測試通過率 ', 'Test pass rate ') + (C.pass * 100).toFixed(1) + '%'},
+        {l:t('每層接合良率（有效）', 'Per-layer bond yield (effective)'), v:(C.b * 100).toFixed(3), u:'%', s: rep ? t('TSV 備援修補後', 'After TSV redundancy repair') : t('無修補', 'No repair')},
+        {l:t('每個良品堆疊消耗晶圓晶粒', 'Wafer dies consumed per good stack'), v:diesPerGood.toFixed(1), u:t('顆', 'dies'), s:t('成本指數 ', 'Cost index ') + cost.toFixed(1) + t('（理想值 ', ' (ideal ') + (n + 3.5).toFixed(1) + t('）', ')')}
       ]);
-      $('hb-sub').textContent = n + '-Hi + 基底晶粒';
+      $('hb-sub').textContent = n + t('-Hi + 基底晶粒', '-Hi + base die');
       // stack drawing + 24 sampled stacks
       const W = 420, H = 300, lh = Math.min(14, 200 / (n + 1));
-      let s = '<rect x="20" y="' + (H - 40) + '" width="160" height="16" rx="2" class="c6" style="stroke-width:1"/><text x="100" y="' + (H - 28) + '" text-anchor="middle" class="ts">基底晶粒</text>';
+      let s = '<rect x="20" y="' + (H - 40) + '" width="160" height="16" rx="2" class="c6" style="stroke-width:1"/><text x="100" y="' + (H - 28) + t('" text-anchor="middle" class="ts">基底晶粒</text>', '" text-anchor="middle" class="ts">Base die</text>');
       for(let i = 0; i < n; i++){
         const y = H - 44 - (i + 1) * (lh + 2);
         s += '<rect x="30" y="' + y.toFixed(1) + '" width="140" height="' + lh.toFixed(1) + '" rx="2" class="c1" style="stroke-width:1"/>';
         if(lh >= 11) s += '<text x="100" y="' + (y + lh - 3).toFixed(1) + '" text-anchor="middle" class="ts">' + 'DRAM ' + (i + 1) + '</text>';
       }
       s += '<path d="M60 ' + (H - 40) + 'V' + (H - 44 - n * (lh + 2)) + 'M140 ' + (H - 40) + 'V' + (H - 44 - n * (lh + 2)) + '" style="stroke:var(--ink);stroke-width:1.5;stroke-dasharray:2 2"/>';
-      s += '<text x="100" y="' + (H - 6) + '" text-anchor="middle" class="ts t-mut">虛線：TSV</text>';
+      s += '<text x="100" y="' + (H - 6) + t('" text-anchor="middle" class="ts t-mut">虛線：TSV</text>', '" text-anchor="middle" class="ts t-mut">Dashed: TSVs</text>');
       const R = rng(seed + n * 7 + Math.round(C.ys * 1000)); let goodN = 0;
-      s += '<text x="300" y="20" text-anchor="middle" class="ts">抽樣 24 個堆疊</text>';
+      s += t('<text x="300" y="20" text-anchor="middle" class="ts">抽樣 24 個堆疊</text>', '<text x="300" y="20" text-anchor="middle" class="ts">24 sampled stacks</text>');
       for(let i = 0; i < 24; i++){
         const ok = R() < C.ys; if(ok) goodN++;
         const x = 210 + (i % 6) * 34, y = 34 + Math.floor(i / 6) * 58;
         for(let j = 0; j < Math.min(n, 16); j++) s += '<rect x="' + x + '" y="' + (y + 44 - j * 2.8).toFixed(1) + '" width="26" height="2.2" style="fill:' + (ok ? 'var(--ok)' : 'var(--bad)') + ';opacity:.8"/>';
         s += '<rect x="' + (x - 2) + '" y="' + (y + 47) + '" width="30" height="4" style="fill:var(--muted)"/>';
       }
-      s += '<text x="300" y="' + (H - 6) + '" text-anchor="middle" class="ts t-mut">' + goodN + ' / 24 良品</text>';
+      s += '<text x="300" y="' + (H - 6) + '" text-anchor="middle" class="ts t-mut">' + goodN + t(' / 24 良品</text>', ' / 24 good</text>');
       const el = $('hb-stack'); el.setAttribute('viewBox', '0 0 ' + W + ' ' + H); el.innerHTML = s;
       const c1 = [], c2 = [], c3 = [];
       for(let k = 1; k <= 16; k++){
@@ -206,7 +207,7 @@
         c2.push([k, calc(k, Object.assign({}, o, {rep:false})).ys * 100]);
         c3.push([k, calc(k, Object.assign({}, o, {rep:true})).ys * 100]);
       }
-      plot($('hb-plot'), {W:420, H:300, m:{l:52, r:12, t:12, b:44}, x:[1, 16], y:[0, 100], xticks:[1, 4, 8, 12, 16], xlabel:'堆疊層數', ylabel:'堆疊良率 (%)',
+      plot($('hb-plot'), {W:420, H:300, m:{l:52, r:12, t:12, b:44}, x:[1, 16], y:[0, 100], xticks:[1, 4, 8, 12, 16], xlabel:t('堆疊層數', 'Stack height'), ylabel:t('堆疊良率 (%)', 'Stack yield (%)'),
         series:[{pts:c1, color:'var(--muted)', w:1.8}, {pts:c2, color:'var(--s2)', w:2}, {pts:c3, color:'var(--s1)', w:2.6}],
         vlines:[{x:n, color:'var(--ink)', dash:false, w:1.2, label:n + '-Hi'}]});
     }
@@ -225,7 +226,7 @@
     const be = range('co-be', v => '$' + v.toFixed(2), render);
     const shr = range('co-shr', v => v + '%', render);
     const wup = range('co-wup', v => '+' + v + '%', render);
-    const ydrop = range('co-ydrop', v => '−' + v + ' 點', render);
+    const ydrop = range('co-ydrop', v => '−' + v + t(' 點', ' pts'), render);
     toggle('co-pre', v => { const p = PRE[v]; wafer.set(p.wafer); area.set(p.area); gb.set(p.gb); yl.set(p.y); be.set(p.be); render(); });
     const dpw = A => Math.max(0, Math.floor(Math.PI * 150 * 150 / A - Math.PI * 300 / Math.sqrt(2 * A)));
     const cpg = (W, A, G, Y, B) => (W / (dpw(A) * Y) + B) / G;
@@ -235,18 +236,18 @@
       const n = dpw(A), good = n * Y, c = cpg(W, A, G, Y, B), c2 = cpg(W2, A2, G, Y2, B), c2m = cpg(W2, A2, G, Y, B);
       const ch = (c2 / c - 1) * 100;
       metrics($('co-metrics'), [
-        {l:'每片晶圓晶粒數', v:n.toLocaleString(), s:'良品 ' + Math.round(good).toLocaleString() + ' 顆'},
-        {l:'每片晶圓良品位元', v:(good * G / 8 / 1024).toFixed(1), u:'TB'},
-        {l:'每顆良品成本', v:'$' + (c * G).toFixed(2), s:'前段 $' + (W / good).toFixed(2) + ' + 後段 $' + B.toFixed(2)},
-        {l:'每 Gb 成本', v:'$' + (c < 0.01 ? c.toFixed(4) : c.toFixed(3)), s:'每 GB $' + (c * 8).toFixed(2)},
-        {l:'下一代（初期良率）', v:(ch >= 0 ? '+' : '') + ch.toFixed(1), u:'%', cls: ch < 0 ? 'ok' : 'bad', s:'良率爬回原水準後 ' + ((c2m / c - 1) * 100).toFixed(1) + '%'}
+        {l:t('每片晶圓晶粒數', 'Dies per wafer'), v:n.toLocaleString(), s:t('良品 ', 'Good ') + Math.round(good).toLocaleString() + t(' 顆', ' dies')},
+        {l:t('每片晶圓良品位元', 'Good bits per wafer'), v:(good * G / 8 / 1024).toFixed(1), u:'TB'},
+        {l:t('每顆良品成本', 'Cost per good die'), v:'$' + (c * G).toFixed(2), s:t('前段 $', 'Front end $') + (W / good).toFixed(2) + t(' + 後段 $', ' + back end $') + B.toFixed(2)},
+        {l:t('每 Gb 成本', 'Cost per Gb'), v:'$' + (c < 0.01 ? c.toFixed(4) : c.toFixed(3)), s:t('每 GB $', 'Per GB $') + (c * 8).toFixed(2)},
+        {l:t('下一代（初期良率）', 'Next node (early yield)'), v:(ch >= 0 ? '+' : '') + ch.toFixed(1), u:'%', cls: ch < 0 ? 'ok' : 'bad', s:t('良率爬回原水準後 ', 'After yield recovers ') + ((c2m / c - 1) * 100).toFixed(1) + '%'}
       ]);
       const a1 = [], a2 = [];
       for(let y = 30; y <= 99; y += 1){ a1.push([y, cpg(W, A, G, y / 100, B)]); a2.push([y, cpg(W2, A2, G, y / 100, B)]); }
       const ymax = Math.max(a1[0][1], a2[0][1]) * 1.05;
-      plot($('co-plot'), {W:640, H:300, x:[30, 99], y:[0, ymax], xlabel:'良率 (%)', ylabel:'每 Gb 成本 ($)', yfmt: v => '$' + (+v.toPrecision(3)),
+      plot($('co-plot'), {W:640, H:300, x:[30, 99], y:[0, ymax], xlabel:t('良率 (%)', 'Yield (%)'), ylabel:t('每 Gb 成本 ($)', 'Cost per Gb ($)'), yfmt: v => '$' + (+v.toPrecision(3)),
         series:[{pts:a1, color:'var(--accent)', w:2.6}, {pts:a2, color:'var(--s2)', w:2.2}],
-        vlines:[{x:Y * 100, color:'var(--accent)', label:'目前'}, {x:Y2 * 100, color:'var(--s2)', label:'下一代初期', dy:16, anchor:'end'}]});
+        vlines:[{x:Y * 100, color:'var(--accent)', label:t('目前', 'now')}, {x:Y2 * 100, color:'var(--s2)', label:t('下一代初期', 'next node, early'), dy:16, anchor:'end'}]});
     }
     render();
   };

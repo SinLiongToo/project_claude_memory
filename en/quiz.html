@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Quiz · Memory Notes</title>
+<meta name="description" content="Memory quiz: 49 questions on devices, design, applications, process, test and reliability, each with an explanation and a link back to the section.">
+<link rel="alternate" hreflang="zh-Hant" href="../quiz.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+.quiz{max-width:760px;margin:0 auto;padding:28px 16px 80px}
+.qbar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;margin:6px 0 18px}
+.qbar i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.qmeta{font-size:13px;color:var(--muted)}
+.qq{font:600 20px/1.5 var(--sans);margin:10px 0 16px}
+.qopts{display:grid;gap:8px}
+.qopt{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font:15px/1.55 var(--sans);cursor:pointer}
+.qopt:hover:not(:disabled){border-color:var(--accent)}
+.qopt b{flex:none;width:24px;height:24px;border-radius:50%;background:var(--sunk);display:flex;align-items:center;justify-content:center;font:600 12px var(--mono)}
+.qopt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--surface))}
+.qopt.right b{background:var(--ok);color:var(--surface)}
+.qopt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+.qopt.wrong b{background:var(--bad);color:var(--surface)}
+.qopt:disabled{cursor:default}
+.qfb{margin-top:16px;padding:14px 16px;border-radius:9px;background:var(--sunk)}
+.qfb p{margin:0 0 8px;color:var(--muted)}
+.okc b{color:var(--ok)} .badc b{color:var(--bad)}
+.rev{border-top:1px solid var(--line);padding:10px 0}
+.rev p{margin:0 0 4px}
+</style>
+</head>
+<body data-page="quiz">
+<main class="quiz">
+  <div class="eyebrow">Quiz</div>
+  <h1>Test yourself</h1>
+  <p class="lead">Choose chapters and a length, then start. After each answer you get an explanation and a link to review the section. Answer with the keyboard using A–D or 1–4.</p>
+
+  <div class="panel" id="qz-setup" style="margin-top:20px">
+    <h3>Chapters <small id="qz-count"></small></h3>
+    <div class="btnrow" id="qz-chips"></div>
+    <div class="ctl" style="max-width:240px"><label for="qz-n">Questions</label><select id="qz-n"><option value="10" selected>10</option><option value="20">20</option><option value="all">All</option></select></div>
+    <button class="btn pri" id="qz-start" type="button">Start</button>
+    <p class="note" id="qz-best" style="margin-top:10px"></p>
+  </div>
+
+  <div class="panel" id="qz-card" hidden style="margin-top:20px">
+    <div class="qmeta" id="qz-meta"></div>
+    <div class="qbar"><i id="qz-prog"></i></div>
+    <div class="qq" id="qz-q"></div>
+    <div class="qopts" id="qz-opts"></div>
+    <div class="qfb" id="qz-fb" hidden></div>
+  </div>
+
+  <div class="panel" id="qz-end" hidden style="margin-top:20px">
+    <h3>Results</h3>
+    <div id="qz-score"></div>
+    <div id="qz-review" style="margin-top:16px"></div>
+    <div class="btnrow" style="margin-top:14px"><button class="btn pri" id="qz-again" type="button">Again with the same settings</button><button class="btn" id="qz-back" type="button">Change chapters</button></div>
+  </div>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Spec Designer · Memory Notes</title>
+<meta name="description" content="Enter a DRAM, NAND or SRAM spec and get array organization, address bits, die area, sense margin, refresh overhead, bandwidth and SSD / system configuration, plus a spec summary and a Verilog model.">
+<link rel="alternate" hreflang="zh-Hant" href="../designer.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="designer">
+<main class="app-wrap">
+<div class="app-head">
+  <div class="eyebrow">Memory Spec Designer</div>
+  <h1>From a spec to arrays, area, bandwidth and margin</h1>
+  <p>Pick an example or enter your own parameters. The designer works out array organization and address bits, estimates die area, checks sense margin and refresh overhead, computes system bandwidth and generates a spec summary you can copy. Every estimate is a first-order model for orders of magnitude and learning.</p>
+</div>
+
+<div class="seg" role="tablist" aria-label="Memory type">
+  <button role="tab" data-type="dram" aria-selected="true">DRAM</button>
+  <button role="tab" data-type="nand" aria-selected="false">3D NAND / SSD</button>
+  <button role="tab" data-type="sram" aria-selected="false">SRAM macro</button>
+</div>
+
+<div class="bench">
+  <div class="panel">
+    <div class="ctl"><label for="preset">Example</label><select id="preset"></select></div>
+    <div id="fields"></div>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="ds-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Address map <small id="ds-addr-sub"></small></h3><svg class="viz" id="ds-addr" role="img" aria-label="Address bit allocation"></svg>
+        <h3 style="margin-top:14px">Array organization</h3><div class="tblwrap" style="margin:0"><table id="ds-org"></table></div></div>
+      <div class="panel"><h3>Floorplan estimate <small id="ds-fp-sub"></small></h3><svg class="viz" id="ds-fp" role="img" aria-label="Estimated die or macro floorplan"></svg></div>
+    </div>
+    <div class="two">
+      <div class="panel"><h3 id="ds-trade-h">Trade-off</h3><svg class="viz" id="ds-trade" role="img" aria-label="Trade-off curve"></svg><div class="legend" id="ds-trade-leg"></div></div>
+      <div class="panel"><h3>Design checks</h3><div id="ds-checks" class="log" style="max-height:none;font-family:var(--sans);font-size:13.5px"></div>
+        <h3 style="margin-top:14px">System</h3><div class="tblwrap" style="margin:0"><table id="ds-sys"></table></div></div>
+    </div>
+    <div class="panel"><h3>Generated output <small><button class="btn" id="ds-copy" type="button" style="padding:3px 10px">Copy</button></small></h3>
+      <div class="btnrow" id="ds-outsel"></div><pre class="code" id="ds-out"></pre></div>
+  </div>
+</div>
+<p class="foot">Model assumptions are noted beside each field and in the generated output. Read more: <a href="design.html#array-org">array organization</a>, <a href="application.html#bandwidth">bandwidth math</a>, <a href="application.html#ssd">SSD architecture</a>, <a href="design.html#sram-assist">SRAM macros</a>.</p>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+<script src="../assets/plot.js"></script>
+<script src="../assets/designer.js"></script>
+</body>
+</html>

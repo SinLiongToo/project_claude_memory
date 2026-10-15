@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Lab · Memory Notes</title>
+<meta name="description" content="Interactive simulations: DRAM charge sharing and sensing, the SRAM butterfly curve, NAND Vt distributions, DRAM retention and refresh, row hammer mitigation, March tests, wafer yield, HBM stack yield and cost per Gb.">
+<link rel="alternate" hreflang="zh-Hant" href="../lab.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="lab">
+<main class="app-wrap">
+<div class="app-head">
+  <div class="eyebrow">Memory Lab</div>
+  <h1>Change the parameters and watch memory work — and fail</h1>
+  <p>Each tab is a simplified physical / behavioural model meant to build intuition, not SPICE. Adjust the controls on the left and the plots update live.</p>
+</div>
+
+<div class="seg" role="tablist" aria-label="Experiments">
+  <button role="tab" data-tab="dram" aria-selected="true">DRAM read</button>
+  <button role="tab" data-tab="sram" aria-selected="false">SRAM butterfly</button>
+  <button role="tab" data-tab="nand" aria-selected="false">NAND V<sub>t</sub></button>
+  <button role="tab" data-tab="retention" aria-selected="false">Retention &amp; refresh</button>
+  <button role="tab" data-tab="rowhammer" aria-selected="false">Row hammer</button>
+  <button role="tab" data-tab="march" aria-selected="false">March test</button>
+  <button role="tab" data-tab="wafer" aria-selected="false">Wafer yield</button>
+  <button role="tab" data-tab="hbm" aria-selected="false">HBM stack yield</button>
+  <button role="tab" data-tab="cost" aria-selected="false">Cost per Gb</button>
+</div>
+
+<!-- ============ DRAM ============ -->
+<section class="tabp" id="tab-dram" role="tabpanel">
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>1T1C</small></h3>
+    <div class="ctl"><label>Stored data</label>
+      <div class="btnrow" id="dr-bit"><button class="btn" data-v="1" aria-pressed="true">Store “1”</button><button class="btn" data-v="0" aria-pressed="false">Store “0”</button></div></div>
+    <div class="ctl"><label for="dr-vdd">Array voltage V<sub>DD</sub> <output id="dr-vdd-o"></output></label><input id="dr-vdd" type="range" min="0.9" max="1.3" step="0.05" value="1.1"></div>
+    <div class="ctl"><label for="dr-cs">Cell capacitance C<sub>s</sub> <output id="dr-cs-o"></output></label><input id="dr-cs" type="range" min="2" max="30" step="1" value="10"></div>
+    <div class="ctl"><label for="dr-cbl">Bit-line capacitance C<sub>BL</sub> <output id="dr-cbl-o"></output></label><input id="dr-cbl" type="range" min="10" max="150" step="5" value="50"></div>
+    <div class="ctl"><label for="dr-off">SA offset (worst direction) <output id="dr-off-o"></output></label><input id="dr-off" type="range" min="0" max="60" step="1" value="15"></div>
+    <div class="ctl"><label for="dr-cell">Cell type</label><select id="dr-cell"><option value="5">Typical cell (≈ 5 s retention at 85 °C)</option><option value="0.15" selected>Weak tail cell (≈ 0.15 s at 85 °C)</option></select></div>
+    <div class="ctl"><label for="dr-temp">Temperature <output id="dr-temp-o"></output></label><input id="dr-temp" type="range" min="25" max="125" step="5" value="85"></div>
+    <div class="ctl"><label for="dr-tw">Since last write / refresh <output id="dr-tw-o"></output></label><input id="dr-tw" type="range" min="0" max="100" step="1" value="45"></div>
+    <div class="btnrow"><button class="btn pri" id="dr-play" type="button">▶ Play one read</button></div>
+    <p class="note">Retention is approximated as “halves every 10 °C”; cells storing 0 are assumed not to leak.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="dr-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Array state <small id="dr-phase">—</small></h3><svg class="viz" id="dr-sch" role="img" aria-label="Cell, bit line and sense amp state"></svg></div>
+      <div class="panel"><h3>Read waveforms <small>0–40 ns</small></h3><svg class="viz" id="dr-wave" role="img" aria-label="Read waveforms"></svg>
+        <div class="legend"><span><i style="background:var(--s1)"></i>BL</span><span><i style="background:var(--s2)"></i>BLB (reference)</span><span><i style="background:var(--s3)"></i>Cell SN</span><span><i style="background:var(--muted)"></i>WL (schematic)</span></div></div>
+    </div>
+    <div class="panel"><h3>Sense signal vs wait time <small>ΔV for a stored “1”</small></h3><svg class="viz" id="dr-ret" role="img" aria-label="ΔV decay over time"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Current temperature</span><span><i style="background:var(--muted)"></i>45 °C</span><span><i style="background:var(--bad)"></i>SA offset limit</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Reading one bit in five steps</h3><ol>
+    <li><b>Precharge</b>: equalize BL and BLB to V<sub>DD</sub>/2.</li>
+    <li><b>Word line on</b>: the capacitor shares charge with BL, ΔV = (V<sub>cell</sub> − V<sub>DD</sub>/2)·C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>).</li>
+    <li><b>SA amplify</b>: if |ΔV| exceeds the SA offset, it amplifies in the right direction; otherwise it may go the wrong way.</li>
+    <li><b>Restore</b>: with WL still on, the amplified value is written back. On a misread the wrong value is written back too, and the data is permanently corrupted.</li>
+    <li><b>Precharge</b>: WL off, bit lines back to V<sub>DD</sub>/2.</li></ol></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Raise C<sub>BL</sub> and shrink C<sub>s</sub>: the signal shrinks — that is why bit lines are kept short and capacitors tall.</li>
+    <li>Pick the “weak tail cell” and raise the temperature from 85 °C to 95 °C: it misreads within 64 ms. That is why refresh doubles when hot.</li>
+    <li>Lower V<sub>DD</sub>: ΔV shrinks proportionally, so low-voltage DRAM depends even more on low-offset SAs.</li>
+    <li>Read more: <a href="device.html#charge-sharing">charge sharing</a>, <a href="design.html#sense-amp">sense amplifiers</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ SRAM ============ -->
+<section class="tabp" id="tab-sram" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>6T cell</small></h3>
+    <div class="ctl"><label>Mode</label>
+      <div class="btnrow" id="sr-mode"><button class="btn" data-v="hold" aria-pressed="false">Hold</button><button class="btn" data-v="read" aria-pressed="true">Read</button></div></div>
+    <div class="ctl"><label for="sr-vdd">V<sub>DD</sub> <output id="sr-vdd-o"></output></label><input id="sr-vdd" type="range" min="0.4" max="1.2" step="0.02" value="0.8"></div>
+    <div class="ctl"><label for="sr-beta">Cell ratio β = PD/PG <output id="sr-beta-o"></output></label><input id="sr-beta" type="range" min="0.6" max="3" step="0.1" value="1.6"></div>
+    <div class="ctl"><label for="sr-gam">Pull-up strength PU/PG <output id="sr-gam-o"></output></label><input id="sr-gam" type="range" min="0.2" max="1.5" step="0.05" value="0.5"></div>
+    <div class="ctl"><label for="sr-vt">Threshold voltage V<sub>t</sub> <output id="sr-vt-o"></output></label><input id="sr-vt" type="range" min="0.2" max="0.45" step="0.01" value="0.32"></div>
+    <div class="ctl"><label for="sr-dvt">PD1 V<sub>t</sub> mismatch ΔV<sub>t</sub> <output id="sr-dvt-o"></output></label><input id="sr-dvt" type="range" min="-0.12" max="0.12" step="0.005" value="0"></div>
+    <p class="note">Simplified square-law model with a smooth sub-threshold transition; strength ratios lump W/L and mobility.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="sr-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Butterfly curve <small>V(Q) vs V(QB)</small></h3><svg class="viz" id="sr-bfly" role="img" aria-label="SRAM butterfly curve"></svg>
+        <div class="legend"><span><i style="background:var(--s1)"></i>INV2: QB = f(Q)</span><span><i style="background:var(--s2)"></i>INV1 (with mismatch): Q = f(QB)</span><span><i style="background:var(--accent)"></i>Largest inscribed square</span></div></div>
+      <div class="panel"><h3>SNM vs V<sub>DD</sub></h3><svg class="viz" id="sr-sweep" role="img" aria-label="SNM versus supply"></svg>
+        <div class="legend"><span><i style="background:var(--s3)"></i>Hold SNM</span><span><i style="background:var(--s4)"></i>Read SNM</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Reading the butterfly curve</h3><ul>
+    <li>The two curves are the voltage transfer curves of the two inverters, one with Q as input, one with QB as input (drawn mirrored).</li>
+    <li>The upper-left and lower-right crossings are the two stable states (holding 0 / 1); the middle crossing is the unstable metastable point.</li>
+    <li>The side of the largest square in each “eye” is that state’s noise margin; SNM is the smaller of the two.</li>
+    <li>During a read the PG turns on and pulls the “0” node up, lifting the low end of the curve and shrinking the eye.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>In Read mode lower β from 1.6 to 0.8: the eye almost closes and a read may flip the data.</li>
+    <li>Set ΔV<sub>t</sub> to ±80 mV: one eye grows and one shrinks, and SNM follows the smaller — that is how mismatch limits V<sub>min</sub>.</li>
+    <li>Look at SNM vs V<sub>DD</sub>: where read SNM falls to zero is roughly this cell’s read V<sub>min</sub>.</li>
+    <li>Read more: <a href="device.html#snm">SNM</a>, <a href="design.html#sram-assist">read/write assist</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ NAND ============ -->
+<section class="tabp" id="tab-nand" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>charge-trap cell</small></h3>
+    <div class="ctl"><label>Bits per cell</label>
+      <div class="btnrow" id="nd-bits"><button class="btn" data-v="1" aria-pressed="false">SLC</button><button class="btn" data-v="2" aria-pressed="false">MLC</button><button class="btn" data-v="3" aria-pressed="true">TLC</button><button class="btn" data-v="4" aria-pressed="false">QLC</button></div></div>
+    <div class="ctl"><label for="nd-step">ISPP step ΔV<sub>PGM</sub> <output id="nd-step-o"></output></label><input id="nd-step" type="range" min="0.06" max="0.6" step="0.01" value="0.2"></div>
+    <div class="ctl"><label for="nd-pe">P/E cycles <output id="nd-pe-o"></output></label><input id="nd-pe" type="range" min="0" max="10" step="1" value="0"></div>
+    <div class="ctl"><label for="nd-ret">Retention time <output id="nd-ret-o"></output></label><input id="nd-ret" type="range" min="0" max="8" step="1" value="0"></div>
+    <div class="ctl"><label for="nd-temp">Storage temperature <output id="nd-temp-o"></output></label><input id="nd-temp" type="range" min="25" max="85" step="5" value="30"></div>
+    <div class="ctl"><label>Read reference voltages</label>
+      <div class="btnrow" id="nd-rr"><button class="btn" data-v="0" aria-pressed="true">Fixed (factory)</button><button class="btn" data-v="1" aria-pressed="false">Read retry (track valleys)</button></div></div>
+    <div class="ctl"><label>Y axis</label>
+      <div class="btnrow" id="nd-log"><button class="btn" data-v="0" aria-pressed="false">Linear</button><button class="btn" data-v="1" aria-pressed="true">Log (see the tails)</button></div></div>
+    <p class="note">Retention is converted to 25 °C equivalent time with E<sub>a</sub> = 1.1 eV; high-V<sub>t</sub> states lose more charge, and cycled cells lose it faster.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="nd-metrics"></div>
+    <div class="panel"><h3>V<sub>t</sub> distributions <small id="nd-sub"></small></h3><svg class="viz" id="nd-plot" role="img" aria-label="NAND Vt distributions"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Read levels in use</span><span><i style="background:var(--muted)"></i>Factory read levels</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>What the model does</h3><ul>
+    <li>Each state is a Gaussian. Its width comes from the ISPP step (quantization error ≈ step/√12), cell noise and traps from P/E cycling.</li>
+    <li>Retention pulls states toward a neutral voltage, and higher V<sub>t</sub> drifts more, so upper states squeeze together and shift left.</li>
+    <li>RBER is the probability of landing in the wrong region; with Gray coding, crossing one read level costs one bit.</li>
+    <li>Hard-decision LDPC handles RBER around 10<sup>−3</sup>; beyond that it needs soft decoding or rereads.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>TLC → QLC: twice the states, half the gaps, and much higher RBER under the same conditions.</li>
+    <li>Set P/E to 3000 and retention to 1 year: with fixed levels errors explode; switch to Read retry and most of it is recovered. That is why controllers calibrate read voltages.</li>
+    <li>Raise the ISPP step: faster programming (lower estimated t<sub>PROG</sub>) but wider distributions and more errors.</li>
+    <li>Read more: <a href="device.html#mlc">multi-level cells</a>, <a href="reliability.html#flash-retention">flash retention</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ RETENTION ============ -->
+<section class="tabp" id="tab-retention" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>DRAM die</small></h3>
+    <div class="ctl"><label for="rt-temp">Temperature <output id="rt-temp-o"></output></label><input id="rt-temp" type="range" min="25" max="125" step="5" value="85"></div>
+    <div class="ctl"><label for="rt-win">Refresh window tREFW <output id="rt-win-o"></output></label><input id="rt-win" type="range" min="0" max="100" step="0.1" value="29.2"></div>
+    <div class="ctl"><label for="rt-den">Density / tRFC</label><select id="rt-den">
+      <option value="8,350">8 Gb · tRFC 350 ns</option><option value="16,295" selected>16 Gb · tRFC 295 ns</option><option value="24,410">24 Gb · tRFC 410 ns</option><option value="32,410">32 Gb · tRFC 410 ns</option></select></div>
+    <div class="ctl"><label for="rt-tail">Weak-cell tail fraction <output id="rt-tail-o"></output></label><input id="rt-tail" type="range" min="-7" max="-3" step="0.25" value="-5"></div>
+    <div class="btnrow"><button class="btn" id="rt-std" type="button">Apply JEDEC rule (≤85 °C 64 ms, above 32 ms)</button></div>
+    <p class="note">Retention follows a mix of two log-normals: the main population (median ≈ 6 s at 85 °C) and a weak tail (median ≈ 0.5 s). Retention halves every 10 °C.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="rt-metrics"></div>
+    <div class="panel"><h3>Failing-bit fraction vs refresh window</h3><svg class="viz" id="rt-plot" role="img" aria-label="Failure fraction vs refresh window"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Current temperature</span><span><i style="background:var(--s3)"></i>45 °C</span><span><i style="background:var(--s2)"></i>85 °C</span><span><i style="background:var(--s4)"></i>105 °C</span></div></div>
+    <div class="panel"><h3>Refresh overhead vs window <small>tRFC × 8192 ÷ tREFW</small></h3><svg class="viz" id="rt-ovh" role="img" aria-label="Refresh overhead"></svg></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>The trade-off</h3><ul>
+    <li>A shorter refresh window leaves fewer cells to leak out before being refreshed, but refresh takes more time and power.</li>
+    <li>Every 10 °C rise shifts the curve left by a factor of two in time; to keep the same failure fraction the window must halve.</li>
+    <li>Higher density means a longer tRFC and more overhead at the same window — the reason for DDR5 same-bank refresh.</li>
+    <li>Weak cells found in test are repaired with spare rows / columns, so the real goal is that no failing cell remains after repair at the worst-case temperature.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Go from 85 to 95 °C with the window unchanged: failing bits rise about tenfold. Press “Apply JEDEC rule” and see halving the window restore it.</li>
+    <li>Raise the weak-cell tail fraction: a worse process needs more repair resources or a shorter window.</li>
+    <li>Read more: <a href="design.html#refresh">refresh</a>, <a href="reliability.html#dram-retention">DRAM retention</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ ROW HAMMER ============ -->
+<section class="tabp" id="tab-rowhammer" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>one bank</small></h3>
+    <div class="ctl"><label for="rh-hc">Flip threshold HC<sub>first</sub> <output id="rh-hc-o"></output></label><input id="rh-hc" type="range" min="0" max="100" step="0.5" value="51"></div>
+    <div class="ctl"><label for="rh-k">Aggressor rows (n-sided)</label><select id="rh-k"><option value="1">1: single-sided</option><option value="2" selected>2: double-sided</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="20">20 (many-sided, TRRespass-like)</option></select></div>
+    <div class="ctl"><label for="rh-duty">Share of ACT bandwidth used by the attack <output id="rh-duty-o"></output></label><input id="rh-duty" type="range" min="1" max="100" step="1" value="100"></div>
+    <div class="ctl"><label for="rh-win">Refresh window</label><select id="rh-win"><option value="32" selected>32 ms (DDR5)</option><option value="64">64 ms (DDR4)</option></select></div>
+    <div class="ctl"><label for="rh-mit">Mitigation</label><select id="rh-mit"><option value="none">None</option><option value="trr" selected>TRR (in-DRAM tracking table)</option><option value="rfm">RFM (controller, per-bank activation count)</option><option value="prac">PRAC (per-row counters)</option></select></div>
+    <div class="ctl" data-mit="trr"><label for="rh-trrn">TRR table size <output id="rh-trrn-o"></output></label><input id="rh-trrn" type="range" min="1" max="16" step="1" value="4"></div>
+    <div class="ctl" data-mit="rfm"><label for="rh-raa">RFM threshold RAAIMT <output id="rh-raa-o"></output></label><input id="rh-raa" type="range" min="16" max="256" step="8" value="64"></div>
+    <div class="ctl" data-mit="prac"><label for="rh-prac">PRAC alert threshold <output id="rh-prac-o"></output></label><input id="rh-prac" type="range" min="7" max="13" step="0.25" value="10"></div>
+    <p class="note">In one refresh window a bank can be activated at most about tREFW ÷ tRC times (tRC ≈ 48 ns). Cell flip thresholds follow a log-normal; HC<sub>first</sub> is the weakest cell in the row.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="rh-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Row state <small>after one refresh window</small></h3><svg class="viz" id="rh-rows" role="img" aria-label="Aggressor and victim rows"></svg></div>
+      <div class="panel"><h3>Expected victim flips vs HC<sub>first</sub></h3><svg class="viz" id="rh-plot" role="img" aria-label="Flips versus threshold"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>No mitigation</span><span><i style="background:var(--s1)"></i>TRR</span><span><i style="background:var(--s2)"></i>RFM</span><span><i style="background:var(--s3)"></i>PRAC</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>What the model does</h3><ul>
+    <li>The attacker activates n aggressor rows in turn within one refresh window; each gets 1/n of the total ACTs.</li>
+    <li>A victim accumulates the activations of its neighbouring aggressors (doubled when sandwiched between two) and flips when it exceeds a cell’s threshold.</li>
+    <li><b>TRR</b> tracks only a few rows; with more aggressors than table entries, tracking thrashes and protection fails.</li>
+    <li><b>RFM</b>: every RAAIMT activations the controller gives the DRAM time to refresh the tracked rows’ neighbours.</li>
+    <li><b>PRAC</b>: every row has a counter and mitigation triggers at the threshold — the most complete protection, at a timing cost.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>With TRR and a table of 4, change aggressors from 2 to 8 or 20: many-sided attacks bypass TRR — the idea behind TRRespass.</li>
+    <li>Lower HC<sub>first</sub> from 50K to 2K: scaling makes cells more fragile, and even RFM needs a lower threshold.</li>
+    <li>Compare the overhead of each mechanism: stronger protection costs more bandwidth.</li>
+    <li>Read more: <a href="reliability.html#rowhammer">Row hammer</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ MARCH ============ -->
+<section class="tabp" id="tab-march" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Test setup <small>8 × 8 = 64 bits</small></h3>
+    <div class="ctl"><label for="mt-alg">Algorithm</label><select id="mt-alg"></select></div>
+    <div class="note" id="mt-notation" style="font-family:var(--mono);margin:-6px 0 12px"></div>
+    <div class="ctl"><label for="mt-ftype">Inject a fault (choose a type, then click a cell)</label><select id="mt-ftype">
+      <option value="SA0">SA0: stuck at 0</option><option value="SA1">SA1: stuck at 1</option>
+      <option value="TFu">TF↑: cannot go 0→1</option><option value="TFd">TF↓: cannot go 1→0</option>
+      <option value="CFin">CFin⟨↑;↕⟩: victim inverts when aggressor goes 0→1</option>
+      <option value="CFid">CFid⟨↓;1⟩: victim set to 1 when aggressor goes 1→0</option>
+      <option value="CFst">CFst⟨1;0⟩: victim forced to 0 while aggressor is 1</option>
+      <option value="AF">AF: address a actually reaches b</option></select></div>
+    <div class="note" id="mt-hint" style="margin:-6px 0 12px"></div>
+    <div class="btnrow"><button class="btn" id="mt-rand" type="button">Inject 3 random</button><button class="btn" id="mt-clear" type="button">Clear faults</button></div>
+    <div class="ctl"><label for="mt-speed">Speed <output id="mt-speed-o"></output></label><input id="mt-speed" type="range" min="1" max="10" step="1" value="6"></div>
+    <div class="btnrow"><button class="btn pri" id="mt-run" type="button">▶ Run</button><button class="btn" id="mt-step" type="button">Step</button><button class="btn" id="mt-reset" type="button">Reset</button></div>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="mt-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Memory array <small id="mt-pos">—</small></h3><div class="grid-cells" id="mt-grid" style="grid-template-columns:repeat(8,1fr)"></div>
+        <div class="legend"><span><i style="background:var(--warn)"></i>Injected fault</span><span><i style="background:var(--bad)"></i>Read mismatch (detected)</span><span><i style="background:var(--ink)"></i>Current address</span></div></div>
+      <div class="panel"><h3>Faults and results</h3><div id="mt-faults" class="log" style="max-height:140px"></div><h3 style="margin-top:12px">Read mismatch log</h3><div id="mt-log" class="log"></div></div>
+    </div>
+    <div class="panel"><h3>Coverage experiment <small>200 random placements per fault</small></h3><div class="tblwrap" style="margin:0"><table id="mt-cov"></table></div>
+      <p class="note" style="margin-top:8px">On the same memory model, each algorithm runs against each single fault at 200 random positions (aggressor / victim of coupling and address faults also random), and the detected fraction is reported.</p></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Notation</h3><ul>
+    <li><b>⇑ / ⇓ / ⇕</b>: walk all cells in ascending / descending / any address order.</li>
+    <li><b>w0 / w1</b>: write 0 / 1; <b>r0 / r1</b>: read expecting 0 / 1.</li>
+    <li>Each bracket is one March element: finish every operation in it on one address before moving to the next.</li>
+    <li>For Checkerboard, 0 / 1 mean the checkerboard / inverse pattern.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Inject a CFid and compare MATS+ with March C−: MATS+ often misses coupling faults.</li>
+    <li>Inject an AF: even MATS+ catches it, because every element reads before writing.</li>
+    <li>Check the coverage table: March C− covers all these single faults 100% at 10N; Checkerboard is cheap but poor on TF and coupling faults.</li>
+    <li>Read more: <a href="test.html#fault-models">fault models</a>, <a href="test.html#march">March algorithms</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ WAFER YIELD ============ -->
+<section class="tabp" id="tab-wafer" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>300 mm wafer</small></h3>
+    <div class="ctl"><label for="wf-area">Die area <output id="wf-area-o"></output></label><input id="wf-area" type="range" min="10" max="200" step="1" value="40"></div>
+    <div class="ctl"><label for="wf-d0">Defect density D₀ <output id="wf-d0-o"></output></label><input id="wf-d0" type="range" min="0.02" max="2" step="0.01" value="0.5"></div>
+    <div class="ctl"><label for="wf-alpha">Clustering parameter α</label><select id="wf-alpha"><option value="0.5">0.5 (strong clustering)</option><option value="1">1</option><option value="2" selected>2</option><option value="5">5</option><option value="0">∞ (fully random · Poisson)</option></select></div>
+    <div class="ctl"><label for="wf-arr">Repairable array share of die <output id="wf-arr-o"></output></label><input id="wf-arr" type="range" min="0" max="90" step="1" value="60"></div>
+    <div class="ctl"><label for="wf-cap">Repairable defects per die <output id="wf-cap-o"></output></label><input id="wf-cap" type="range" min="0" max="30" step="1" value="6"></div>
+    <div class="ctl"><label>More defects at the wafer edge</label><div class="btnrow" id="wf-edge"><button class="btn" data-v="1" aria-pressed="true">Yes</button><button class="btn" data-v="0" aria-pressed="false">No</button></div></div>
+    <div class="btnrow"><button class="btn pri" id="wf-roll" type="button">↻ Draw a new wafer</button></div>
+    <p class="note">Defects per die are sampled from a gamma–Poisson (negative binomial). Defects in the array can be repaired with spare rows / columns; defects in the periphery are fatal.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="wf-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Wafer map <small id="wf-sub"></small></h3><svg class="viz" id="wf-map" role="img" aria-label="Wafer map"></svg>
+        <div class="legend"><span><i style="background:var(--ok)"></i>Good</span><span><i style="background:var(--s1)"></i>Good after repair</span><span><i style="background:var(--bad)"></i>Fail</span></div></div>
+      <div class="panel"><h3>Yield models vs die area</h3><svg class="viz" id="wf-plot" role="img" aria-label="Yield versus die area"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>Poisson e<sup>−AD</sup></span><span><i style="background:var(--s2)"></i>Negative binomial (clustered)</span><span><i style="background:var(--s1)"></i>Negative binomial + repair</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Key points</h3><ul>
+    <li>At the same average defect density, more clustering (smaller α) gives higher yield: defects pile up on a few dies and leave the others clean.</li>
+    <li>Yield falls faster for larger dies — one reason large dies (HBM core dies, high-density DRAM) are expensive.</li>
+    <li>Memory redundancy “rescues” most array defects, so what really kills dies is periphery defects and clusters beyond the repair budget.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Set repairable defects to 0 and then back to 6: see how much repair recovers.</li>
+    <li>Switch α to ∞ (Poisson): yield is lower than with clustering at the same D₀ — why Poisson is usually pessimistic.</li>
+    <li>Read more: <a href="process.html#yield">yield and process control</a>, <a href="test.html#bitmap">fail bit maps</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ HBM STACK YIELD ============ -->
+<section class="tabp" id="tab-hbm" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>HBM stack</small></h3>
+    <div class="ctl"><label for="hb-y">Core die yield (before test) <output id="hb-y-o"></output></label><input id="hb-y" type="range" min="50" max="99.5" step="0.5" value="85"></div>
+    <div class="ctl"><label for="hb-esc">KGD test escape rate <output id="hb-esc-o"></output></label><input id="hb-esc" type="range" min="0" max="30" step="0.5" value="3"></div>
+    <div class="ctl"><label for="hb-n">Stack height</label><select id="hb-n"><option>4</option><option>8</option><option selected>12</option><option>16</option></select></div>
+    <div class="ctl"><label for="hb-bond">Per-layer bond / TSV yield <output id="hb-bond-o"></output></label><input id="hb-bond" type="range" min="97" max="99.99" step="0.01" value="99.5"></div>
+    <div class="ctl"><label>TSV redundancy repair</label><div class="btnrow" id="hb-rep"><button class="btn" data-v="1" aria-pressed="true">On</button><button class="btn" data-v="0" aria-pressed="false">Off</button></div></div>
+    <div class="ctl"><label for="hb-base">Base die yield <output id="hb-base-o"></output></label><input id="hb-base" type="range" min="90" max="100" step="0.5" value="98"></div>
+    <p class="note">Escape rate = share of bad dies that pass the KGD test. Costs are relative: core die = 1, base die 1.5, stack assembly 2.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="hb-metrics"></div>
+    <div class="two">
+      <div class="panel"><h3>Stack sketch <small id="hb-sub"></small></h3><svg class="viz" id="hb-stack" role="img" aria-label="HBM stack"></svg></div>
+      <div class="panel"><h3>Stack yield vs height</h3><svg class="viz" id="hb-plot" role="img" aria-label="Stack yield"></svg>
+        <div class="legend"><span><i style="background:var(--muted)"></i>No KGD test</span><span><i style="background:var(--s2)"></i>KGD test</span><span><i style="background:var(--s1)"></i>KGD + TSV repair</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Why KGD matters so much</h3><ul>
+    <li>Stack yield is roughly the per-layer yield to the n-th power: 0.95<sup>12</sup> ≈ 54%, 0.99<sup>12</sup> ≈ 89%.</li>
+    <li>When a stack fails, every good die in it is scrapped too, so each extra layer tightens the quality required of every die.</li>
+    <li>Pre-test yield affects how many dies you consume; stack yield depends on whether passed dies are truly good, which test coverage decides.</li>
+    <li>TSV redundancy repairs a few bond failures and raises effective per-layer bond yield markedly.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Raise the escape rate from 3% to 15%, then go from 12 to 16 high: watch yield collapse.</li>
+    <li>Turn TSV repair off: at 99.5% bond yield, how much does it cost a 12-high stack?</li>
+    <li>Read more: <a href="test.html#hbm-stack">HBM stacking and TSVs</a>, <a href="test.html#repair">repair and KGD</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ COST PER GB ============ -->
+<section class="tabp" id="tab-cost" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>illustrative assumptions</small></h3>
+    <div class="ctl"><label>Examples</label><div class="btnrow" id="co-pre"><button class="btn" data-v="dram" aria-pressed="true">DRAM 16Gb</button><button class="btn" data-v="hbm" aria-pressed="false">HBM core die 24Gb</button><button class="btn" data-v="nand" aria-pressed="false">TLC NAND 1Tb</button></div></div>
+    <div class="ctl"><label for="co-wafer">Processed wafer cost <output id="co-wafer-o"></output></label><input id="co-wafer" type="range" min="2000" max="25000" step="100" value="7000"></div>
+    <div class="ctl"><label for="co-area">Die area <output id="co-area-o"></output></label><input id="co-area" type="range" min="10" max="200" step="0.5" value="38"></div>
+    <div class="ctl"><label for="co-gb">Die density <output id="co-gb-o"></output></label><input id="co-gb" type="range" min="4" max="2048" step="4" value="16"></div>
+    <div class="ctl"><label for="co-y">Yield <output id="co-y-o"></output></label><input id="co-y" type="range" min="30" max="99" step="1" value="85"></div>
+    <div class="ctl"><label for="co-be">Back-end cost (test + package) per die <output id="co-be-o"></output></label><input id="co-be" type="range" min="0" max="10" step="0.05" value="0.6"></div>
+    <div class="eyebrow" style="margin:18px 0 10px;color:var(--muted)">Next node</div>
+    <div class="ctl"><label for="co-shr">Die area shrinks to <output id="co-shr-o"></output></label><input id="co-shr" type="range" min="50" max="100" step="1" value="80"></div>
+    <div class="ctl"><label for="co-wup">Wafer cost increase <output id="co-wup-o"></output></label><input id="co-wup" type="range" min="0" max="50" step="1" value="12"></div>
+    <div class="ctl"><label for="co-ydrop">Early yield drop <output id="co-ydrop-o"></output></label><input id="co-ydrop" type="range" min="0" max="40" step="1" value="10"></div>
+    <p class="note">All costs are assumptions chosen to show proportions; they do not represent any company’s actual costs.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="co-metrics"></div>
+    <div class="panel"><h3>Cost per Gb vs yield</h3><svg class="viz" id="co-plot" role="img" aria-label="Cost versus yield"></svg>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Current node</span><span><i style="background:var(--s2)"></i>Next node</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>Formulas</h3><ul>
+    <li>Dies per wafer DPW ≈ π r² / A − π d / √(2A).</li>
+    <li>Cost per good die = wafer cost ÷ (DPW × yield) + back-end cost.</li>
+    <li>Cost per Gb = cost per good die ÷ die density.</li>
+    <li>The core contest in memory is lowering cost per bit every generation (bit cost reduction): scaling adds bits per wafer while yield must ramp as fast as possible.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Next node at 80% area and +12% wafer cost: if yield drops 10 points, is there still a cost advantage? That is the pressure of a new node’s yield ramp.</li>
+    <li>Switch to the HBM core die: a large die (TSVs take area) with similar density costs clearly more per Gb — and stack yield (HBM tab) adds even more.</li>
+    <li>Read more: <a href="process.html#yield">yield</a>, <a href="application.html#hbm-system">HBM integration</a>.</li></ul></div>
+</div>
+</section>
+
+<p class="foot">Simplified teaching models; numbers are illustrative orders of magnitude.</p>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+<script src="../assets/plot.js"></script>
+<script src="../assets/lab.js"></script>
+<script src="../assets/lab-fab.js"></script>
+</body>
+</html>

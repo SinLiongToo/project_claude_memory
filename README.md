@@ -20,9 +20,15 @@
 
 `assets/`：`style.css`（共用樣式，深淺色）、`site.js`（導覽、搜尋、目錄）、`plot.js`（SVG 繪圖）、`lab.js`、`lab-fab.js`、`designer.js`、`quiz.js`、`search-index.js`（自動產生）。
 
+## 中英文版
+
+中文頁面在根目錄，英文頁面在 `en/`，檔名與段落 id 一一對應；頂部的 EN / 中 按鈕會切換到對應頁面的同一段落。
+JS 介面文字用 `t('中文', 'English')` 依 `<html lang>` 切換；測驗題庫的英文版在 `assets/quiz.js` 的 `QEN`（順序與 `Q` 相同）。
+修改中文頁面時，記得同步修改 `en/` 的對應頁面。
+
 ## 修改內容後
 
-章節頁的 `<h2 id>`、`<h3 id>` 與名詞解釋會被收進全站搜尋（Ctrl+K）。改完頁面後重新產生索引：
+章節頁的 `<h2 id>`、`<h3 id>` 與名詞解釋會被收進全站搜尋（Ctrl+K）。改完頁面後重新產生中英文兩份索引：
 
 ```
 python tools/build_index.py

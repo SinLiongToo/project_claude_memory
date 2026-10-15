@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Applications · Memory Notes</title>
+<meta name="description" content="Memory applications: DDR5, LPDDR5X, GDDR7 and HBM3E/HBM4 compared, bandwidth math, the AI memory wall, SSD architecture and the FTL, mobile storage, embedded and automotive memory, CXL and processing in memory.">
+<link rel="alternate" hreflang="zh-Hant" href="../application.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="app" data-ch="app">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 3 · Applications</div>
+<h1>Applications: different systems want different memory</h1>
+<p class="lead">Servers want capacity and reliability, phones want low power, graphics cards want bandwidth per chip, AI accelerators want bandwidth per watt and per mm², and SSDs want low cost per GB. Even with the same DRAM or NAND inside, interfaces and packaging make completely different trade-offs for these goals.</p>
+
+<h2 id="dram-family">The DRAM family</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>DDR5</th><th>LPDDR5X</th><th>GDDR7</th><th>HBM3E</th><th>HBM4</th></tr>
+<tr><td>Goal</td><td>Capacity, general use</td><td>Low power</td><td>Bandwidth per chip</td><td>Bandwidth per package</td><td>Bandwidth per package</td></tr>
+<tr><td>Per-pin rate</td><td>4.8–8.8 Gb/s</td><td>8.5–10.7 Gb/s</td><td>28–32 Gb/s (PAM3)</td><td>~9.2–9.8 Gb/s</td><td>~8–10 Gb/s</td></tr>
+<tr><td>Interface width</td><td>DIMM 2×32 bit (+ECC 2×40)</td><td>x16 per channel</td><td>x32 per device</td><td>1024 bit per stack</td><td>2048 bit per stack</td></tr>
+<tr><td>Bandwidth</td><td>~51 GB/s per DIMM @6400</td><td>~68 GB/s per x64 @8533</td><td>~128 GB/s per device @32</td><td>&gt;1.2 TB/s per stack</td><td>~2 TB/s+ per stack</td></tr>
+<tr><td>Voltage (core / I/O)</td><td>1.1 V</td><td>1.05 V / 0.5 V</td><td>~1.2 V / 1.1 V</td><td>1.1 V / 0.4 V</td><td>Lower</td></tr>
+<tr><td>Package</td><td>DIMM modules</td><td>PoP or in-package with the SoC</td><td>On the PCB around the GPU</td><td>8–12-high TSV stack on a 2.5D interposer</td><td>12–16-high, base die on a logic process</td></tr>
+<tr><td>Typical use</td><td>PCs, servers</td><td>Phones, laptops, automotive, some AI CPUs</td><td>Graphics cards, some AI inference</td><td>AI training / inference GPUs</td><td>Next-generation AI accelerators</td></tr>
+</table></div>
+<p class="note">Numbers are generation-level orders of magnitude and vary by speed bin and vendor.</p>
+<div class="callout co"><b>Micron note</b>　Examples of Micron product forms for each interface: DDR5 RDIMM and <b>MRDIMM</b> (multiplexed ranks for more bandwidth per channel) for servers; LPDDR5X and the socketable LPDDR module <b>LPCAMM2</b> for laptops and phones; <b>SOCAMM</b>, an LPDDR module for AI servers; <b>GDDR6X</b> (developed with NVIDIA, PAM4 signaling) and GDDR7 for graphics; <b>HBM3E</b> (8-high 24 GB, 12-high 36 GB) and HBM4 for AI accelerators; and <b>CXL</b> memory-expansion modules.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+<p>Why they differ: DDR runs long PCB traces to multiple DIMM slots, which caps the per-pin rate. GDDR connects point-to-point to one GPU, so the per-pin rate can be pushed very high. HBM sits on a silicon interposer next to the GPU with traces only millimetres long, so it can use an extremely wide bus at a modest per-pin rate, reaching the highest total bandwidth and the best energy per bit (a few pJ/bit, a fraction of DDR).</p>
+
+<h2 id="bandwidth">Bandwidth math</h2>
+<div class="eq">Peak bandwidth (GB/s) = per-pin rate (Gb/s) × bus width (bits) ÷ 8</div>
+<ul>
+<li>One DDR5-6400 DIMM: 6.4 × 64 ÷ 8 = 51.2 GB/s; an 8-channel server ≈ 410 GB/s.</li>
+<li>HBM3E 9.6 Gb/s × 1024 ÷ 8 ≈ 1.23 TB/s; a GPU with 8 stacks ≈ 9.8 TB/s.</li>
+<li>GDDR7 32 Gb/s × 32 ÷ 8 = 128 GB/s; a 384-bit card (12 devices) ≈ 1.5 TB/s.</li>
+</ul>
+<p>Usable bandwidth is typically only 70–90% of peak after refresh, bank conflicts, read/write turnaround and row misses.</p>
+<div class="tryit">▶ Enter rate, width and channels to compute system bandwidth: <a href="designer.html">Spec Designer</a></div>
+
+<h2 id="memory-wall">AI and the memory wall</h2>
+<p>For two decades processor compute has grown much faster than memory bandwidth. The gap is called the <b>memory wall</b>, and large language models make it especially visible.</p>
+<h3 id="llm-decode">Why LLM inference is bandwidth-bound</h3>
+<p>Generating each token reads every model weight from memory once, but each weight is used for only one multiply-add. At small batch sizes arithmetic intensity (FLOPs per byte) is very low, and the GPU spends most of its time waiting for data:</p>
+<div class="eq">token/s ceiling ≈ memory bandwidth ÷ bytes read per token</div>
+<p>Example: 70 billion parameters in FP16 (2 bytes) → 140 GB of weights. On 3.35 TB/s of HBM3, the batch-1 ceiling is about 3350 ÷ 140 ≈ 24 tokens/s. 8-bit quantization halves the bytes read and roughly doubles the ceiling. That is why the number of HBM stacks, their bandwidth and their capacity decide how competitive an AI accelerator is.</p>
+<h3 id="kv-cache">KV cache</h3>
+<p>Attention keeps Key/Value vectors for every previous token. Their size grows with context length × batch × layers and, for long contexts, can exceed the weights. This drives higher-capacity HBM (12- and 16-high stacks), offloading KV cache to CPU or CXL memory, and KV-cache quantization.</p>
+<h3 id="roofline">The roofline model</h3>
+<p>Achievable performance = min(peak compute, bandwidth × arithmetic intensity). Below the ridge point (“peak compute ÷ bandwidth”), more bandwidth helps more than more compute.</p>
+
+<h2 id="hbm-system">HBM system integration</h2>
+<ul>
+<li><b>Stack</b>: 8–16 DRAM core dies connected vertically by TSVs on top of a base (logic) die. The base die holds the PHY, test logic and TSV repair; from HBM4 it is made on a foundry logic process and can be customized.</li>
+<li><b>2.5D packaging</b>: the GPU and HBM sit side by side on a silicon interposer (e.g. CoWoS-S) or an organic / bridge interposer, with thousands of micro-bump connections only millimetres long.</li>
+<li><b>Challenges</b>: heat (DRAM dislikes heat but sits next to a GPU burning hundreds of watts), stack yield (one bad die ruins the stack, hence KGD testing), interposer capacity and warpage. See <a href="test.html#hbm-stack">Test &amp; packaging</a>.</li>
+</ul>
+
+<h2 id="ssd">SSDs: the controller turns NAND into a drive</h2>
+<p>NAND has three awkward properties: no in-place overwrite (a whole block must be erased first), limited write endurance, and a high error rate. The SSD controller hides all of them and presents a drive that can read and write any address freely.</p>
+<figure>
+<svg viewBox="0 0 640 210" role="img" aria-label="SSD architecture">
+  <rect class="box" x="20" y="80" width="90" height="50" rx="6"/><text x="65" y="102" text-anchor="middle" class="ts">Host</text><text x="65" y="118" text-anchor="middle" class="ts t-mut">NVMe/PCIe</text>
+  <path class="wa" d="M110 105H160"/>
+  <rect class="c6" x="160" y="40" width="200" height="130" rx="8"/>
+  <text x="260" y="62" text-anchor="middle" class="tl">SSD controller</text>
+  <text x="260" y="86" text-anchor="middle" class="ts">CPU cores · FTL firmware</text>
+  <text x="260" y="106" text-anchor="middle" class="ts">LDPC ECC engine · encryption</text>
+  <text x="260" y="126" text-anchor="middle" class="ts">NAND channels (8–16 ch)</text>
+  <text x="260" y="146" text-anchor="middle" class="ts t-mut">DRAM interface / HMB</text>
+  <rect class="c1" x="200" y="182" width="120" height="24" rx="4"/><text x="260" y="198" text-anchor="middle" class="ts">DRAM (L2P table)</text>
+  <path class="w" d="M260 170V182"/>
+  <g>
+    <path class="wa" d="M360 70H420M360 100H420M360 130H420M360 160H420"/>
+    <rect class="c5" x="420" y="58" width="50" height="24" rx="3"/><rect class="c5" x="480" y="58" width="50" height="24" rx="3"/><rect class="c5" x="540" y="58" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="88" width="50" height="24" rx="3"/><rect class="c5" x="480" y="88" width="50" height="24" rx="3"/><rect class="c5" x="540" y="88" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="118" width="50" height="24" rx="3"/><rect class="c5" x="480" y="118" width="50" height="24" rx="3"/><rect class="c5" x="540" y="118" width="50" height="24" rx="3"/>
+    <rect class="c5" x="420" y="148" width="50" height="24" rx="3"/><rect class="c5" x="480" y="148" width="50" height="24" rx="3"/><rect class="c5" x="540" y="148" width="50" height="24" rx="3"/>
+  </g>
+  <text x="505" y="44" text-anchor="middle" class="ts">NAND dies (several per channel)</text>
+  <text x="600" y="74" class="ts t-mono t-mut">ch0</text><text x="600" y="164" class="ts t-mono t-mut">chN</text>
+</svg>
+<figcaption>Channels × dies per channel × planes per die run in parallel, turning a single die’s tens of MB/s of program speed into several GB/s.</figcaption>
+</figure>
+<h3 id="ftl">The FTL (flash translation layer)</h3>
+<ul>
+<li><b>Logical-to-physical mapping (L2P)</b>: every host write to a logical block address (LBA) goes to a fresh page and the old page is marked invalid. The table is usually kept at 4 KB granularity, needing about 1 GB of DRAM per 1 TB; DRAM-less SSDs use the host memory buffer (HMB) or partial caching.</li>
+<li><b>Garbage collection (GC)</b>: when free blocks run low, pick a block with many invalid pages, move its valid pages away, then erase the block.</li>
+<li><b>Write amplification (WAF)</b>: GC moves make NAND write more than the host asked. <span class="mono">WAF = NAND bytes written ÷ host bytes written</span>; with random writes and little free space it can exceed 3–5.</li>
+<li><b>Over-provisioning (OP)</b>: capacity reserved from the user (e.g. 7%, 28%) makes GC more efficient and lowers WAF. Enterprise SSDs reserve more.</li>
+<li><b>Wear leveling</b>: spread writes across all blocks so hot data does not wear out a few blocks first.</li>
+<li><b>TRIM</b>: the OS tells the SSD which LBAs were deleted so GC need not move them.</li>
+<li><b>SLC cache</b>: writes land first in TLC/QLC blocks used in SLC mode — fast — and are folded into TLC/QLC when idle. Once the cache fills, write speed drops noticeably.</li>
+</ul>
+<div class="callout co"><b>Micron note</b>　Micron’s data-center SSDs include both high-performance TLC (PCIe Gen5) and high-capacity QLC lines, matching the trade-off in this section: TLC for performance and endurance, QLC for cost per TB and capacity density, suited to read-heavy AI data lakes and cold data.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+<h3 id="ssd-endurance">Endurance metrics</h3>
+<div class="eq">TBW ≈ capacity × P/E cycles ÷ WAF　　DWPD = TBW ÷ (capacity × warranty days)</div>
+<p>Example: 2 TB TLC, 3000 P/E cycles, WAF 2.5 → TBW ≈ 2 × 3000 ÷ 2.5 = 2400 TB; over a 5-year warranty DWPD ≈ 0.66.</p>
+
+<h2 id="mobile">Phones and consumer devices</h2>
+<ul>
+<li><b>LPDDR</b>: saves power with low-voltage I/O (0.5 V and below), deep standby modes (deep sleep, partial-array self refresh) and narrow channels; often placed as PoP (on top of the SoC) or inside the SoC package.</li>
+<li><b>UFS</b>: the phone storage interface. UFS 4.0 reads sequentially at about 4 GB/s using full-duplex serial links (MIPI M-PHY) and command queues, replacing eMMC.</li>
+<li><b>uMCP</b>: LPDDR and UFS in one package to save board area; common in mid-range phones.</li>
+</ul>
+
+<h2 id="embedded">Embedded and automotive</h2>
+<p>MCU code has long lived in embedded flash (eFlash). But floating gates are hard to integrate with HKMG processes below 28 nm, so the industry is moving to emerging NVM integrated in the back end:</p>
+<ul>
+<li>eMRAM: in production at 22 nm and similar nodes; fast writes and high endurance, suited to automotive MCUs and IoT.</li>
+<li>ePCM: used in 28 nm FD-SOI automotive MCUs.</li>
+<li>eReRAM: low cost and very CMOS-friendly; used in IoT and low-power MCUs.</li>
+</ul>
+<p>Extra requirements for automotive memory:</p>
+<ul>
+<li><b>Temperature grade</b>: AEC-Q100 Grade 1 (−40 to 125 °C) or Grade 2 (−40 to 105 °C). DRAM needs more frequent refresh when hot; NAND retention worsens.</li>
+<li><b>Functional safety</b>: ISO 26262 requires ECC, error reporting, address / command parity and BIST.</li>
+<li><b>Long life and zero-defect targets</b>: vehicles stay on the road 15+ years, so screening and burn-in are stricter (defect rates in ppm or even ppb).</li>
+<li><b>Applications</b>: ADAS and autonomous-driving domain controllers use LPDDR5/5X, GDDR, even HBM; infotainment uses UFS / eMMC; event data recorders need high-endurance SLC.</li>
+</ul>
+<div class="callout co"><b>Micron note</b>　Micron is one of the main suppliers of automotive memory, with automotive-grade LPDDR, NOR flash, e.MMC / UFS and automotive SSDs. The temperature grades, long-term supply and functional-safety requirements in this section are exactly what these products target.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+
+<h2 id="cxl-pim">CXL, memory pooling and processing in memory</h2>
+<ul>
+<li><b>CXL (Compute Express Link)</b>: a cache-coherent protocol on the PCIe physical layer. CXL.mem lets a CPU use extra DDR on add-in cards or E3.S modules, breaking the DIMM-slot limit, at about 100 ns or more of extra latency. CXL 2.0/3.x supports memory pools shared by several hosts (pooling / sharing) to raise data-center memory utilization.</li>
+<li><b>PIM (processing in memory)</b>: simple compute units (e.g. MACs) next to DRAM banks run GEMV-type work inside the memory, saving the energy of moving data. HBM-PIM and GDDR6-AiM prototypes exist.</li>
+<li><b>CIM (computing in memory)</b>: uses the array itself for analog or digital multiply-accumulate, e.g. SRAM CIM or ReRAM crossbars, mainly for edge AI inference.</li>
+</ul>
+
+<h2 id="selection">Choosing a memory</h2>
+<div class="tblwrap"><table>
+<tr><th>Need</th><th>Common choice</th><th>Why</th></tr>
+<tr><td>CPU caches, registers</td><td>SRAM</td><td>Built into the logic process, fastest</td></tr>
+<tr><td>Server main memory</td><td>DDR5 RDIMM, CXL expansion</td><td>Capacity, ECC, serviceable</td></tr>
+<tr><td>Phones / laptops</td><td>LPDDR5X + UFS</td><td>Power, size</td></tr>
+<tr><td>Gaming graphics cards</td><td>GDDR7</td><td>High bandwidth per device, cheaper than HBM</td></tr>
+<tr><td>AI training / large-model inference</td><td>HBM3E / HBM4</td><td>Bandwidth and efficiency per package</td></tr>
+<tr><td>Edge AI inference</td><td>LPDDR, SRAM, CIM</td><td>Power-limited</td></tr>
+<tr><td>Bulk storage</td><td>TLC / QLC NAND SSDs</td><td>Cost per GB</td></tr>
+<tr><td>Boot code, automotive firmware</td><td>NOR flash, eFlash, eMRAM</td><td>Execute in place, reliable</td></tr>
+</table></div>
+
+<h2 id="app-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>DIMM / RDIMM</dt><dd>Dual in-line memory module / a server module with a registering clock driver (RCD).</dd></div>
+<div><dt>PAM3 / PAM4</dt><dd>Modulation with 3 / 4 voltage levels per symbol, carrying 1.5 / 2 bits per symbol.</dd></div>
+<div><dt>Memory wall</dt><dd>The bottleneck created by compute growing faster than memory bandwidth and latency.</dd></div>
+<div><dt>Arithmetic intensity</dt><dd>Operations per byte read; decides whether code is compute- or bandwidth-bound.</dd></div>
+<div><dt>KV cache</dt><dd>Key/Value tensors of previous tokens kept during transformer inference.</dd></div>
+<div><dt>CoWoS</dt><dd>TSMC’s 2.5D packaging that integrates logic and HBM side by side on an interposer.</dd></div>
+<div><dt>FTL</dt><dd>Flash translation layer: the SSD firmware layer handling mapping, GC and wear leveling.</dd></div>
+<div><dt>WAF</dt><dd>Write amplification factor: NAND bytes written ÷ host bytes written.</dd></div>
+<div><dt>OP</dt><dd>Over-provisioning: capacity reserved from the user.</dd></div>
+<div><dt>TBW / DWPD</dt><dd>Total bytes written / drive writes per day — SSD endurance metrics.</dd></div>
+<div><dt>HMB</dt><dd>Host memory buffer: a DRAM-less SSD borrows host memory for its mapping table.</dd></div>
+<div><dt>UFS</dt><dd>Universal Flash Storage, the mainstream phone storage interface.</dd></div>
+<div><dt>AEC-Q100</dt><dd>The automotive IC stress-qualification standard that defines temperature grades.</dd></div>
+<div><dt>CXL</dt><dd>Compute Express Link, a cache-coherent interconnect on PCIe.</dd></div>
+<div><dt>PIM / CIM</dt><dd>Computing next to / inside the memory array.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Interface specs keep moving with each speed bin; follow JEDEC standards and vendor announcements.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 /* Memory Lab — five small simulations: DRAM read, SRAM butterfly/SNM, NAND Vt distributions, DRAM retention vs refresh, March test fault simulation. */
 (function(){
+  const t = (window.MemSite && window.MemSite.t) || (zh => zh);
   const {plot, Phi, Q, fmtSci} = window.MemPlot;
   const $ = id => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -67,28 +68,28 @@
       const ok = sig * 1000 > p.off;
       return {tau, vc0, r, dv, sig, ok, decided: ok ? p.bit : 1 - p.bit};
     }
-    function wave(p, M, t){
+    function wave(p, M, tm){
       const vh = p.vdd / 2, vs = vh + M.dv, vpp = p.vdd * 1.25;
       let wl = 0;
-      if(t >= 5 && t < 7) wl = vpp * (t - 5) / 2; else if(t >= 7 && t < 26) wl = vpp; else if(t >= 26 && t < 28) wl = vpp * (1 - (t - 26) / 2);
+      if(tm >= 5 && tm < 7) wl = vpp * (tm - 5) / 2; else if(tm >= 7 && tm < 26) wl = vpp; else if(tm >= 26 && tm < 28) wl = vpp * (1 - (tm - 26) / 2);
       const sh = tt => 1 - Math.exp(-Math.max(0, tt - 6) / 1.2);
       let bl = vh, blb = vh, cell = M.vc0;
-      if(t >= 6){ const u = sh(Math.min(t, 14)); bl = vh + (vs - vh) * u; cell = vs + (M.vc0 - vs) * (1 - u); }
-      if(t >= 14){
+      if(tm >= 6){ const u = sh(Math.min(tm, 14)); bl = vh + (vs - vh) * u; cell = vs + (M.vc0 - vs) * (1 - u); }
+      if(tm >= 14){
         const tgt = M.decided ? p.vdd : 0, tgtb = p.vdd - tgt;
         const bl14 = vh + (vs - vh) * sh(14), c14 = vs + (M.vc0 - vs) * (1 - sh(14));
-        const ta = Math.min(t, 30) - 14;
+        const ta = Math.min(tm, 30) - 14;
         bl = tgt + (bl14 - tgt) * Math.exp(-ta / 1.8);
         blb = tgtb + (vh - tgtb) * Math.exp(-ta / 1.8);
-        cell = tgt + (c14 - tgt) * Math.exp(-(Math.min(t, 27) - 14) / 3);
-        if(t >= 30){ const k = Math.exp(-(t - 30) / 1.2); bl = vh + (bl - vh) * k; blb = vh + (blb - vh) * k; }
+        cell = tgt + (c14 - tgt) * Math.exp(-(Math.min(tm, 27) - 14) / 3);
+        if(tm >= 30){ const k = Math.exp(-(tm - 30) / 1.2); bl = vh + (bl - vh) * k; blb = vh + (blb - vh) * k; }
       }
       return {bl, blb, cell, wl};
     }
-    const phase = t => t < 5 ? '① 預充 V<sub>DD</sub>/2' : t < 14 ? '② 字元線開啟 · 電荷分享' : t < 26 ? '③ SA 放大 + ④ 回寫' : t < 30 ? '字元線關閉' : '⑤ 預充';
+    const phase = tm => tm < 5 ? t('① 預充 V<sub>DD</sub>/2', '① Precharge to V<sub>DD</sub>/2') : tm < 14 ? t('② 字元線開啟 · 電荷分享', '② WL on · charge sharing') : tm < 26 ? t('③ SA 放大 + ④ 回寫', '③ SA amplify + ④ restore') : tm < 30 ? t('字元線關閉', 'WL off') : t('⑤ 預充', '⑤ Precharge');
 
-    function drawSch(p, M, t){
-      const w = wave(p, M, t), H = 160, top = 44;
+    function drawSch(p, M, tm){
+      const w = wave(p, M, tm), H = 160, top = 44;
       const g = (x, v, label, col) => {
         const h = clamp(v / p.vdd, 0, 1) * H;
         return '<rect x="' + x + '" y="' + top + '" width="60" height="' + H + '" rx="4" style="fill:var(--sunk);stroke:var(--line)"/>' +
@@ -97,10 +98,10 @@
           '<text x="' + (x + 30) + '" y="' + (top + H + 18) + '" text-anchor="middle" class="ts">' + label + '</text>' +
           '<text x="' + (x + 30) + '" y="' + (top + H + 34) + '" text-anchor="middle" class="ts t-mono t-mut">' + Math.round(v * 1000) + ' mV</text>';
       };
-      const on = w.wl > p.vdd * 0.6, saOn = t >= 14 && t < 30;
+      const on = w.wl > p.vdd * 0.6, saOn = tm >= 14 && tm < 30;
       let s = '<line x1="16" x2="304" y1="20" y2="20" style="stroke:var(--accent);stroke-width:3;opacity:' + (on ? 1 : .25) + '"/>' +
         '<text x="16" y="14" class="ts t-mono">WL ' + (on ? 'ON (V<tspan dy="2" class="ts">PP</tspan><tspan dy="-2">)</tspan>' : 'OFF') + '</text>';
-      s += g(24, w.cell, '單元 SN', 'var(--s3)') + g(130, w.bl, 'BL', 'var(--s1)') + g(236, w.blb, 'BLB', 'var(--s2)');
+      s += g(24, w.cell, t('單元 SN', 'Cell SN'), 'var(--s3)') + g(130, w.bl, 'BL', 'var(--s1)') + g(236, w.blb, 'BLB', 'var(--s2)');
       s += on ? '<line x1="84" x2="130" y1="124" y2="124" style="stroke:var(--accent);stroke-width:3"/>'
               : '<line x1="84" x2="100" y1="124" y2="124" style="stroke:var(--muted);stroke-width:2"/><line x1="114" x2="130" y1="124" y2="124" style="stroke:var(--muted);stroke-width:2"/>';
       s += '<rect x="193" y="104" width="40" height="40" rx="5" style="fill:' + (saOn ? 'var(--accent)' : 'var(--surface)') + ';stroke:var(--ink)"/>' +
@@ -108,33 +109,33 @@
       const svg = $('dr-sch');
       svg.setAttribute('viewBox', '0 0 320 250');
       svg.innerHTML = s;
-      $('dr-phase').innerHTML = phase(t);
+      $('dr-phase').innerHTML = phase(tm);
     }
-    function drawWave(p, M, t){
+    function drawWave(p, M, tm){
       const pts = {bl:[], blb:[], cell:[], wl:[]};
       for(let x = 0; x <= 40.001; x += 0.2){ const w = wave(p, M, x); pts.bl.push([x, w.bl]); pts.blb.push([x, w.blb]); pts.cell.push([x, w.cell]); pts.wl.push([x, w.wl * 0.8]); }
-      plot($('dr-wave'), {x:[0, 40], y:[-0.05, p.vdd * 1.12], xlabel:'時間 (ns)', ylabel:'電壓 (V)', W:420, H:330, m:{l:50, r:12, t:12, b:44},
+      plot($('dr-wave'), {x:[0, 40], y:[-0.05, p.vdd * 1.12], xlabel:t('時間 (ns)', 'Time (ns)'), ylabel:t('電壓 (V)', 'Voltage (V)'), W:420, H:330, m:{l:50, r:12, t:12, b:44},
         series:[{pts:pts.wl, color:'var(--muted)', w:1.4, dash:'4 3'}, {pts:pts.cell, color:'var(--s3)', w:2}, {pts:pts.blb, color:'var(--s2)', w:2}, {pts:pts.bl, color:'var(--s1)', w:2.4}],
-        vlines: t < 40 ? [{x:t, color:'var(--ink)', dash:false, w:1}] : []});
+        vlines: tm < 40 ? [{x:tm, color:'var(--ink)', dash:false, w:1}] : []});
     }
     function drawRet(p, M){
       const r = M.r, half = p.vdd / 2 * r * 1000;
       const curve = T => { const tau = p.tau85 * Math.pow(2, (85 - T) / 10), a = []; for(let k = -3; k <= 1.001; k += 0.04){ const t = Math.pow(10, k); a.push([t, (p.vdd * Math.exp(-t / tau) - p.vdd / 2) * r * 1000]); } return a; };
       const win = p.T > 85 ? 0.032 : 0.064;
-      plot($('dr-ret'), {x:[1e-3, 10], logx:true, y:[-half * 1.05, half * 1.1], xlabel:'距上次寫入 / 更新的時間 (s)', ylabel:'ΔV (mV)', H:240,
+      plot($('dr-ret'), {x:[1e-3, 10], logx:true, y:[-half * 1.05, half * 1.1], xlabel:t('距上次寫入 / 更新的時間 (s)', 'Time since last write / refresh (s)'), ylabel:'ΔV (mV)', H:240,
         xfmt: v => v < 1 ? (v * 1000) + ' ms' : v + ' s',
         series:[{pts:curve(45), color:'var(--muted)', w:1.6}, {pts:curve(p.T), color:'var(--accent)', w:2.6}],
-        hlines:[{y:p.off, color:'var(--bad)', label:'SA 偏移 ' + p.off + ' mV'}, {y:0, color:'var(--line)'}],
-        vlines:[{x:p.tw, color:'var(--ink)', label:'目前', dash:false, w:1.2}, {x:win, color:'var(--warn)', label:'tREFW ' + (win * 1000) + ' ms', dy:16}]});
+        hlines:[{y:p.off, color:'var(--bad)', label:t('SA 偏移 ', 'SA offset ') + p.off + ' mV'}, {y:0, color:'var(--line)'}],
+        vlines:[{x:p.tw, color:'var(--ink)', label:t('目前', 'now'), dash:false, w:1.2}, {x:win, color:'var(--warn)', label:'tREFW ' + (win * 1000) + ' ms', dy:16}]});
     }
     function render(){
       const p = params(), M = model(p);
       metrics($('dr-metrics'), [
-        {l:'讀取前單元電壓', v:(M.vc0).toFixed(3), u:'V', s:'保存時間常數 τ = ' + fmtT(M.tau)},
-        {l:'電荷轉移比 C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)', v:(M.r * 100).toFixed(1), u:'%'},
-        {l:'位元線訊號 ΔV', v:(M.dv * 1000).toFixed(1), u:'mV', cls: M.ok ? 'ok' : 'bad'},
-        {l:'扣除 SA 偏移後的裕度', v:(M.sig * 1000 - p.off).toFixed(1), u:'mV', cls: M.ok ? 'ok' : 'bad'},
-        {l:'讀取結果', v: M.ok ? '正確' : '讀錯', cls: M.ok ? 'ok' : 'bad', s: M.ok ? '讀出 ' + p.bit + '，並回寫' : '讀成 ' + M.decided + '，錯誤值被回寫'}
+        {l:t('讀取前單元電壓', 'Cell voltage before read'), v:(M.vc0).toFixed(3), u:'V', s:t('保存時間常數 τ = ', 'Retention time constant τ = ') + fmtT(M.tau)},
+        {l:t('電荷轉移比 C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)', 'Transfer ratio C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)'), v:(M.r * 100).toFixed(1), u:'%'},
+        {l:t('位元線訊號 ΔV', 'Bit-line signal ΔV'), v:(M.dv * 1000).toFixed(1), u:'mV', cls: M.ok ? 'ok' : 'bad'},
+        {l:t('扣除 SA 偏移後的裕度', 'Margin after SA offset'), v:(M.sig * 1000 - p.off).toFixed(1), u:'mV', cls: M.ok ? 'ok' : 'bad'},
+        {l:t('讀取結果', 'Read result'), v: M.ok ? t('正確', 'Correct') : t('讀錯', 'Wrong'), cls: M.ok ? 'ok' : 'bad', s: M.ok ? t('讀出 ', 'Read ') + p.bit + t('，並回寫', ', restored') : t('讀成 ', 'Read as ') + M.decided + t('，錯誤值被回寫', ', wrong value restored')}
       ]);
       drawSch(p, M, cursor); drawWave(p, M, cursor); drawRet(p, M);
     }
@@ -231,14 +232,14 @@
       const ymax = Math.max(60, ...hold.map(p => p[1])) * 1.1;
       plot($('sr-sweep'), {W:420, H:400, m:{l:56, r:14, t:12, b:48}, x:[0.3, 1.2], y:[0, ymax], xlabel:'V_DD (V)', ylabel:'SNM (mV)',
         series:[{pts:hold, color:'var(--s3)', w:2.4}, {pts:rd, color:'var(--s4)', w:2.4}],
-        hlines:[{y:30, color:'var(--bad)', label:'30 mV 門檻'}],
-        vlines:[{x:V, color:'var(--ink)', dash:false, w:1.2, label:'目前'}].concat(vmin ? [{x:vmin, color:'var(--warn)', label:'讀取 Vmin', dy:16}] : [])});
+        hlines:[{y:30, color:'var(--bad)', label:t('30 mV 門檻', '30 mV limit')}],
+        vlines:[{x:V, color:'var(--ink)', dash:false, w:1.2, label:t('目前', 'now')}].concat(vmin ? [{x:vmin, color:'var(--warn)', label:t('讀取 Vmin', 'read Vmin'), dy:16}] : [])});
       const s = R.snm, rel = s / V;
       metrics($('sr-metrics'), [
-        {l:(mode === 'read' ? 'Read' : 'Hold') + ' SNM', v:Math.round(s * 1000), u:'mV', cls: s < 0.005 ? 'bad' : rel < 0.1 ? 'warn' : 'ok', s: s < 0.005 ? '只剩一個穩定態：會翻轉' : (rel * 100).toFixed(0) + '% of V<sub>DD</sub>'},
-        {l:'左上眼（存 0）', v:Math.round(R.s1 * 1000), u:'mV'},
-        {l:'右下眼（存 1）', v:Math.round(R.s2 * 1000), u:'mV'},
-        {l:'估計讀取 V<sub>min</sub>', v: vmin === null ? '&gt; 1.2' : vmin <= 0.3 ? '≤ 0.30' : vmin.toFixed(2), u:'V', s:'Read SNM ≥ 30 mV 的最低電壓'}
+        {l:(mode === 'read' ? 'Read' : 'Hold') + ' SNM', v:Math.round(s * 1000), u:'mV', cls: s < 0.005 ? 'bad' : rel < 0.1 ? 'warn' : 'ok', s: s < 0.005 ? t('只剩一個穩定態：會翻轉', 'Only one stable state: the cell flips') : (rel * 100).toFixed(0) + '% of V<sub>DD</sub>'},
+        {l:t('左上眼（存 0）', 'Upper-left eye (holding 0)'), v:Math.round(R.s1 * 1000), u:'mV'},
+        {l:t('右下眼（存 1）', 'Lower-right eye (holding 1)'), v:Math.round(R.s2 * 1000), u:'mV'},
+        {l:t('估計讀取 V<sub>min</sub>', 'Estimated read V<sub>min</sub>'), v: vmin === null ? '&gt; 1.2' : vmin <= 0.3 ? '≤ 0.30' : vmin.toFixed(2), u:'V', s:t('Read SNM ≥ 30 mV 的最低電壓', 'Lowest V<sub>DD</sub> with read SNM ≥ 30 mV')}
       ]);
     }
     render();
@@ -250,7 +251,7 @@
   INIT.nand = function(){
     const PE = [0, 100, 300, 500, 1000, 2000, 3000, 5000, 10000, 30000, 100000];
     const RET = [0, 1, 24, 168, 720, 2160, 8760, 26280, 87600];
-    const RETL = ['剛寫入', '1 小時', '1 天', '1 週', '1 個月', '3 個月', '1 年', '3 年', '10 年'];
+    const RETL = [t('剛寫入', 'Just written'), t('1 小時', '1 hour'), t('1 天', '1 day'), t('1 週', '1 week'), t('1 個月', '1 month'), t('3 個月', '3 months'), t('1 年', '1 year'), t('3 年', '3 years'), t('10 年', '10 years')];
     const STEP = {1:0.5, 2:0.3, 3:0.2, 4:0.12};
     const NAME = {1:'SLC', 2:'MLC', 3:'TLC', 4:'QLC'};
     let bits = 3, retry = false, logy = true;
@@ -258,7 +259,7 @@
     toggle('nd-rr', v => { retry = v === '1'; render(); });
     toggle('nd-log', v => { logy = v === '1'; render(); });
     const step = range('nd-step', v => (v * 1000).toFixed(0) + ' mV', render);
-    const pe = range('nd-pe', v => PE[v].toLocaleString() + ' 次', render);
+    const pe = range('nd-pe', v => PE[v].toLocaleString() + t(' 次', ' cycles'), render);
     const ret = range('nd-ret', v => RETL[v], render);
     const temp = range('nd-temp', v => v + ' °C', render);
 
@@ -309,7 +310,7 @@
         for(let k = -6; k <= 6.001; k += 0.08){ const x = s.mu + k * s.sd, y = Math.exp(-k * k / 2) / (s.sd * Math.sqrt(2 * Math.PI)); peak = Math.max(peak, y); pts.push([x, y]); }
         return {pts, color:cols[i % cols.length], w:1.6, fill:true, op:.22};
       });
-      plot($('nd-plot'), {x:[-4.5, 6.5], y: logy ? [peak * 1e-6, peak * 3] : [0, peak * 1.1], logy, H:320, xlabel:'臨界電壓 V_t (V)', ylabel: logy ? '機率密度（對數）' : '機率密度',
+      plot($('nd-plot'), {x:[-4.5, 6.5], y: logy ? [peak * 1e-6, peak * 3] : [0, peak * 1.1], logy, H:320, xlabel:t('臨界電壓 V_t (V)', 'Threshold voltage V_t (V)'), ylabel: logy ? t('機率密度（對數）', 'Probability density (log)') : t('機率密度', 'Probability density'),
         yfmt: logy ? (v => '') : (v => ''), series,
         vlines: (retry ? fixedRefs.map(r => ({x:r, color:'var(--muted)', dash:'2 4', w:1})) : []).concat(curRefs.map(r => ({x:r, color:'var(--accent)', w:1.4})))});
       let worst = Infinity;
@@ -317,12 +318,12 @@
       const pulses = Math.ceil(4.6 / p.step) + 2, tprog = pulses * (8 + (L - 1) * 1.5);
       const ldpc = 4e-3;
       metrics($('nd-metrics'), [
-        {l:'原始位元錯誤率 RBER', v:fmtSci(e), cls: e < 1e-4 ? 'ok' : e < ldpc ? 'warn' : 'bad', s: e < 1e-4 ? '輕鬆更正' : e < ldpc ? 'LDPC 硬判決可更正' : '超出硬判決能力'},
-        {l:'固定參考電壓下 RBER', v:fmtSci(eFixed), s: retry ? 'Read retry 改善 ' + (eFixed > 0 && e > 0 ? (eFixed / e).toFixed(1) + '×' : '—') : '目前即使用固定參考'},
-        {l:'最差邊限', v: isFinite(worst) ? worst.toFixed(2) : '—', u:'σ', cls: worst < 2 ? 'bad' : worst < 3 ? 'warn' : 'ok'},
-        {l:'估計 t<sub>PROG</sub>（示意）', v:tprog >= 1000 ? (tprog / 1000).toFixed(2) : Math.round(tprog), u:tprog >= 1000 ? 'ms' : 'µs', s:pulses + ' 個 ISPP 脈衝 × ' + (L - 1) + ' 次驗證'}
+        {l:t('原始位元錯誤率 RBER', 'Raw bit error rate (RBER)'), v:fmtSci(e), cls: e < 1e-4 ? 'ok' : e < ldpc ? 'warn' : 'bad', s: e < 1e-4 ? t('輕鬆更正', 'Easily corrected') : e < ldpc ? t('LDPC 硬判決可更正', 'Correctable by hard-decision LDPC') : t('超出硬判決能力', 'Beyond hard-decision capability')},
+        {l:t('固定參考電壓下 RBER', 'RBER with fixed read levels'), v:fmtSci(eFixed), s: retry ? t('Read retry 改善 ', 'Read retry improves it ') + (eFixed > 0 && e > 0 ? (eFixed / e).toFixed(1) + '×' : '—') : t('目前即使用固定參考', 'Currently using fixed levels')},
+        {l:t('最差邊限', 'Worst margin'), v: isFinite(worst) ? worst.toFixed(2) : '—', u:'σ', cls: worst < 2 ? 'bad' : worst < 3 ? 'warn' : 'ok'},
+        {l:t('估計 t<sub>PROG</sub>（示意）', 'Estimated t<sub>PROG</sub> (illustrative)'), v:tprog >= 1000 ? (tprog / 1000).toFixed(2) : Math.round(tprog), u:tprog >= 1000 ? 'ms' : 'µs', s:pulses + t(' 個 ISPP 脈衝 × ', ' ISPP pulses × ') + (L - 1) + t(' 次驗證', ' verifies')}
       ]);
-      $('nd-sub').textContent = NAME[bits] + ' · ' + L + ' 個狀態 · ' + p.pe.toLocaleString() + ' P/E · ' + RETL[ret.get()] + (p.hours ? ' @ ' + p.T + ' °C' : '');
+      $('nd-sub').textContent = NAME[bits] + ' · ' + L + t(' 個狀態 · ', ' states · ') + p.pe.toLocaleString() + ' P/E · ' + RETL[ret.get()] + (p.hours ? ' @ ' + p.T + ' °C' : '');
     }
     render();
   };
@@ -352,19 +353,19 @@
       const need = Math.pow(10, (lo + hi) / 2);
       const nf = F * bitsN;
       metrics($('rt-metrics'), [
-        {l:'失效位元比例', v:fmtSci(F)},
-        {l:'預期失效位元數（整顆）', v: nf < 1 ? nf.toFixed(2) : nf < 1e4 ? Math.round(nf).toLocaleString() : fmtSci(nf), cls: F <= base * 1.5 ? 'ok' : F <= base * 10 ? 'warn' : 'bad', s:'相對 85 °C / 64 ms 基準 ' + (F / base).toPrecision(2) + '×'},
-        {l:'維持基準所需視窗', v:fmtT(need), s:'tREFI = ' + fmtT(need / 8192)},
-        {l:'Refresh 時間開銷', v:(ovh * 100).toFixed(ovh < 0.1 ? 2 : 1), u:'%', cls: ovh < 0.05 ? 'ok' : ovh < 0.12 ? 'warn' : 'bad', s:'tREFI = ' + fmtT(w / 8192) + '，tRFC = ' + trfc + ' ns'}
+        {l:t('失效位元比例', 'Failing-bit fraction'), v:fmtSci(F)},
+        {l:t('預期失效位元數（整顆）', 'Expected failing bits (whole die)'), v: nf < 1 ? nf.toFixed(2) : nf < 1e4 ? Math.round(nf).toLocaleString() : fmtSci(nf), cls: F <= base * 1.5 ? 'ok' : F <= base * 10 ? 'warn' : 'bad', s:t('相對 85 °C / 64 ms 基準 ', 'vs. 85 °C / 64 ms baseline ') + (F / base).toPrecision(2) + '×'},
+        {l:t('維持基準所需視窗', 'Window needed to match baseline'), v:fmtT(need), s:'tREFI = ' + fmtT(need / 8192)},
+        {l:t('Refresh 時間開銷', 'Refresh time overhead'), v:(ovh * 100).toFixed(ovh < 0.1 ? 2 : 1), u:'%', cls: ovh < 0.05 ? 'ok' : ovh < 0.12 ? 'warn' : 'bad', s:'tREFI = ' + fmtT(w / 8192) + t('，tRFC = ', ', tRFC = ') + trfc + ' ns'}
       ]);
       const curve = TT => { const a = []; for(let k = -3; k <= 2.001; k += 0.05){ const x = Math.pow(10, k); a.push([x, fail(x, TT, tw)]); } return a; };
-      plot($('rt-plot'), {x:[1e-3, 100], logx:true, y:[1e-12, 1], logy:true, H:300, xlabel:'Refresh 視窗 tREFW (s)', ylabel:'失效位元比例',
+      plot($('rt-plot'), {x:[1e-3, 100], logx:true, y:[1e-12, 1], logy:true, H:300, xlabel:t('Refresh 視窗 tREFW (s)', 'Refresh window tREFW (s)'), ylabel:t('失效位元比例', 'Failing-bit fraction'),
         xfmt: v => v < 1 ? (v * 1000) + ' ms' : v + ' s',
         series:[{pts:curve(45), color:'var(--s3)', w:1.6}, {pts:curve(85), color:'var(--s2)', w:1.6}, {pts:curve(105), color:'var(--s4)', w:1.6}, {pts:curve(T), color:'var(--accent)', w:3}],
-        hlines:[{y:1 / bitsN, color:'var(--muted)', label:'≈ 1 個位元 / 晶片'}],
-        vlines:[{x:w, color:'var(--ink)', dash:false, w:1.2, label:'目前 ' + fmtT(w)}, {x:0.064, color:'var(--muted)', label:'64 ms', dy:16, anchor:'end'}]});
+        hlines:[{y:1 / bitsN, color:'var(--muted)', label:t('≈ 1 個位元 / 晶片', '≈ 1 bit per die')}],
+        vlines:[{x:w, color:'var(--ink)', dash:false, w:1.2, label:t('目前 ', 'now ') + fmtT(w)}, {x:0.064, color:'var(--muted)', label:'64 ms', dy:16, anchor:'end'}]});
       const ov = []; for(let k = -2.1; k <= 1.001; k += 0.05){ const x = Math.pow(10, k); ov.push([x, trfc * 1e-9 * 8192 / x * 100]); }
-      plot($('rt-ovh'), {x:[0.008, 10], logx:true, y:[0, 50], H:220, xlabel:'Refresh 視窗 tREFW (s)', ylabel:'開銷 (%)',
+      plot($('rt-ovh'), {x:[0.008, 10], logx:true, y:[0, 50], H:220, xlabel:t('Refresh 視窗 tREFW (s)', 'Refresh window tREFW (s)'), ylabel:t('開銷 (%)', 'Overhead (%)'),
         xfmt: v => v < 1 ? (v * 1000) + ' ms' : v + ' s',
         series:[{pts:ov, color:'var(--accent)', w:2.4, fill:true, op:.12}],
         vlines:[{x:w, color:'var(--ink)', dash:false, w:1.2, label:(ovh * 100).toFixed(1) + '%'}]});
@@ -387,7 +388,7 @@
   const FT_LABEL = {SA0:'SA0', SA1:'SA1', TFu:'TF↑', TFd:'TF↓', CFin:'CFin', CFid:'CFid', CFst:'CFst', AF:'AF'};
   const TWO = new Set(['CFin', 'CFid', 'CFst', 'AF']);
   const N = 64;
-  const notation = name => '{ ' + ALGS[name].map(e => ARROW[e[0]] + '(' + e[1].join(',') + ')').join('; ') + ' }' + (name === 'Checkerboard' ? '  0/1 = 棋盤 / 反棋盤' : '');
+  const notation = name => '{ ' + ALGS[name].map(e => ARROW[e[0]] + '(' + e[1].join(',') + ')').join('; ') + ' }' + (name === 'Checkerboard' ? t('  0/1 = 棋盤 / 反棋盤', '  0/1 = checkerboard / inverse') : '');
   function expand(name){
     const ops = [];
     ALGS[name].forEach((e, ei) => {
@@ -441,9 +442,9 @@
     let faults = [], pending = null, S = null, timer = 0, running = false;
 
     function hint(){
-      const t = $('mt-ftype').value;
-      $('mt-hint').textContent = pending !== null ? '已選攻擊者 / 位址 a = ' + pending + '，再點一格作為受害者 / 位址 b' :
-        TWO.has(t) ? '點一格當攻擊者（AF 為位址 a），再點一格當受害者（AF 為 b）' : '點一格注入';
+      const ft = $('mt-ftype').value;
+      $('mt-hint').textContent = pending !== null ? t('已選攻擊者 / 位址 a = ', 'Aggressor / address a = ') + pending + t('，再點一格作為受害者 / 位址 b', ' selected; click a victim / address b') :
+        TWO.has(ft) ? t('點一格當攻擊者（AF 為位址 a），再點一格當受害者（AF 為 b）', 'Click an aggressor (address a for AF), then a victim (b for AF)') : t('點一格注入', 'Click a cell to inject');
     }
     function reset(){
       stop();
@@ -451,7 +452,7 @@
       const init = Array.from({length:N}, () => Math.random() < 0.5 ? 1 : 0);
       S = {name, ops:expand(name), ptr:0, mem:makeMem(faults, init), mism:[], det:new Set(), cur:-1};
       $('mt-notation').textContent = notation(name);
-      $('mt-log').innerHTML = '<span>尚未執行</span>';
+      $('mt-log').innerHTML = t('<span>尚未執行</span>', '<span>Not run yet</span>');
       draw();
     }
     function involved(f){ return TWO.has(f.t) ? [f.a, f.v] : [f.c]; }
@@ -462,24 +463,24 @@
         const v = S.mem.cells[i];
         s.textContent = v;
         s.className = (v ? 'one' : '') + (i === S.cur ? ' cur' : '') + (fset.has(i) ? ' flt' : '') + (S.det.has(i) ? ' det' : '') ;
-        s.title = '位址 ' + i + (i === pending ? '（已選）' : '');
+        s.title = t('位址 ', 'Address ') + i + (i === pending ? t('（已選）', ' (selected)') : '');
       });
       if(pending !== null) spans[pending].classList.add('cur');
       const total = S.ops.length, done = S.ptr === total;
       const detected = faults.filter(f => watch(f).some(i => S.det.has(i))).length;
       metrics($('mt-metrics'), [
-        {l:'複雜度', v:(total / N) + 'N', s:total + ' 次操作'},
-        {l:'進度', v:Math.round(S.ptr / total * 100), u:'%'},
-        {l:'讀取不符', v:S.mism.length, cls: S.mism.length ? 'bad' : ''},
-        {l:'故障偵測', v: faults.length ? detected + ' / ' + faults.length : '—', cls: !faults.length || !done ? '' : detected === faults.length ? 'ok' : 'warn', s: done ? '已完成' : faults.length ? '執行中或尚未開始' : '尚未注入故障'}
+        {l:t('複雜度', 'Complexity'), v:(total / N) + 'N', s:total + t(' 次操作', ' operations')},
+        {l:t('進度', 'Progress'), v:Math.round(S.ptr / total * 100), u:'%'},
+        {l:t('讀取不符', 'Read mismatches'), v:S.mism.length, cls: S.mism.length ? 'bad' : ''},
+        {l:t('故障偵測', 'Faults detected'), v: faults.length ? detected + ' / ' + faults.length : '—', cls: !faults.length || !done ? '' : detected === faults.length ? 'ok' : 'warn', s: done ? t('已完成', 'Finished') : faults.length ? t('執行中或尚未開始', 'Running or not started') : t('尚未注入故障', 'No faults injected')}
       ]);
-      $('mt-pos').textContent = S.cur >= 0 && S.ptr > 0 ? 'M' + S.ops[Math.min(S.ptr, total) - 1].e + ' · 位址 ' + S.cur : '—';
+      $('mt-pos').textContent = S.cur >= 0 && S.ptr > 0 ? 'M' + S.ops[Math.min(S.ptr, total) - 1].e + t(' · 位址 ', ' · address ') + S.cur : '—';
       $('mt-faults').innerHTML = faults.length ? faults.map(f => {
         const d = watch(f).some(i => S.det.has(i));
-        const where = TWO.has(f.t) ? (f.t === 'AF' ? 'a=' + f.a + ' → b=' + f.v : '攻擊 ' + f.a + ' → 受害 ' + f.v) : '位址 ' + f.c;
-        return '<div' + (done && !d ? ' class="bad"' : '') + '>' + FT_LABEL[f.t] + ' · ' + where + ' — ' + (d ? '✓ 偵測到' : done ? '✗ 漏網' : '…') + '</div>';
-      }).join('') : '<span>尚未注入（可用「隨機注入 3 個」）</span>';
-      $('mt-run').textContent = running ? '❚❚ 暫停' : done ? '▶ 再跑一次' : '▶ 執行';
+        const where = TWO.has(f.t) ? (f.t === 'AF' ? 'a=' + f.a + ' → b=' + f.v : t('攻擊 ', 'aggressor ') + f.a + t(' → 受害 ', ' → victim ') + f.v) : t('位址 ', 'Address ') + f.c;
+        return '<div' + (done && !d ? ' class="bad"' : '') + '>' + FT_LABEL[f.t] + ' · ' + where + ' — ' + (d ? t('✓ 偵測到', '✓ detected') : done ? t('✗ 漏網', '✗ escaped') : '…') + '</div>';
+      }).join('') : t('<span>尚未注入（可用「隨機注入 3 個」）</span>', '<span>None yet (try “Inject 3 random”)</span>');
+      $('mt-run').textContent = running ? t('❚❚ 暫停', '❚❚ Pause') : done ? t('▶ 再跑一次', '▶ Run again') : t('▶ 執行', '▶ Run');
     }
     function stepOnce(){
       if(!S || S.ptr >= S.ops.length) return false;
@@ -492,7 +493,7 @@
           S.mism.push(o); S.det.add(o.a);
           if(S.mism.length <= 200){
             const log = $('mt-log'); if(S.mism.length === 1) log.innerHTML = '';
-            log.insertAdjacentHTML('beforeend', '<div class="bad">M' + o.e + ' ' + ARROW[ALGS[S.name][o.e][0]] + ' 位址 ' + o.a + '：r' + o.v + ' 讀到 ' + got + '</div>');
+            log.insertAdjacentHTML('beforeend', '<div class="bad">M' + o.e + ' ' + ARROW[ALGS[S.name][o.e][0]] + t(' 位址 ', ' addr ') + o.a + t('：r', ': r') + o.v + t(' 讀到 ', ' read ') + got + '</div>');
             log.scrollTop = log.scrollHeight;
           }
         }
@@ -511,7 +512,7 @@
         if(S.ptr >= S.ops.length) running = false;
         draw();
         if(running) timer = requestAnimationFrame(tick);
-        else if(!S.mism.length && S.ptr >= S.ops.length) $('mt-log').innerHTML = '<span>全部讀取都符合預期</span>';
+        else if(!S.mism.length && S.ptr >= S.ops.length) $('mt-log').innerHTML = t('<span>全部讀取都符合預期</span>', '<span>Every read matched</span>');
       };
       timer = requestAnimationFrame(tick);
       draw();
@@ -560,7 +561,7 @@
         return hit / TRIALS;
       });
     });
-    $('mt-cov').innerHTML = '<tr><th>演算法</th><th class="n">複雜度</th>' + FT.map(t => '<th class="n">' + FT_LABEL[t] + '</th>').join('') + '</tr>' +
+    $('mt-cov').innerHTML = t('<tr><th>演算法</th><th class="n">複雜度</th>', '<tr><th>Algorithm</th><th class="n">Complexity</th>') + FT.map(t => '<th class="n">' + FT_LABEL[t] + '</th>').join('') + '</tr>' +
       names.map((name, i) => '<tr><td>' + name + '</td><td class="n">' + (expand(name).length / N) + 'N</td>' + cov[i].map(c =>
         '<td class="n" style="color:' + (c >= 0.999 ? 'var(--ok)' : c >= 0.6 ? 'var(--warn)' : 'var(--bad)') + '">' + Math.round(c * 100) + '%</td>').join('') + '</tr>').join('');
     hint(); reset();

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Notes · A map of memory technology</title>
+<meta name="description" content="A map of memory technology: devices, circuit design, applications, process, test and packaging, and reliability — with an interactive lab and a spec designer.">
+<link rel="alternate" hreflang="zh-Hant" href="../index.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="index">
+<main class="hub">
+  <div class="eyebrow">Memory Notes · a map of memory technology</div>
+  <h1>Memory: from one bit to one chip</h1>
+  <p class="lead">Study notes on SRAM, DRAM, NAND flash and emerging memories. They follow a memory chip from device physics through circuit design, system applications, wafer processing, test and packaging to reliability. Every chapter has diagrams and a glossary, and links to interactive experiments where you can change the parameters yourself.</p>
+  <button class="hero-find" type="button" data-open-find>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span>Search a topic or term: sense amp, HBM, March C−, row hammer…</span><kbd>Ctrl K</kbd>
+  </button>
+
+  <nav class="flow" aria-label="Learning flow">
+    <a href="device.html" style="--c:var(--dev)"><span class="st">01 · DEVICE</span><b>Devices</b><small>How a bit is stored: charge, latches, trapped electrons</small></a>
+    <a href="design.html" style="--c:var(--des)"><span class="st">02 · DESIGN</span><b>Design</b><small>Arrays, sense amps, timing, ECC, repair</small></a>
+    <a href="application.html" style="--c:var(--app)"><span class="st">03 · APPLICATION</span><b>Applications</b><small>DDR, LPDDR, GDDR, HBM, SSDs, automotive</small></a>
+    <a href="process.html" style="--c:var(--fab)"><span class="st">04 · PROCESS</span><b>Process</b><small>Capacitors, buried word lines, 3D NAND stacks</small></a>
+    <a href="test.html" style="--c:var(--tst)"><span class="st">05 · TEST &amp; PKG</span><b>Test &amp; Pkg</b><small>March tests, repair, TSVs, HBM stacking</small></a>
+    <a href="reliability.html" style="--c:var(--rel)"><span class="st">06 · RELIABILITY</span><b>Reliability</b><small>Retention, row hammer, endurance, soft errors</small></a>
+  </nav>
+
+  <h2 class="grp-h">Chapters</h2>
+  <div class="cards">
+    <a class="card" href="device.html" style="--c:var(--dev)"><span class="k">Chapter 1 · Devices</span><h3>Devices: how a bit gets stored</h3>
+      <p>The memory hierarchy, the 6T SRAM cell, the 1T1C DRAM cell, floating-gate and charge-trap flash, 3D NAND, and MRAM / ReRAM / PCM / FeRAM.</p>
+      <ul><li>SNM</li><li>Charge sharing</li><li>SLC→QLC</li><li>MTJ</li></ul></a>
+    <a class="card" href="design.html" style="--c:var(--des)"><span class="k">Chapter 2 · Circuit design</span><h3>Design: organizing billions of cells</h3>
+      <p>Bank / mat hierarchy, bit-line architectures, sense amplifiers, DRAM timing, prefetch and interfaces, refresh, ECC, redundancy repair, SRAM assist, NAND ISPP.</p>
+      <ul><li>tRCD / CL</li><li>On-die ECC</li><li>PPR</li><li>Assist</li></ul></a>
+    <a class="card" href="application.html" style="--c:var(--app)"><span class="k">Chapter 3 · Applications</span><h3>Applications: different systems want different memory</h3>
+      <p>DDR5 / LPDDR5X / GDDR7 / HBM compared, bandwidth math, the AI memory wall and KV cache, SSDs and the FTL, automotive memory, CXL and processing in memory.</p>
+      <ul><li>HBM4</li><li>WAF</li><li>Roofline</li><li>CXL</li></ul></a>
+    <a class="card" href="process.html" style="--c:var(--fab)"><span class="k">Chapter 4 · Process</span><h3>Process: billions of capacitors and skyscrapers on silicon</h3>
+      <p>DRAM flow and high-aspect-ratio capacitors, EUV and node names, 4F² and 3D DRAM, 3D NAND channel holes and replacement gate, SRAM scaling, yield models.</p>
+      <ul><li>BCAT</li><li>ZAZ</li><li>CuA / CBA</li><li>Y = e<sup>−AD</sup></li></ul></a>
+    <a class="card" href="test.html" style="--c:var(--tst)"><span class="k">Chapter 5 · Test &amp; packaging</span><h3>Test &amp; packaging: find bad bits, fix them, stack the dies</h3>
+      <p>WAT / CP / FT flow, fault models, March algorithms, fail bit maps, repair and KGD, ATE, MBIST, package types, HBM TSV stacking, burn-in.</p>
+      <ul><li>March C−</li><li>Fail bit map</li><li>MR-MUF</li><li>Hybrid bonding</li></ul></a>
+    <a class="card" href="reliability.html" style="--c:var(--rel)"><span class="k">Chapter 6 · Reliability</span><h3>Reliability: will the data last until the last day?</h3>
+      <p>Bathtub curve and FIT, DRAM retention and VRT, row hammer and PRAC, flash endurance and retention, disturbs, soft errors, aging, qualification and acceleration models.</p>
+      <ul><li>RowPress</li><li>JESD218</li><li>SER</li><li>Arrhenius</li></ul></a>
+  </div>
+
+  <h2 class="grp-h">Interactive tools</h2>
+  <div class="cards">
+    <a class="card tool wide" href="lab.html" style="--c:var(--accent)">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 46C14 46 16 18 24 18S34 46 42 46 52 30 58 30"/><path d="M6 56h52M6 8v48" opacity=".4"/></svg>
+      <div><span class="k">Memory Lab</span><h3>Change the parameters and watch memory work — and fail</h3>
+      <p>Nine live simulations: DRAM charge sharing, the SRAM butterfly curve, NAND V<sub>t</sub> distributions, retention and refresh, row hammer mitigation and March fault injection, plus three manufacturing tools — wafer yield, HBM stack yield and cost per Gb.</p>
+      <ul><li>DRAM read</li><li>SRAM SNM</li><li>NAND RBER</li><li>Refresh</li><li>Row hammer</li><li>March test</li><li>Wafer yield</li><li>HBM stack</li><li>Cost per Gb</li></ul></div></a>
+    <a class="card tool wide" href="designer.html" style="--c:var(--des)">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="48" height="48" rx="4"/><path d="M8 24h48M8 40h48M24 8v48M40 8v48" opacity=".5"/><rect x="26" y="26" width="12" height="12" fill="currentColor" opacity=".3"/></svg>
+      <div><span class="k">Spec Designer</span><h3>From a spec to arrays, area, bandwidth and margin</h3>
+      <p>Enter parameters for a DRAM, a 3D NAND die / SSD or an SRAM macro. Get address bits, array organization, die area, sense margin, refresh overhead and SSD bottlenecks, plus a spec summary, controller timings or a Verilog model.</p>
+      <ul><li>DDR5 / LPDDR5X / GDDR7 / HBM</li><li>TLC / QLC SSD</li><li>SRAM compiler</li></ul></div></a>
+  </div>
+
+  <h2 class="grp-h">Study and careers</h2>
+  <div class="cards">
+    <a class="card" href="roles.html" style="--c:var(--app)"><span class="k">Career map</span><h3>What to read first for each role</h3>
+      <p>Process integration, module, yield, product, test, technology development, design, packaging, quality &amp; reliability and equipment engineering: what each does, the chapters to read, related tools and common interview questions.</p>
+      <ul><li>PI</li><li>YE</li><li>PE</li><li>TE</li><li>QRA</li></ul></a>
+    <a class="card" href="quiz.html" style="--c:var(--tst)"><span class="k">Quiz</span><h3>Test yourself</h3>
+      <p>49 multiple-choice questions across the six chapters. Pick chapters and length; every question has an explanation and a link back to the section, and missed questions are listed at the end.</p>
+      <ul><li>8–9 per chapter</li><li>Instant feedback</li><li>Keyboard answers</li></ul></a>
+  </div>
+
+  <h2 class="grp-h">The three big memories in one table</h2>
+  <div class="tblwrap"><table>
+    <tr><th></th><th>SRAM</th><th>DRAM</th><th>NAND Flash</th></tr>
+    <tr><td>Stores</td><td>State of cross-coupled inverters</td><td>Charge on a capacitor</td><td>Electrons in a trap layer (V<sub>t</sub>)</td></tr>
+    <tr><td>Cell</td><td>6 transistors, 120–150F²</td><td>1T1C, 6F²</td><td>Series GAA cells stacked hundreds of layers high</td></tr>
+    <tr><td>Speed</td><td>~1 ns</td><td>Tens of ns</td><td>Reads tens of µs, writes hundreds of µs</td></tr>
+    <tr><td>Power off</td><td>Lost</td><td>Lost (and needs periodic refresh)</td><td>Kept for years</td></tr>
+    <tr><td>Biggest challenge</td><td>Stalled scaling, V<sub>min</sub></td><td>Capacitor and leakage, row hammer</td><td>Layer stacking, endurance and retention</td></tr>
+    <tr><td>Where it lives</td><td>CPU / GPU caches</td><td>Main memory, HBM</td><td>SSDs, phone storage</td></tr>
+  </table></div>
+
+  <h2 class="grp-h">Suggested reading paths</h2>
+  <div class="cards">
+    <a class="card" href="device.html#sram" style="--c:var(--des)"><span class="k">Circuit design</span><h3>SRAM / DRAM circuits</h3>
+      <p>Devices · SRAM and DRAM → Design · sense amps, timing, assist → Lab · DRAM read, SRAM butterfly → Designer · SRAM macro.</p></a>
+    <a class="card" href="process.html#dram-flow" style="--c:var(--fab)"><span class="k">Process integration</span><h3>From capacitors to 3D NAND</h3>
+      <p>Devices · DRAM and 3D NAND → Process · DRAM flow, capacitors, 3D NAND → Test · fail bit maps → Reliability · retention and endurance.</p></a>
+    <a class="card" href="test.html#test-flow" style="--c:var(--tst)"><span class="k">Test / product</span><h3>Test and yield</h3>
+      <p>Test · flow, fault models, March → Lab · March test → Design · redundancy repair → Reliability · qualification and FIT.</p></a>
+    <a class="card" href="application.html#memory-wall" style="--c:var(--app)"><span class="k">Systems / AI</span><h3>Memory and AI systems</h3>
+      <p>Applications · DRAM family, memory wall, HBM → Test · HBM stacking → Designer · HBM3E / HBM4 system bandwidth.</p></a>
+  </div>
+
+  <p class="foot">Study notes for teaching. Numbers are orders of magnitude; consult JEDEC standards and vendor datasheets for specifications. Press <kbd>Ctrl</kbd> + <kbd>K</kbd> or <kbd>/</kbd> to search.</p>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

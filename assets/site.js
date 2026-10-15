@@ -1,19 +1,21 @@
 /* Memory Notes — shared chrome: top bar, theme, table of contents, pager, site-wide find (Ctrl+K). */
 (function(){
+  const EN = (document.documentElement.lang || '').toLowerCase().startsWith('en');
+  const t = (zh, en) => EN ? en : zh;
   const PAGES = [
-    {id:'index',  href:'index.html',       label:'首頁'},
-    {id:'device', href:'device.html',      label:'元件',   ch:'dev', en:'Devices'},
-    {id:'design', href:'design.html',      label:'設計',   ch:'des', en:'Circuit design'},
-    {id:'app',    href:'application.html', label:'應用',   ch:'app', en:'Applications'},
-    {id:'fab',    href:'process.html',     label:'製程',   ch:'fab', en:'Process'},
-    {id:'test',   href:'test.html',        label:'封測',   ch:'tst', en:'Test & packaging'},
-    {id:'rel',    href:'reliability.html', label:'可靠度', ch:'rel', en:'Reliability'},
+    {id:'index',  href:'index.html',       label:t('首頁', 'Home')},
+    {id:'device', href:'device.html',      label:t('元件', 'Devices'),       ch:'dev', en:'Devices'},
+    {id:'design', href:'design.html',      label:t('設計', 'Design'),        ch:'des', en:'Circuit design'},
+    {id:'app',    href:'application.html', label:t('應用', 'Applications'),  ch:'app', en:'Applications'},
+    {id:'fab',    href:'process.html',     label:t('製程', 'Process'),       ch:'fab', en:'Process'},
+    {id:'test',   href:'test.html',        label:t('封測', 'Test & Pkg'),    ch:'tst', en:'Test & packaging'},
+    {id:'rel',    href:'reliability.html', label:t('可靠度', 'Reliability'), ch:'rel', en:'Reliability'},
     {sep:true},
-    {id:'lab',      href:'lab.html',      label:'互動實驗室'},
-    {id:'designer', href:'designer.html', label:'規格設計器'},
+    {id:'lab',      href:'lab.html',      label:t('互動實驗室', 'Lab')},
+    {id:'designer', href:'designer.html', label:t('規格設計器', 'Designer')},
     {sep:true},
-    {id:'roles',    href:'roles.html',    label:'職務地圖'},
-    {id:'quiz',     href:'quiz.html',     label:'測驗'}
+    {id:'roles',    href:'roles.html',    label:t('職務地圖', 'Careers')},
+    {id:'quiz',     href:'quiz.html',     label:t('測驗', 'Quiz')}
   ];
   const CHAPTERS = PAGES.filter(p => p.ch);
   const page = document.body.dataset.page || 'index';
@@ -39,15 +41,25 @@
   const hdr = document.createElement('header');
   hdr.className = 'top';
   hdr.innerHTML = '<div class="top-in">' +
-    '<a class="brand" href="index.html" aria-label="Memory Notes 首頁">' + ICON.chip + '<span>Memory Notes</span></a>' +
-    '<nav class="nav" aria-label="章節">' + PAGES.filter(p => p.id !== 'index').map(p => p.sep ? '<span class="sep"></span>' :
+    '<a class="brand" href="index.html" aria-label="' + t('Memory Notes 首頁', 'Memory Notes home') + '">' + ICON.chip + '<span>Memory Notes</span></a>' +
+    '<nav class="nav" aria-label="' + t('章節', 'Chapters') + '">' + PAGES.filter(p => p.id !== 'index').map(p => p.sep ? '<span class="sep"></span>' :
       '<a href="' + p.href + '"' + (p.id === page ? ' aria-current="page"' : '') + '>' + p.label + '</a>').join('') + '</nav>' +
-    '<button class="tbtn" id="findBtn" type="button" title="搜尋 (Ctrl+K)">' + ICON.find + '<span class="lbl">搜尋</span></button>' +
-    '<button class="tbtn" id="themeBtn" type="button" title="切換深淺色"></button>' +
+    '<button class="tbtn" id="findBtn" type="button" title="' + t('搜尋', 'Search') + ' (Ctrl+K)">' + ICON.find + '<span class="lbl">' + t('搜尋', 'Search') + '</span></button>' +
+    '<a class="tbtn" id="langBtn" href="#" title="' + t('Switch to English', '切換為中文') + '" lang="' + t('en', 'zh-Hant') + '">' + t('EN', '中') + '</a>' +
+    '<button class="tbtn" id="themeBtn" type="button" title="' + t('切換深淺色', 'Toggle theme') + '"></button>' +
     '</div>';
   document.body.prepend(hdr);
+  /* language switch: zh pages live at the root, English pages in /en/ with the same file names and anchors */
+  const langBtn = hdr.querySelector('#langBtn');
+  function langHref(){
+    const file = location.pathname.split('/').pop() || 'index.html';
+    return (EN ? '../' : 'en/') + file + location.search + location.hash;
+  }
+  langBtn.href = langHref();
+  window.addEventListener('hashchange', () => { langBtn.href = langHref(); });
+  langBtn.addEventListener('click', () => { store('mem-lang', EN ? 'zh' : 'en'); langBtn.href = langHref(); });
   const themeBtn = hdr.querySelector('#themeBtn');
-  function paintThemeBtn(){ themeBtn.innerHTML = isDark() ? ICON.sun : ICON.moon; themeBtn.setAttribute('aria-label', isDark() ? '切換為淺色' : '切換為深色'); }
+  function paintThemeBtn(){ themeBtn.innerHTML = isDark() ? ICON.sun : ICON.moon; themeBtn.setAttribute('aria-label', isDark() ? t('切換為淺色', 'Switch to light') : t('切換為深色', 'Switch to dark')); }
   paintThemeBtn();
   themeBtn.addEventListener('click', () => {
     const next = isDark() ? 'light' : 'dark';
@@ -62,7 +74,7 @@
   const toc = document.querySelector('.toc');
   const heads = [...document.querySelectorAll('article h2[id]')];
   if(toc && heads.length){
-    toc.innerHTML = '<b>本章目錄</b>' + heads.map(h => '<a href="#' + h.id + '">' + h.textContent + '</a>').join('');
+    toc.innerHTML = '<b>' + t('本章目錄', 'On this page') + '</b>' + heads.map(h => '<a href="#' + h.id + '">' + h.textContent + '</a>').join('');
     const links = new Map([...toc.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
     const io = new IntersectionObserver(es => {
       es.forEach(e => { if(e.isIntersecting){ links.forEach(a => a.classList.remove('on')); const a = links.get(e.target.id); if(a) a.classList.add('on'); } });
@@ -76,18 +88,20 @@
   const ci = CHAPTERS.findIndex(c => c.id === page);
   if(pager && ci >= 0){
     const prev = CHAPTERS[ci - 1], next = CHAPTERS[ci + 1];
-    pager.innerHTML = (prev ? '<a href="' + prev.href + '"><small>← 上一章</small>' + prev.label + ' · ' + prev.en + '</a>' : '<span></span>') +
-      (next ? '<a class="next" href="' + next.href + '"><small>下一章 →</small>' + next.label + ' · ' + next.en + '</a>'
-            : '<a class="next" href="lab.html"><small>動手試試 →</small>互動實驗室</a>');
+    const name = c => EN ? c.en : c.label + ' · ' + c.en;
+    pager.innerHTML = (prev ? '<a href="' + prev.href + '"><small>' + t('← 上一章', '← Previous') + '</small>' + name(prev) + '</a>' : '<span></span>') +
+      (next ? '<a class="next" href="' + next.href + '"><small>' + t('下一章 →', 'Next →') + '</small>' + name(next) + '</a>'
+            : '<a class="next" href="lab.html"><small>' + t('動手試試 →', 'Try it →') + '</small>' + t('互動實驗室', 'Memory Lab') + '</a>');
   }
 
   /* ---------- find ---------- */
-  const PAGE_LABEL = {device:'元件', design:'設計', app:'應用', fab:'製程', test:'封測', rel:'可靠度', lab:'實驗室', designer:'設計器', roles:'職務', quiz:'測驗', index:'首頁'};
+  const PAGE_LABEL = EN ? {device:'Devices', design:'Design', app:'Apps', fab:'Process', test:'Test', rel:'Reliab.', lab:'Lab', designer:'Designer', roles:'Careers', quiz:'Quiz', index:'Home'}
+    : {device:'元件', design:'設計', app:'應用', fab:'製程', test:'封測', rel:'可靠度', lab:'實驗室', designer:'設計器', roles:'職務', quiz:'測驗', index:'首頁'};
   const PAGE_TAG = {device:'dev', design:'des', app:'app', fab:'fab', test:'tst', rel:'rel', lab:'lab', designer:'dsg', roles:'dsg', quiz:'dsg', index:'lab'};
   const ov = document.createElement('div');
   ov.className = 'find-ov'; ov.hidden = true;
-  ov.innerHTML = '<div class="find-box" role="dialog" aria-modal="true" aria-label="全站搜尋">' +
-    '<input id="findQ" type="search" placeholder="搜尋：DRAM、sense amp、March C-、HBM、row hammer…" autocomplete="off">' +
+  ov.innerHTML = '<div class="find-box" role="dialog" aria-modal="true" aria-label="' + t('全站搜尋', 'Search the site') + '">' +
+    '<input id="findQ" type="search" placeholder="' + t('搜尋：DRAM、sense amp、March C-、HBM、row hammer…', 'Search: DRAM, sense amp, March C-, HBM, row hammer…') + '" autocomplete="off">' +
     '<div class="find-meta" id="findMeta"></div><div class="find-res" id="findRes" role="listbox"></div></div>';
   document.body.appendChild(ov);
   const q = ov.querySelector('#findQ'), res = ov.querySelector('#findRes'), meta = ov.querySelector('#findMeta');
@@ -116,13 +130,13 @@
       }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 60).map(x => x.e);
     }
     sel = 0;
-    meta.textContent = terms.length ? (hits.length + ' 筆結果') : '所有章節 — 輸入關鍵字（中英文皆可）';
+    meta.textContent = terms.length ? (hits.length + t(' 筆結果', ' results')) : t('所有章節 — 輸入關鍵字（中英文皆可）', 'All sections — type a keyword');
     res.innerHTML = hits.map((e, i) => {
       const snip = e.s ? e.s.slice(0, 110) : '';
       return '<a role="option" href="' + e.p + (e.a ? '#' + e.a : '') + '"' + (i === 0 ? ' class="sel"' : '') + '>' +
         '<span class="tag ' + (PAGE_TAG[e.g] || 'lab') + '">' + (PAGE_LABEL[e.g] || '') + '</span>' + hl(e.t, terms) +
         (snip ? '<small>' + hl(snip, terms) + '</small>' : '') + '</a>';
-    }).join('') || '<div class="find-meta">找不到符合的內容</div>';
+    }).join('') || '<div class="find-meta">' + t('找不到符合的內容', 'No matches') + '</div>';
   }
   function openFind(){ ov.hidden = false; q.value = ''; run(); q.focus(); }
   function closeFind(){ ov.hidden = true; }
@@ -142,5 +156,5 @@
   });
   hdr.querySelector('#findBtn').addEventListener('click', openFind);
   document.querySelectorAll('[data-open-find]').forEach(b => b.addEventListener('click', openFind));
-  window.MemSite = {openFind, isDark};
+  window.MemSite = {openFind, isDark, EN, t};
 })();

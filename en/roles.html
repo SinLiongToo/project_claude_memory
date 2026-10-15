@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Career Map · Memory Notes</title>
+<meta name="description" content="A career map of memory companies: process integration, process modules, yield enhancement, product, test, technology development, design, packaging, quality &amp; reliability and equipment engineering — the chapters, tools and interview questions for each.">
+<link rel="alternate" hreflang="zh-Hant" href="../roles.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="roles">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Career map</div>
+<h1>Career map: what to read first for each role</h1>
+<p class="lead">A memory chip passes through many engineering roles between R&amp;D and shipment. This page maps the common roles at a memory (DRAM / NAND) company to the chapters and interactive tools on this site, with concept questions that often come up in interviews. Titles and responsibilities vary by company; these are generic descriptions.</p>
+
+<h2 id="overview">Overview</h2>
+<div class="tblwrap"><table>
+<tr><th>Role</th><th>In one sentence</th><th>Most relevant chapters</th></tr>
+<tr><td><a href="#pi">Process integration (PI)</a></td><td>Strings hundreds of process steps into a working device and owns yield and electrical results</td><td>Process, Devices, Test (fail bit maps)</td></tr>
+<tr><td><a href="#module">Process module engineering</a></td><td>Keeps one module (etch, films, litho, CMP, diffusion) stable and improving</td><td>Process</td></tr>
+<tr><td><a href="#ye">Yield enhancement (YE)</a></td><td>Finds root causes of yield loss from test and defect data</td><td>Process (yield), Test (fail bit maps)</td></tr>
+<tr><td><a href="#pe">Product engineering (PE)</a></td><td>Owns a product’s yield, test flow, specs and customer issues</td><td>Design, Test, Reliability</td></tr>
+<tr><td><a href="#te">Test engineering (TE)</a></td><td>Develops and optimizes test programs and hardware, cutting test time and escapes</td><td>Test, Design (timing, repair)</td></tr>
+<tr><td><a href="#td">Technology development (TD)</a></td><td>Defines next-generation cell structures and processes to hit scaling targets</td><td>Devices, Process, Reliability</td></tr>
+<tr><td><a href="#de">Design engineering (DE)</a></td><td>Designs array periphery, sense amps, interfaces and DFT</td><td>Design, Devices, Applications</td></tr>
+<tr><td><a href="#pkg">Packaging engineering</a></td><td>Develops and runs packaging processes such as die stacking, TSVs and HBM</td><td>Test (packaging, HBM), Reliability</td></tr>
+<tr><td><a href="#qra">Quality &amp; reliability (QRA)</a></td><td>Qualifies product life, analyses customer returns, maintains outgoing quality</td><td>Reliability, Test</td></tr>
+<tr><td><a href="#ee">Equipment engineering (EE)</a></td><td>Keeps tools stable with high uptime and supports process improvements</td><td>Process</td></tr>
+</table></div>
+
+<h2 id="pi">Process integration (PI)</h2>
+<p>PI is the process’s “systems engineer”. A DRAM has over a thousand steps; PI defines the whole flow and the targets for each module (for example the capacitor hole CD or contact resistance), and when electrical results or yield go wrong, coordinates the modules to find the root cause. Daily work includes reviewing WAT / CP data, running split experiments and arranging failure analysis.</p>
+<ul>
+<li><b>Read</b>: <a href="process.html#dram-flow">DRAM process flow</a>, <a href="process.html#dram-cap">capacitors</a>, <a href="process.html#nand3d-flow">3D NAND process</a>, <a href="device.html#leakage">leakage and refresh</a>, <a href="test.html#bitmap">fail bit maps</a></li>
+<li><b>Tools</b>: <a href="lab.html#dram">DRAM read</a> (how C<sub>s</sub> and C<sub>BL</sub> affect the signal), <a href="lab.html#wafer">wafer yield</a>, <a href="lab.html#retention">retention and refresh</a></li>
+</ul>
+<h3 id="pi-q">Common interview questions</h3>
+<ul>
+<li>What happens when DRAM capacitance is too low? What are the three ways to increase it?</li>
+<li>Why does a buried word line reduce leakage? Where does GIDL come from?</li>
+<li>CP shows more whole-row failures in one lot. How would you chase it?</li>
+<li>How would you design a split experiment to confirm which step is causing yield loss?</li>
+</ul>
+
+<h2 id="module">Process module engineering (etch, films, litho, CMP, diffusion)</h2>
+<p>Module engineers own one step or family of steps: keeping film thickness, line width and hole profile within spec, watching drift with SPC, handling excursion lots, and developing the new processes the next generation needs (higher-aspect-ratio etch, new ALD materials).</p>
+<ul>
+<li><b>Read</b>: <a href="process.html#unit-process">unit process modules</a>, <a href="process.html#dram-cap">capacitor challenges</a>, <a href="process.html#dram-litho">lithography and nodes</a>, <a href="process.html#nand3d-flow">3D NAND channel holes and replacement gate</a></li>
+<li><b>Tools</b>: <a href="lab.html#wafer">wafer yield</a> (effect of edge defects and defect density)</li>
+</ul>
+<h3 id="module-q">Common interview questions</h3>
+<ul>
+<li>What profile problems are typical in high-aspect-ratio etch (bowing, tilting, tapering)? What causes them?</li>
+<li>How do ALD and CVD differ? Why use ALD inside deep holes?</li>
+<li>An SPC chart shows seven points in a row on one side of the center line. What does it mean and what do you do?</li>
+<li>Walk through SAQP. Pros and cons versus single-exposure EUV?</li>
+</ul>
+
+<h2 id="ye">Yield enhancement (YE)</h2>
+<p>YE links wafer test results, fail bit maps, inline defect inspection, WAT and tool history to find sources of yield loss, quantifies each problem’s impact (Pareto) and drives process or equipment fixes. Data skills (SQL, Python, statistics) matter a lot.</p>
+<ul>
+<li><b>Read</b>: <a href="process.html#yield">yield and process control</a>, <a href="test.html#bitmap">fail bit maps</a>, <a href="test.html#repair">repair and KGD</a>, <a href="design.html#redundancy">redundancy repair</a></li>
+<li><b>Tools</b>: <a href="lab.html#wafer">wafer yield</a> (Poisson vs negative binomial, repair), <a href="lab.html#cost">cost per Gb</a></li>
+</ul>
+<h3 id="ye-q">Common interview questions</h3>
+<ul>
+<li>How do the Poisson and negative binomial yield models differ? Why does clustering actually raise yield?</li>
+<li>A wafer map shows an edge-ring failure pattern. What are the likely causes?</li>
+<li>Pre-repair yield is low but post-repair yield is normal. What does that tell you — should you worry?</li>
+<li>How do you correlate inline defect inspection with CP failures (kill ratio)?</li>
+</ul>
+
+<h2 id="pe">Product engineering (PE)</h2>
+<p>PE owns one product: monitoring yield at every stage, setting the test flow and specs, handling speed binning, working product issues with design and process, and supporting customer failure analysis. It is one of the broadest roles at a memory company.</p>
+<ul>
+<li><b>Read</b>: <a href="design.html#timing">DRAM timing</a>, <a href="design.html#refresh">refresh</a>, <a href="test.html#test-flow">test flow</a>, <a href="test.html#ate">ATE and test cost</a>, <a href="reliability.html#dram-retention">DRAM retention</a>, <a href="reliability.html#rowhammer">row hammer</a></li>
+<li><b>Tools</b>: <a href="lab.html#retention">retention and refresh</a>, <a href="lab.html#rowhammer">row hammer</a>, <a href="designer.html#dram">Spec Designer</a></li>
+</ul>
+<h3 id="pe-q">Common interview questions</h3>
+<ul>
+<li>What are tRCD, CL and tRP? Why have they barely improved in twenty years?</li>
+<li>Why does refresh double at high temperature? What does that do to performance and power?</li>
+<li>A customer reports sporadic bit flips. How do you tell row hammer, retention and soft errors apart?</li>
+<li>What decides speed bins? How do yield and speed distribution affect revenue?</li>
+</ul>
+
+<h2 id="te">Test engineering (TE)</h2>
+<p>TE develops test programs and patterns on ATE, designs probe cards and load boards, optimizes parallelism and test time, and makes sure the test catches what it should (coverage) without killing good chips (overkill).</p>
+<ul>
+<li><b>Read</b>: <a href="test.html#fault-models">fault models</a>, <a href="test.html#march">March algorithms</a>, <a href="test.html#ate">ATE</a>, <a href="test.html#mbist">MBIST</a>, <a href="design.html#redundancy">redundancy repair</a></li>
+<li><b>Tools</b>: <a href="lab.html#march">March test</a>, <a href="lab.html#hbm">HBM stack yield</a> (effect of KGD escapes)</li>
+</ul>
+<h3 id="te-q">Common interview questions</h3>
+<ul>
+<li>Write out March C− and explain why it catches coupling faults.</li>
+<li>Test time is too long. How can you cut it (parallelism, built-in test modes, removing redundant items)? What are the risks?</li>
+<li>How do you trade overkill against underkill (escapes)? How do you quantify them?</li>
+<li>How does HBM KGD testing differ from ordinary DRAM wafer test?</li>
+</ul>
+
+<h2 id="td">Technology development (TD)</h2>
+<p>TD defines the next generation’s cell structure, materials and integration scheme, verifies them with TCAD and short-loop experiments, hits area, electrical and reliability targets, then transfers to manufacturing. It usually needs a device-physics background (often MS / PhD).</p>
+<ul>
+<li><b>Read</b>: <a href="device.html#dram">DRAM cells</a>, <a href="device.html#flash">flash</a>, <a href="device.html#nand3d">3D NAND</a>, <a href="process.html#dram-future">4F² and 3D DRAM</a>, <a href="device.html#emerging">emerging memories</a>, <a href="reliability.html#flash-endurance">endurance</a></li>
+<li><b>Tools</b>: <a href="lab.html#dram">DRAM read</a>, <a href="lab.html#nand">NAND V<sub>t</sub> distributions</a>, <a href="lab.html#cost">cost per Gb</a> (scaling vs yield)</li>
+</ul>
+<h3 id="td-q">Common interview questions</h3>
+<ul>
+<li>How do floating-gate and charge-trap cells differ? Why does 3D NAND mostly use charge trap?</li>
+<li>What problem does a 4F² vertical-channel transistor solve, and what new problems does it bring?</li>
+<li>How does FN tunnelling current depend on field? What happens as the tunnel oxide thins?</li>
+<li>Why is DRAM scaling limited by the capacitor and access transistor rather than line width?</li>
+</ul>
+
+<h2 id="de">Design engineering (DE)</h2>
+<p>DE designs the array periphery: sense amps, word-line drivers, charge pumps, high-speed I/O (DLLs, equalizers), timing control, DFT and repair circuits, plus layout, SPICE simulation and post-silicon validation.</p>
+<ul>
+<li><b>Read</b>: <a href="design.html#array-org">array organization</a>, <a href="design.html#sense-amp">sense amplifiers</a>, <a href="design.html#interface">I/O interfaces</a>, <a href="design.html#sram-assist">SRAM assist</a>, <a href="design.html#nand-design">NAND chip design</a>, <a href="application.html#dram-family">the DRAM family</a></li>
+<li><b>Tools</b>: <a href="lab.html#sram">SRAM butterfly</a>, <a href="lab.html#dram">DRAM read</a>, <a href="designer.html">Spec Designer</a></li>
+</ul>
+<h3 id="de-q">Common interview questions</h3>
+<ul>
+<li>Draw a DRAM bit-line sense amplifier and explain the precharge, sense and restore timing.</li>
+<li>Where does SA offset come from? How does an offset-cancelling SA work?</li>
+<li>What is the trade-off between SRAM read stability and writability? Which assist circuits help at low voltage?</li>
+<li>Why does DDR5 use 16n prefetch? What problem does DFE solve?</li>
+</ul>
+
+<h2 id="pkg">Packaging engineering</h2>
+<p>Packaging engineers own grinding, dicing, die attach, wire bonding and molding, and develop and run advanced packaging (TSVs, micro-bumps, HBM stacking, hybrid bonding), watching yield, warpage, heat and reliability.</p>
+<ul>
+<li><b>Read</b>: <a href="test.html#package-types">package types</a>, <a href="test.html#assembly">assembly flow</a>, <a href="test.html#hbm-stack">HBM stacking and TSVs</a>, <a href="application.html#hbm-system">HBM integration</a>, <a href="reliability.html#qualification">qualification</a></li>
+<li><b>Tools</b>: <a href="lab.html#hbm">HBM stack yield</a></li>
+</ul>
+<h3 id="pkg-q">Common interview questions</h3>
+<ul>
+<li>Compare TC-NCF, MR-MUF and hybrid bonding for HBM stacking. What are the trade-offs?</li>
+<li>What problems appear when grinding wafers to 30–50 µm? Why does stealth dicing suit thin wafers?</li>
+<li>Where does warpage come from, and what failures does it cause?</li>
+<li>What does temperature-cycling (TC) qualification mainly verify?</li>
+</ul>
+
+<h2 id="qra">Quality &amp; reliability (QRA)</h2>
+<p>QRA plans and runs reliability qualification (HTOL, TC, HAST, ESD and more), builds lifetime models, analyses customer returns, drives corrective actions and maintains outgoing quality (DPPM). Automotive quality requirements are the strictest.</p>
+<ul>
+<li><b>Read</b>: <a href="reliability.html#bathtub">bathtub curve and FIT</a>, <a href="reliability.html#qualification">qualification tests</a>, <a href="reliability.html#arrhenius">acceleration models</a>, <a href="test.html#burnin">burn-in</a>, <a href="application.html#embedded">automotive requirements</a></li>
+<li><b>Tools</b>: <a href="lab.html#retention">retention and refresh</a>, <a href="lab.html#nand">NAND V<sub>t</sub> distributions</a> (endurance and retention)</li>
+</ul>
+<h3 id="qra-q">Common interview questions</h3>
+<ul>
+<li>Use the Arrhenius model to estimate equivalent use time for HTOL; with zero failures, how do you bound FIT?</li>
+<li>What is the customer-return analysis flow? How do you tell a manufacturing issue from a usage issue?</li>
+<li>What temperature range does AEC-Q100 Grade 1 require? How do automotive and consumer quality requirements differ?</li>
+<li>Why must flash endurance and retention be considered together?</li>
+</ul>
+
+<h2 id="ee">Equipment engineering (EE)</h2>
+<p>EE maintains tools, troubleshoots failures and improves performance, aiming for high uptime and stable process results, and works with process engineers to introduce new tools, parts or recipes.</p>
+<ul>
+<li><b>Read</b>: <a href="process.html#unit-process">unit process modules</a>, <a href="process.html#yield">yield and process control</a></li>
+<li><b>Tools</b>: <a href="lab.html#wafer">wafer yield</a> (how defects affect yield)</li>
+</ul>
+<h3 id="ee-q">Common interview questions</h3>
+<ul>
+<li>After preventive maintenance (PM), what must be checked before releasing the tool to production?</li>
+<li>How does plasma etch chamber condition affect process results?</li>
+<li>How do you raise tool uptime? What are MTBF and MTTR?</li>
+</ul>
+
+<h2 id="how-to">How to use this site to prepare</h2>
+<ol>
+<li>Start with the comparison table on the <a href="index.html">home page</a> to get the big picture.</li>
+<li>Read the chapters listed above for your target role; each chapter’s glossary doubles as a review list.</li>
+<li>Use the Lab to “turn the knobs” on each concept, so in an interview you can talk numbers and trade-offs, not just definitions.</li>
+<li>Take the <a href="quiz.html">quiz</a> on the relevant chapters; every missed question links back for review.</li>
+</ol>
+
+<p class="foot">Titles and responsibilities vary by company and department; the questions are common concept questions and do not represent any company’s actual interviews.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

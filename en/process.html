@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Process · Memory Notes</title>
+<meta name="description" content="Memory process technology: the DRAM flow, buried word lines, high-aspect-ratio capacitors, EUV and multi-patterning, 4F² and 3D DRAM, 3D NAND stacks and channel-hole etch, CMOS under Array, SRAM scaling, MRAM integration and yield models.">
+<link rel="alternate" hreflang="zh-Hant" href="../process.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="fab" data-ch="fab">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 4 · Process</div>
+<h1>Process: billions of capacitors and skyscrapers on silicon</h1>
+<p class="lead">Memory pushes semiconductor processing to its limits: DRAM needs capacitors with aspect ratios of several tens to one at a pitch of just over ten nanometres; 3D NAND etches through three hundred layers in one go. Competition between memory makers each generation often comes down to a handful of critical process steps.</p>
+
+<h2 id="unit-process">Unit process modules</h2>
+<p>Logic or memory, fabs combine the same set of unit processes again and again. A DRAM takes roughly a thousand steps and dozens of masks.</p>
+<div class="tblwrap"><table>
+<tr><th>Module</th><th>What it does</th><th>Key uses in memory</th></tr>
+<tr><td>Deposition</td><td>CVD, ALD, PVD, epitaxy</td><td>Capacitor high-k (ALD), hundreds of ON layers in 3D NAND, MTJ multilayers (PVD)</td></tr>
+<tr><td>Lithography</td><td>DUV immersion, EUV, plus multi-patterning (SADP/SAQP)</td><td>Dense DRAM active areas, bit lines and storage-node contacts</td></tr>
+<tr><td>Etch</td><td>Plasma dry etch, wet etch</td><td>Capacitor holes, 3D NAND channel holes (extreme aspect ratios), buried word-line trenches</td></tr>
+<tr><td>Implant / anneal</td><td>Doping, activation</td><td>Junction profiles that cut DRAM leakage</td></tr>
+<tr><td>CMP</td><td>Chemical-mechanical planarization</td><td>STI, contacts, damascene metal, surfaces before hybrid bonding</td></tr>
+<tr><td>Clean</td><td>Removing particles and residues</td><td>Cleaning and drying high-aspect-ratio structures without collapse</td></tr>
+<tr><td>Metrology / inspection</td><td>CD-SEM, OCD, overlay, defect inspection</td><td>Bottom CD, bowing and tilting of deep holes</td></tr>
+</table></div>
+
+<h2 id="dram-flow">The DRAM process flow</h2>
+<figure>
+<svg viewBox="0 0 680 320" role="img" aria-label="DRAM cell cross-section sketch">
+  <rect class="sunk" x="20" y="230" width="600" height="80"/>
+  <rect class="box" x="20" y="230" width="40" height="70"/><rect class="box" x="300" y="230" width="40" height="70"/><rect class="box" x="580" y="230" width="40" height="70"/>
+  <g class="c5"><rect x="110" y="232" width="28" height="36" rx="4"/><rect x="222" y="232" width="28" height="36" rx="4"/><rect x="390" y="232" width="28" height="36" rx="4"/><rect x="502" y="232" width="28" height="36" rx="4"/></g>
+  <g class="c1"><rect x="166" y="200" width="28" height="30"/><rect x="446" y="200" width="28" height="30"/><rect x="140" y="184" width="80" height="16" rx="2"/><rect x="420" y="184" width="80" height="16" rx="2"/></g>
+  <g class="c3"><rect x="72" y="165" width="22" height="65"/><rect x="266" y="165" width="22" height="65"/><rect x="352" y="165" width="22" height="65"/><rect x="546" y="165" width="22" height="65"/>
+     <rect x="62" y="155" width="42" height="10"/><rect x="256" y="155" width="42" height="10"/><rect x="342" y="155" width="42" height="10"/><rect x="536" y="155" width="42" height="10"/></g>
+  <g class="c2" style="stroke-width:2"><path d="M64 155V36H102V155"/><path d="M258 155V36H296V155"/><path d="M344 155V36H382V155"/><path d="M538 155V36H576V155"/></g>
+  <g class="sunk"><rect x="70" y="42" width="26" height="113"/><rect x="264" y="42" width="26" height="113"/><rect x="350" y="42" width="26" height="113"/><rect x="544" y="42" width="26" height="113"/></g>
+  <rect class="c4" x="40" y="20" width="560" height="14"/>
+  <path class="wd" d="M40 100H610"/>
+  <text x="646" y="31" class="ts" text-anchor="end">top plate</text>
+  <text x="124" y="290" text-anchor="middle" class="ts">BWL</text><text x="236" y="290" text-anchor="middle" class="ts">BWL</text>
+  <text x="40" y="318" text-anchor="middle" class="ts t-mut">STI</text><text x="320" y="318" text-anchor="middle" class="ts t-mut">STI</text>
+  <text x="180" y="178" text-anchor="middle" class="ts">Bit line BL</text>
+  <text x="180" y="290" text-anchor="middle" class="ts t-mut">active area</text>
+  <text x="140" y="125" class="ts">Capacitor (cylinder,</text><text x="140" y="141" class="ts">aspect ratio tens:1)</text>
+  <text x="400" y="125" class="ts">Storage-node contact + landing pad</text>
+  <path class="wm" d="M396 121L366 160"/>
+</svg>
+<figcaption>Simplified cross-section along an active area: two buried word lines (BWL) share the bit-line contact in the middle, and each side connects to a storage node and a capacitor. Capacitors are far taller than drawn, and a support mesh between them normally prevents collapse.</figcaption>
+</figure>
+<ol>
+<li><b>Active areas and STI</b>: define diagonal island-shaped active areas with multi-patterning (SAQP) or EUV, etch trenches and fill them with oxide.</li>
+<li><b>Buried word line (BCAT)</b>: etch word-line trenches into silicon, grow gate oxide, fill with TiN/W (or a dual-work-function TiN + poly gate to cut GIDL), recess below the silicon surface and cap.</li>
+<li><b>Bit-line contact and bit line</b>: open a contact on the active area between two word lines, deposit poly / metal and form the bit line (W, Ru, etc.) with insulating spacers (air gaps or low-k spacers to cut C<sub>BL</sub>).</li>
+<li><b>Storage-node contacts (BC / SNC) and landing pads (LP)</b>: self-aligned holes between bit lines reach both ends of the active area; landing pads rearrange the contacts into a honeycomb that suits capacitor placement.</li>
+<li><b>Capacitor module</b>: deposit a thick mold and support layers → etch high-aspect-ratio holes → deposit the TiN bottom electrode → remove the mold (keeping the support mesh) → ALD high-k → top electrode.</li>
+<li><b>Periphery</b>: planar transistors for sense amps, decoders and I/O; new high-speed DRAM adopts HKMG in the periphery.</li>
+<li><b>Back-end metal</b>: typically 3–4 metal layers (far fewer than logic’s dozen) to save cost.</li>
+</ol>
+
+<h2 id="dram-cap">The capacitor: the hardest part of DRAM</h2>
+<p>Cell area shrinks every generation, but capacitance cannot (a few fF to 10+ fF), or the signal becomes too small. With C = ε·A/d there are three levers:</p>
+<ul>
+<li><b>Taller (A)</b>: from planar to trench to stacked capacitors, and now cylinder / pillar capacitors about 1–1.5 µm tall and only tens of nm across — aspect ratios of several tens to one. The etch must be straight without bowing or tapering, and the tall thin structures must not collapse when drying after wet steps (leaning) — hence support layers.</li>
+<li><b>Higher dielectric constant (ε)</b>: ZrO<sub>2</sub>/Al<sub>2</sub>O<sub>3</sub>/ZrO<sub>2</sub> (ZAZ) stacks, with the Al<sub>2</sub>O<sub>3</sub> layer suppressing leakage. Higher-k candidates such as TiO<sub>2</sub> and SrTiO<sub>3</sub> trade leakage and band gap.</li>
+<li><b>Thinner (d)</b>: equivalent oxide thickness (EOT) is already below about 1 nm; thinner and leakage rises steeply.</li>
+</ul>
+
+<h2 id="dram-litho">Lithography and DRAM node names</h2>
+<p>DRAM generations are named 1x, 1y, 1z, 1α (1a), 1β (1b), 1γ (1c), roughly matching half-pitches just over ten nanometres, shrinking about 1 nm per generation. Dense repeating patterns suit self-aligned multi-patterning (SADP / SAQP), at the cost of more masks and steps. From 1z through 1γ, makers moved critical layers to EUV at different times to cut multi-patterning steps and overlay error.</p>
+<div class="callout"><b>Key point</b>　DRAM scaling is no longer limited by line width but by the capacitor and the access transistor: the capacitor must keep its capacitance and the transistor must keep low leakage and enough drive in a smaller footprint. That is driving the structural changes below.</div>
+<div class="callout co"><b>Micron note</b>　Micron’s DRAM nodes: <b>1α</b> (2021) and <b>1β</b> (2022) used multi-patterning without EUV; <b>1γ</b> (1-gamma, 2025) is Micron’s first DRAM node with EUV on critical layers, and public sources name the Hiroshima fab as one of its production sites. It is a textbook case of “adopt EUV late and hold costs with multi-patterning”.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+
+<h2 id="dram-future">Next-generation DRAM: 4F² and 3D DRAM</h2>
+<ul>
+<li><b>4F² vertical-channel transistor (VCT)</b>: the access transistor stands vertically, with the word line around or beside a pillar channel, the bit line buried below and the capacitor on top, cutting the cell from 6F² to 4F². The periphery may be built on another wafer and hybrid-bonded (as in 3D NAND).</li>
+<li><b>3D DRAM</b>: like 3D NAND, stack horizontal 1T1C cells in many layers. The hard part is that every layer needs both a transistor and a capacitor: silicon channels come from Si/SiGe epitaxial stacks, and capacitors must be built sideways.</li>
+<li><b>Capacitor-less DRAM</b>: e.g. 2T0C gain cells using the extremely low off-current of oxide-semiconductor (IGZO) transistors, storing data on the read transistor’s gate capacitance.</li>
+</ul>
+
+<h2 id="nand3d-flow">The 3D NAND process flow</h2>
+<figure>
+<svg viewBox="0 0 680 260" role="img" aria-label="3D NAND array and staircase">
+  <g class="c5" style="stroke-width:1">
+    <rect x="40" y="200" width="600" height="14"/><rect x="40" y="180" width="555" height="14"/><rect x="40" y="160" width="510" height="14"/><rect x="40" y="140" width="465" height="14"/>
+    <rect x="40" y="120" width="420" height="14"/><rect x="40" y="100" width="375" height="14"/><rect x="40" y="80" width="330" height="14"/><rect x="40" y="60" width="285" height="14"/>
+  </g>
+  <rect class="sunk" x="40" y="214" width="600" height="30"/>
+  <text x="340" y="234" text-anchor="middle" class="ts">CMOS periphery below (CuA) or bonded from another wafer (CBA)</text>
+  <g><rect class="c2" x="84" y="50" width="22" height="164"/><rect class="c2" x="134" y="50" width="22" height="164"/><rect class="c2" x="184" y="50" width="22" height="164"/><rect class="c2" x="234" y="50" width="22" height="164"/></g>
+  <g class="w" style="stroke-width:2"><path d="M618 200V30M573 180V30M528 160V30M483 140V30M438 120V30M393 100V30M348 80V30M303 60V30"/></g>
+  <path class="wm" d="M290 30H640"/>
+  <text x="170" y="38" text-anchor="middle" class="ts">Array: channel holes</text>
+  <text x="470" y="22" text-anchor="middle" class="ts">Staircase: a contact to every word line</text>
+</svg>
+<figcaption>Word-line layers step back like a staircase so each step exposes one layer for a vertical contact. More layers mean a wider staircase, so it is split into segments and arranged in several directions.</figcaption>
+</figure>
+<ol>
+<li><b>Stack deposition</b>: alternate tens to hundreds of SiO<sub>2</sub> / Si<sub>3</sub>N<sub>4</sub> (ON) pairs, each tens of nm thick, with extremely uniform thickness and stress or the wafer warps.</li>
+<li><b>Channel-hole etch</b>: etch through the whole stack in one go — several µm deep, about 100 nm wide, aspect ratio &gt; 50:1 — with tens of billions of holes per wafer whose top/bottom diameter, bowing and twisting must be controlled. With too many layers, the stack is split into 2–3 decks etched separately and aligned.</li>
+<li><b>Hole liner</b>: ALD blocking oxide, SiN trap layer, tunnel oxide and poly channel in turn, with an oxide core (macaroni channel).</li>
+<li><b>Staircase</b>: repeated “trim the resist + etch one layer” builds the steps.</li>
+<li><b>Slit etch and replacement gate</b>: etch long slits through the array, remove all sacrificial SiN through them with hot phosphoric acid, fill W by ALD (newer generations use Mo: lower resistance, no barrier) to form word lines, then build the common source in the slit.</li>
+<li><b>Contacts and back end</b>: hundreds of word-line contacts of different depths in the staircase, bit lines, metal layers.</li>
+<li><b>CMOS integration</b>: build the periphery first and stack the array on top (CuA / PUC), or build them on two wafers and join with hybrid bonding (CBA, e.g. Xtacking), sparing the periphery the array’s high-temperature steps for better performance.</li>
+</ol>
+
+<h2 id="nand-scaling">3D NAND scaling directions</h2>
+<ul>
+<li><b>Vertical</b>: from 24, 32, 64, 96, 128, 176 layers to 200–300+, while thinning each layer to limit total height.</li>
+<li><b>Lateral</b>: tighter channel-hole pitch, fewer slits, denser hole patterns.</li>
+<li><b>Logical</b>: more bits per cell, TLC → QLC → PLC.</li>
+<li><b>Architecture</b>: CuA / CBA moves the periphery under the array or onto another wafer to raise array area share.</li>
+<li><b>Materials</b>: word lines W → Mo, better channel mobility, lower-leakage trap layers.</li>
+</ul>
+<div class="callout co"><b>Micron note</b>　Micron’s NAND generations: <b>176 layers</b> (2020, replacement gate + charge trap + CuA) → <b>232 layers</b> (2022) → <b>ninth generation G9</b> (2024, 276 layers per public sources). Beyond layers, each generation also raised interface speed and plane count (e.g. six planes at 232 layers), matching the TLC example in the <a href="designer.html#nand">Spec Designer</a>.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+
+<h2 id="logic-sram">SRAM in logic processes</h2>
+<p>SRAM shares the logic process and follows its transistor evolution: planar → FinFET → GAA nanosheet → forksheet and CFET (NMOS and PMOS stacked) in development. FinFET fin counts must be integers, which limits cell-ratio tuning; GAA channel widths are continuous, restoring SRAM design freedom.</p>
+<div class="tblwrap"><table>
+<tr><th>Node (representative)</th><th class="n">High-density bitcell area</th><th>Transistor</th></tr>
+<tr><td>16 nm</td><td class="n">~0.074 µm²</td><td>FinFET</td></tr>
+<tr><td>7 nm</td><td class="n">~0.027 µm²</td><td>FinFET</td></tr>
+<tr><td>5 nm</td><td class="n">~0.021 µm²</td><td>FinFET</td></tr>
+<tr><td>3 nm</td><td class="n">~0.020–0.021 µm²</td><td>FinFET</td></tr>
+<tr><td>2 nm</td><td class="n">~0.0175 µm² (reported)</td><td>GAA nanosheet</td></tr>
+</table></div>
+<p>After 5 nm SRAM nearly stopped shrinking, because of metal-pitch and contact limits, V<sub>t</sub> variation and the minimum sizes needed to hold V<sub>min</sub>. Backside power delivery moves power rails to the back of the wafer, freeing front-side routing and helping SRAM density.</p>
+
+<h2 id="emerging-fab">Back-end integration of emerging memories</h2>
+<ul>
+<li><b>MRAM</b>: between two metal layers, PVD deposits a dozen ultrathin films (seed layer, synthetic antiferromagnetic reference, CoFeB, ~1 nm MgO, free layer, cap), then ion-beam etch (IBE) defines pillar MTJs. Challenges: metal redeposition after etch shorting the MgO sidewall, and the ~400 °C back-end limit affecting magnetic properties and TMR.</li>
+<li><b>ReRAM</b>: a metal oxide (HfO<sub>x</sub>, TaO<sub>x</sub>) between electrodes — simple, but needs a one-time forming step to create the initial filament.</li>
+<li><b>PCM</b>: chalcogenide deposition and etch are prone to damage and composition drift; the heater must shrink to lower RESET current.</li>
+</ul>
+
+<h2 id="yield">Yield and process control</h2>
+<p>The simplest yield model assumes randomly, uniformly distributed defects (Poisson):</p>
+<div class="eq">Y = e<sup>−A·D₀</sup>　　(A: critical die area, D₀: defect density)</div>
+<p>Real defects cluster, so the negative binomial model Y = (1 + A·D₀/α)<sup>−α</sup> is common. Memory’s advantage is <b>redundancy repair</b>: random single defects in the array are fixed with spare rows / columns, so what really kills a die is periphery defects and clusters beyond the repair budget. Pre-repair yield can be low and post-repair yield much higher.</p>
+<p>Example: A = 0.7 cm² and D₀ = 0.2 /cm² give an unrepaired Poisson yield of e<sup>−0.14</sup> ≈ 87%; if 75% of the die is repairable array, the fatal area is only 0.175 cm² and yield is about 97% (ignoring cases where repair resources run out).</p>
+<ul>
+<li><b>Inline monitoring</b>: defect inspection (bright / dark field optical, e-beam), CD-SEM / OCD for line width and hole profile, overlay, film thickness.</li>
+<li><b>WAT / PCM</b>: test structures in the scribe lines (transistors, contact chains, capacitors, resistors) measured after wafer completion and watched with SPC for drift.</li>
+<li><b>Feedback from test</b>: CP fail bit maps can be traced to defect signatures of specific layers — whole-row failures to word-line shorts, regular checkerboard patterns to lithography problems. See <a href="test.html#bitmap">Test &amp; packaging</a>.</li>
+</ul>
+<div class="tryit">▶ Scatter defects on a wafer and compare models with and without repair: <a href="lab.html#wafer">Lab · wafer yield</a></div>
+
+<h2 id="fab-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>STI</dt><dd>Shallow trench isolation.</dd></div>
+<div><dt>SADP / SAQP</dt><dd>Self-aligned double / quadruple patterning, halving / quartering pitch with sidewall spacers.</dd></div>
+<div><dt>EUV</dt><dd>Extreme-ultraviolet lithography (13.5 nm wavelength).</dd></div>
+<div><dt>ALD</dt><dd>Atomic layer deposition: layer-by-layer growth that coats deep holes uniformly.</dd></div>
+<div><dt>Aspect ratio</dt><dd>Height-to-width ratio of a structure.</dd></div>
+<div><dt>ZAZ</dt><dd>ZrO<sub>2</sub>/Al<sub>2</sub>O<sub>3</sub>/ZrO<sub>2</sub> capacitor dielectric stack.</dd></div>
+<div><dt>EOT</dt><dd>Equivalent oxide thickness in SiO<sub>2</sub> terms.</dd></div>
+<div><dt>Landing pad</dt><dd>A conductive pad above the storage-node contact that eases capacitor alignment.</dd></div>
+<div><dt>VCT</dt><dd>Vertical channel transistor for 4F² DRAM.</dd></div>
+<div><dt>ON stack</dt><dd>The alternating oxide / nitride stack of 3D NAND.</dd></div>
+<div><dt>Replacement gate</dt><dd>Using SiN as a placeholder, then hollowing it out and filling metal word lines.</dd></div>
+<div><dt>Staircase</dt><dd>The stepped structure used to contact 3D NAND word lines.</dd></div>
+<div><dt>CuA / CBA</dt><dd>CMOS under Array / CMOS bonded Array.</dd></div>
+<div><dt>Hybrid bonding</dt><dd>Direct bonding of Cu–Cu and dielectric at the same time, bumpless and at very fine pitch.</dd></div>
+<div><dt>IBE</dt><dd>Ion beam etching, mainly physical sputtering, used for MTJs.</dd></div>
+<div><dt>D₀</dt><dd>Killer defect density per unit area.</dd></div>
+<div><dt>WAT / PCM</dt><dd>Wafer acceptance test / process control monitor structures.</dd></div>
+<div><dt>SPC</dt><dd>Statistical process control.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Process details vary by maker; these are generic descriptions and orders of magnitude from public literature.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

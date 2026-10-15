@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Test &amp; Packaging · Memory Notes</title>
+<meta name="description" content="Memory test and packaging: the WAT/CP/FT flow, fault models, March algorithms, fail bit maps, redundancy repair, ATE and test cost, MBIST, package types, assembly, HBM TSV stacking and burn-in.">
+<link rel="alternate" hreflang="zh-Hant" href="../test.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="test" data-ch="tst">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 5 · Test &amp; packaging</div>
+<h1>Test &amp; packaging: find bad bits, fix them, stack the dies</h1>
+<p class="lead">Memory is the most test-intensive semiconductor product: every bit of every chip must be written, read and verified at hot and cold temperatures; bad bits must be found and repaired, and unrepairable dies scrapped. Packaging has moved from single dies to TSV stacks a dozen layers high, raising the bar for known-good die (KGD).</p>
+
+<h2 id="test-flow">The test flow</h2>
+<figure>
+<svg viewBox="0 0 680 200" role="img" aria-label="Memory test flow">
+  <g class="c1"><rect x="20" y="30" width="112" height="50" rx="6"/><rect x="154" y="30" width="112" height="50" rx="6"/><rect x="288" y="30" width="112" height="50" rx="6"/><rect x="422" y="30" width="112" height="50" rx="6"/><rect x="556" y="30" width="112" height="50" rx="6"/></g>
+  <g class="c4"><rect x="20" y="130" width="112" height="50" rx="6"/><rect x="154" y="130" width="112" height="50" rx="6"/><rect x="288" y="130" width="112" height="50" rx="6"/><rect x="422" y="130" width="112" height="50" rx="6"/><rect x="556" y="130" width="112" height="50" rx="6"/></g>
+  <g class="w"><path d="M132 55h22M266 55h22M400 55h22M534 55h22M612 80V105H76V130M132 155h22M266 155h22M400 155h22M534 155h22"/></g>
+  <g text-anchor="middle">
+  <text x="76" y="52">WAT</text><text x="76" y="70" class="ts t-mut">test structures</text>
+  <text x="210" y="52">CP1 (hot)</text><text x="210" y="70" class="ts t-mut">function + fail map</text>
+  <text x="344" y="52">Repair + fuses</text><text x="344" y="70" class="ts t-mut">laser / e-fuse</text>
+  <text x="478" y="52">CP2 (cold)</text><text x="478" y="70" class="ts t-mut">verify, retention</text>
+  <text x="612" y="52">Wafer ship / KGD</text><text x="612" y="70" class="ts t-mut">good-die map</text>
+  <text x="76" y="152">Assembly</text><text x="76" y="170" class="ts t-mut">grind, dice, bond</text>
+  <text x="210" y="152">Burn-in</text><text x="210" y="170" class="ts t-mut">hot, high-V screen</text>
+  <text x="344" y="152">Final test</text><text x="344" y="170" class="ts t-mut">speed bins, temps</text>
+  <text x="478" y="152">Module / SLT</text><text x="478" y="170" class="ts t-mut">in-system test</text>
+  <text x="612" y="152">Ship</text><text x="612" y="170" class="ts t-mut">outgoing QA</text>
+  </g>
+  <text x="20" y="20" class="ts t-mono t-mut">Front: wafer level</text><text x="88" y="124" class="ts t-mono t-mut">Back: package level</text>
+</svg>
+<figcaption>A typical DRAM test flow. Order and temperatures vary by product; stacked products such as HBM add test steps before and after stacking.</figcaption>
+</figure>
+<ul>
+<li><b>WAT</b> (wafer acceptance test): measures scribe-line test structures to confirm process parameters are in spec — a process monitor.</li>
+<li><b>CP</b> (chip probe / wafer sort): a probe card contacts each die’s pads for DC tests (open/short, leakage, I<sub>DD</sub>) and functional tests, outputting each die’s failing-bit data.</li>
+<li><b>Repair</b>: assign spare rows / columns from the failing addresses, program them with laser or electrical fuses, then retest.</li>
+<li><b>FT</b> (final test): full-speed test on ATE after packaging, binning parts by the speed and timing they pass (speed binning).</li>
+</ul>
+
+<h2 id="fault-models">Memory fault models</h2>
+<p>Testing is not “write something and read it back”. Possible physical defects are abstracted into fault models, and test sequences are designed to cover them.</p>
+<div class="tblwrap"><table>
+<tr><th>Fault</th><th>Behaviour</th><th>Possible physical cause</th></tr>
+<tr><td>SAF stuck-at</td><td>Cell is always 0 (SA0) or 1 (SA1)</td><td>Short to supply / ground, open</td></tr>
+<tr><td>TF transition</td><td>Can go 0→1 but not 1→0 (or vice versa)</td><td>Weak write path, high contact resistance</td></tr>
+<tr><td>CF coupling</td><td>An operation on one cell (aggressor) changes another (victim)</td><td>Leakage, capacitive coupling or bridges between neighbours</td></tr>
+<tr><td>　CFin inversion</td><td>Victim inverts when the aggressor transitions</td><td></td></tr>
+<tr><td>　CFid idempotent</td><td>Victim forced to a fixed value when the aggressor transitions</td><td></td></tr>
+<tr><td>　CFst state</td><td>Victim forced to a fixed value while the aggressor is in a given state</td><td></td></tr>
+<tr><td>AF address decoder</td><td>An address reaches no cell, the wrong cell, or several cells</td><td>Decoder defects</td></tr>
+<tr><td>NPSF neighbourhood pattern</td><td>Victim behaviour depends on the data pattern around it</td><td>Neighbour interference in dense arrays</td></tr>
+<tr><td>DRF data retention</td><td>Data lost some time after writing</td><td>Leakage (DRAM), open SRAM pull-up</td></tr>
+<tr><td>Read disturb / dynamic</td><td>Fails only after repeated reads</td><td>Weak cells, row-hammer-like disturb</td></tr>
+</table></div>
+
+<h2 id="march">March algorithms</h2>
+<p>A March test is a sequence of March elements. Each element walks every cell in a given address order (⇑ ascending, ⇓ descending, ⇕ either) and performs a list of operations on each (w0 write 0, r1 read expecting 1, …). Complexity is linear in the cell count N, which suits large memories.</p>
+<div class="eq">March C−: { ⇕(w0); ⇑(r0,w1); ⇑(r1,w0); ⇓(r0,w1); ⇓(r1,w0); ⇕(r0) }　→ 10N</div>
+<h3 id="march-why">Why it is designed this way</h3>
+<ul>
+<li>Every cell is read as both 0 and 1 → catches SAF.</li>
+<li>Every cell goes through 0→1 and 1→0 and is read afterwards → catches TF.</li>
+<li>Walking both ascending and descending: for any pair of cells, in some element the aggressor is operated first and the victim read later → catches couplings in every direction.</li>
+<li>Every element reads before it writes, expecting what the previous element wrote; a wrong address decode reads the wrong value → catches AF.</li>
+</ul>
+<div class="tblwrap"><table>
+<tr><th>Algorithm</th><th class="n">Complexity</th><th>Faults covered</th></tr>
+<tr><td>MSCAN (all 0 / all 1)</td><td class="n">4N</td><td>Some SAF</td></tr>
+<tr><td>Checkerboard</td><td class="n">4N</td><td>SAF, some bridges, retention (with a pause)</td></tr>
+<tr><td>MATS+</td><td class="n">5N</td><td>SAF, AF</td></tr>
+<tr><td>March X</td><td class="n">6N</td><td>SAF, TF, AF, CFin</td></tr>
+<tr><td>March C−</td><td class="n">10N</td><td>SAF, TF, AF, CFin, CFid, CFst (unlinked)</td></tr>
+<tr><td>March B</td><td class="n">17N</td><td>Plus some linked faults</td></tr>
+<tr><td>GALPAT (galloping)</td><td class="n">~4N²</td><td>Almost everything, but far too slow for large memories — only for small blocks or characterization</td></tr>
+</table></div>
+<p>Real DRAM tests add data backgrounds (all 0, checkerboard, row stripes, column stripes), timing stress (shortened t<sub>RCD</sub>/t<sub>WR</sub>), voltage corners (V<sub>DD</sub> high / low), temperature, and long-pause retention tests.</p>
+<div class="tryit">▶ Inject faults yourself and see which of MATS+, March X and March C− catch them: <a href="lab.html#march">Lab · March test</a></div>
+
+<h2 id="bitmap">Fail bit maps</h2>
+<p>Plot failing bits by physical location and the shape often points straight to the cause:</p>
+<figure>
+<svg viewBox="0 0 660 160" role="img" aria-label="Typical fail bit map signatures">
+  <defs><pattern id="fbm" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" class="grid" fill="none"/></pattern></defs>
+  <g class="sunk"><rect x="20" y="20" width="100" height="100"/><rect x="150" y="20" width="100" height="100"/><rect x="280" y="20" width="100" height="100"/><rect x="410" y="20" width="100" height="100"/><rect x="540" y="20" width="100" height="100"/></g>
+  <g fill="url(#fbm)"><rect x="20" y="20" width="100" height="100"/><rect x="150" y="20" width="100" height="100"/><rect x="280" y="20" width="100" height="100"/><rect x="410" y="20" width="100" height="100"/><rect x="540" y="20" width="100" height="100"/></g>
+  <g style="fill:var(--bad)">
+    <rect x="60" y="60" width="10" height="10"/><rect x="90" y="30" width="10" height="10"/>
+    <rect x="150" y="70" width="100" height="10"/>
+    <rect x="320" y="20" width="10" height="100"/>
+    <rect x="440" y="50" width="30" height="20"/><rect x="450" y="40" width="10" height="10"/><rect x="450" y="70" width="20" height="10"/>
+    <rect x="540" y="40" width="100" height="10"/><rect x="540" y="50" width="100" height="10"/>
+  </g>
+  <g text-anchor="middle" class="ts">
+    <text x="70" y="140">Single bit</text><text x="200" y="140">Whole row</text><text x="330" y="140">Whole column</text><text x="460" y="140">Cluster</text><text x="590" y="140">Row pair</text>
+  </g>
+  <g text-anchor="middle" class="ts t-mut">
+    <text x="70" y="155">cell defect / weak cell</text><text x="200" y="155">broken WL / SWD</text><text x="330" y="155">bit line / SA</text><text x="460" y="155">particle</text><text x="590" y="155">WL-to-WL short</text>
+  </g>
+</svg>
+<figcaption>Fail bit maps are the shared language of test and process: test engineers classify the patterns, and process engineers trace them to specific layers and tools.</figcaption>
+</figure>
+<p>Zoom out to the wafer and you get a <b>wafer map</b>: edge-ring failures often point to etch or film uniformity, scratches to handling, local clusters to specific defect events. These maps are also the main input to AI classification and yield analysis.</p>
+
+<h2 id="repair">Repair flow and KGD</h2>
+<ol>
+<li>CP1 runs the full test and records the address of every failing bit.</li>
+<li><b>Redundancy analysis (RA)</b>: each mat has a fixed number of spare rows / columns. If a row has more failing bits than spare columns, it “must” use a spare row (must-repair); the rest are assigned by search. Dies with no solution are unrepairable.</li>
+<li><b>Fuse programming</b>: laser fuses (a laser cuts a metal link; needs an opening and works only on wafer) or electrical fuses / anti-fuses (blown or broken down electrically; also work after packaging).</li>
+<li>CP2 verifies the repair and runs cold or retention tests.</li>
+</ol>
+<p><b>KGD</b> (known good die): dies that will be stacked or co-packaged must reach near-final quality at wafer level, because one bad die drags down an entire expensive stack. That pushes high-speed and temperature tests, once done only at FT, into wafer test.</p>
+<div class="tryit">▶ See how KGD escapes and stack height drive HBM stack yield: <a href="lab.html#hbm">Lab · HBM stack yield</a></div>
+
+<h2 id="ate">ATE and test cost</h2>
+<ul>
+<li><b>Parallelism</b>: memory ATE tests hundreds of dies (CP) or packages (FT) at once, with an algorithmic pattern generator (ALPG) producing address and data sequences.</li>
+<li><b>Test time</b>: grows with density; retention tests must wait, which is especially slow. A full test of a multi-Gb die can take tens of minutes to hours.</li>
+<li><b>Test cost</b> can be a significant share of DRAM cost, so makers use on-chip DFT test modes (writing several banks at once, compressing compare results internally), drop redundant test items and raise parallelism.</li>
+<li><b>DC tests</b>: open/short (contact), input leakage, the I<sub>DD</sub> family (I<sub>DD0</sub> activate current, I<sub>DD2P</sub> standby, I<sub>DD6</sub> self refresh).</li>
+<li><b>Speed binning</b>: dies from one lot are shipped in grades by the highest speed and tightest timing they run reliably.</li>
+</ul>
+
+<h2 id="mbist">MBIST for embedded memories</h2>
+<p>An SoC has hundreds of SRAMs that external pins cannot reach directly. <b>MBIST</b> (memory built-in self-test) adds a controller beside each group of memories that generates March sequences on chip, compares the results and reports only pass/fail and failing addresses. With <b>BIRA / BISR</b> (built-in repair analysis / self-repair) spares are allocated automatically and the repair information stored in e-fuses, loaded at boot. Automotive chips also run MBIST at power-up or periodically in the field (in-system test) for functional safety.</p>
+
+<h2 id="package-types">Package types</h2>
+<div class="tblwrap"><table>
+<tr><th>Package</th><th>Structure</th><th>Typical products</th></tr>
+<tr><td>TSOP</td><td>Lead frame, leads on two sides</td><td>Early SDRAM, some NAND / NOR</td></tr>
+<tr><td>FBGA</td><td>Substrate + solder-ball array, wire bond or flip chip</td><td>DDR4/DDR5 devices, GDDR</td></tr>
+<tr><td>Wire-bonded die stacks</td><td>Dies staggered like stairs, bonded layer by layer</td><td>NAND (8–16 dies), high-capacity LPDDR</td></tr>
+<tr><td>PoP</td><td>Memory package stacked directly on the processor package</td><td>Phone LPDDR</td></tr>
+<tr><td>MCP / uMCP / eMCP</td><td>Several memory types in one package</td><td>Mid- and low-end phones (LPDDR + UFS/eMMC)</td></tr>
+<tr><td>TSV stacks</td><td>Through-silicon vias, micro-bumps or hybrid bonding</td><td>HBM, high-capacity server DRAM (3DS)</td></tr>
+<tr><td>2.5D integration</td><td>Side by side with logic on an interposer</td><td>HBM + GPU / ASIC</td></tr>
+</table></div>
+
+<h2 id="assembly">Assembly flow</h2>
+<ol>
+<li><b>Back grinding</b>: thin the wafer from about 775 µm to tens of µm (multi-die stacks need very thin dies).</li>
+<li><b>Dicing</b>: blade dicing, laser grooving or stealth dicing (a laser forms a modified layer inside the wafer, which is then expanded apart — good for ultrathin wafers). DBG (dicing before grinding) reduces chipping and cracking of thin dies.</li>
+<li><b>Die attach</b>: fix dies to the substrate or the die below with die-attach film (DAF).</li>
+<li><b>Wire bonding</b>: gold or copper wires connect die pads to the substrate; in multi-layer stacks dies are staggered or use film-over-wire (FOW).</li>
+<li><b>Molding</b>: epoxy mold compound protects the assembly.</li>
+<li><b>Ball attach, laser marking, singulation</b>.</li>
+</ol>
+
+<h2 id="hbm-stack">HBM stacking and TSVs</h2>
+<ul>
+<li><b>TSVs</b>: thousands of copper-filled through-silicon vias a few µm wide are etched into each DRAM die (usually between front and back end, via-middle); the wafer back is ground to reveal them and back-side bumps are added.</li>
+<li><b>Die thinning</b>: 12 layers plus a base die must fit JEDEC’s package height (720 µm for HBM3E, relaxed to 775 µm for HBM4), so each core die is only about 30–50 µm thick.</li>
+<li><b>Stacking and underfill</b>:
+  <ul>
+  <li><b>TC-NCF</b>: non-conductive film between layers, thermo-compression bonded one layer at a time.</li>
+  <li><b>MR-MUF</b>: all layers joined in one reflow, then liquid mold underfill fills the gaps — better heat dissipation and throughput.</li>
+  <li><b>Hybrid bonding</b>: no bumps; direct Cu–Cu bonding shrinks layer gaps and total height, seen as key for stacks of 16 and more.</li>
+  </ul></li>
+<li><b>Test challenges</b>: core dies get KGD tests before stacking; after stacking, TSV connectivity is tested and repaired with spare TSVs; the base die provides an IEEE 1500 test interface and MBIST. The finished stack (KGSD, known good stacked die) then goes to 2.5D packaging.</li>
+<li><b>Heat and warpage</b>: many thin dies have high thermal resistance, with a hot GPU next door; different expansion coefficients warp the stack and stress the joints.</li>
+</ul>
+<div class="callout co"><b>Micron note</b>　Micron’s manufacturing network (public sources): DRAM front-end fabs are mainly in <b>Taiwan (Taichung, Taoyuan)</b> and <b>Hiroshima, Japan</b>, and NAND front end mainly in <b>Singapore</b>; new DRAM fabs are planned in Boise, Idaho and in New York State. Back-end assembly and test sites include Taiwan, Penang (Malaysia), Xi’an (China) and Sanand (India). HBM advanced packaging is done in Taiwan, with an HBM packaging plant planned in Singapore.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+
+<h2 id="burnin">Burn-in and outgoing quality</h2>
+<p>The bathtub curve says early failures (infant mortality) come from latent manufacturing defects. <b>Burn-in</b> runs chips for a long time at high temperature (e.g. 125 °C) and high voltage, accelerating weak parts into early failure so they are screened before shipping. Memory is burned in at wafer level (WLBI) or in burn-in ovens after packaging, often while running test patterns (test during burn-in, TDBI).</p>
+<p>Outgoing quality is measured in DPPM (defective parts per million); automotive targets are often in single-digit DPPM or lower. Statistical methods such as PAT (part average testing) reject outliers that are within spec but clearly off their lot’s distribution. Qualification items are in <a href="reliability.html#qualification">Reliability</a>.</p>
+
+<h2 id="tst-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>WAT</dt><dd>Wafer acceptance test.</dd></div>
+<div><dt>CP / Wafer sort</dt><dd>Probing each die on the wafer for electrical and functional tests.</dd></div>
+<div><dt>FT</dt><dd>Final test after packaging.</dd></div>
+<div><dt>SLT</dt><dd>System-level test in a real system environment.</dd></div>
+<div><dt>ATE</dt><dd>Automatic test equipment.</dd></div>
+<div><dt>ALPG</dt><dd>Algorithmic pattern generator: hardware that generates memory test addresses and data.</dd></div>
+<div><dt>Probe card</dt><dd>The interface whose needles contact die pads during CP.</dd></div>
+<div><dt>March element</dt><dd>A list of reads and writes applied to every cell in a fixed address order.</dd></div>
+<div><dt>Fail bit map</dt><dd>A map of failing bits by physical location.</dd></div>
+<div><dt>RA</dt><dd>Redundancy analysis: allocating spare resources.</dd></div>
+<div><dt>Laser fuse / e-fuse / anti-fuse</dt><dd>One-time programmable elements: cut by laser / blown by current / shorted by voltage breakdown.</dd></div>
+<div><dt>KGD / KGSD</dt><dd>Known good die / known good stacked die.</dd></div>
+<div><dt>MBIST / BIRA / BISR</dt><dd>Memory built-in self-test / built-in repair analysis / built-in self-repair.</dd></div>
+<div><dt>Speed binning</dt><dd>Grading parts by the speed they run.</dd></div>
+<div><dt>DAF</dt><dd>Die-attach film.</dd></div>
+<div><dt>Stealth dicing</dt><dd>A laser focused inside the wafer creates a modified layer, which is expanded apart.</dd></div>
+<div><dt>TSV</dt><dd>Through-silicon via.</dd></div>
+<div><dt>TC-NCF / MR-MUF</dt><dd>The two main bonding and underfill approaches for HBM stacks.</dd></div>
+<div><dt>Burn-in / WLBI</dt><dd>Hot, high-voltage accelerated screening / wafer-level burn-in.</dd></div>
+<div><dt>DPPM</dt><dd>Defective parts per million shipped.</dd></div>
+<div><dt>PAT</dt><dd>Part average testing: rejecting statistical outliers.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Flows and parameters are generic industry descriptions; actual test items depend on product, customer and vendor.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

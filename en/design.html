@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Circuit Design · Memory Notes</title>
+<meta name="description" content="Memory circuit design: array organization, bit-line architectures, sense amplifiers, word-line drivers, DRAM timing, interfaces and prefetch, refresh, ECC, redundancy repair, SRAM assist and NAND chip design.">
+<link rel="alternate" hreflang="zh-Hant" href="../design.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="design" data-ch="des">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 2 · Circuit design</div>
+<h1>Design: organizing billions of cells</h1>
+<p class="lead">The cell is only the start. A 16 Gb DRAM has 17 billion cells. It must find one of them in tens of nanoseconds, amplify a signal of only about 100 mV, ship it off-chip at several Gb/s per pin, and guarantee correct data even though cells leak and break. This chapter covers the peripheral circuits that make that possible.</p>
+
+<h2 id="array-org">Array organization: chip → bank → mat</h2>
+<p>Put too many cells on one bit line and C<sub>BL</sub> swamps the signal; make a word line too long and its RC delay is too slow. So the array is split into a hierarchy:</p>
+<figure>
+<svg viewBox="0 0 680 260" role="img" aria-label="Chip, bank and mat hierarchy">
+  <rect class="boxi" x="20" y="30" width="190" height="200" rx="6"/>
+  <g class="c1" style="stroke-width:1">
+    <rect x="32" y="42" width="38" height="38"/><rect x="76" y="42" width="38" height="38"/><rect x="120" y="42" width="38" height="38"/><rect x="164" y="42" width="34" height="38"/>
+    <rect x="32" y="86" width="38" height="38"/><rect x="76" y="86" width="38" height="38"/><rect x="120" y="86" width="38" height="38"/><rect x="164" y="86" width="34" height="38"/>
+    <rect x="32" y="136" width="38" height="38"/><rect x="76" y="136" width="38" height="38"/><rect x="120" y="136" width="38" height="38"/><rect x="164" y="136" width="34" height="38"/>
+    <rect x="32" y="180" width="38" height="38"/><rect x="76" y="180" width="38" height="38"/><rect x="120" y="180" width="38" height="38"/><rect x="164" y="180" width="34" height="38"/>
+  </g>
+  <rect class="sunk" x="26" y="126" width="178" height="8"/>
+  <text x="115" y="22" text-anchor="middle" class="tl">Chip</text>
+  <text x="115" y="250" text-anchor="middle" class="ts t-mut">Center spine: I/O, command, pads</text>
+  <path class="wd" d="M114 42L260 30M114 80L260 230"/>
+  <rect class="boxi" x="260" y="30" width="180" height="200" rx="4"/>
+  <g class="c3" style="stroke-width:1">
+    <rect x="270" y="44" width="34" height="34"/><rect x="312" y="44" width="34" height="34"/><rect x="354" y="44" width="34" height="34"/><rect x="396" y="44" width="34" height="34"/>
+    <rect x="270" y="90" width="34" height="34"/><rect x="312" y="90" width="34" height="34"/><rect x="354" y="90" width="34" height="34"/><rect x="396" y="90" width="34" height="34"/>
+    <rect x="270" y="136" width="34" height="34"/><rect x="312" y="136" width="34" height="34"/><rect x="354" y="136" width="34" height="34"/><rect x="396" y="136" width="34" height="34"/>
+    <rect x="270" y="182" width="34" height="34"/><rect x="312" y="182" width="34" height="34"/><rect x="354" y="182" width="34" height="34"/><rect x="396" y="182" width="34" height="34"/>
+  </g>
+  <text x="350" y="22" text-anchor="middle" class="tl">Bank</text>
+  <text x="350" y="250" text-anchor="middle" class="ts t-mut">SA rows and SWD columns between mats</text>
+  <path class="wd" d="M346 136L480 40M346 170L480 220"/>
+  <rect class="boxi" x="480" y="40" width="180" height="180" rx="2"/>
+  <rect class="c2" x="480" y="40" width="180" height="16"/><rect class="c2" x="480" y="204" width="180" height="16"/>
+  <rect class="c4" x="480" y="56" width="14" height="148"/>
+  <g class="wm"><path d="M494 72H660M494 92H660M494 112H660M494 132H660M494 152H660M494 172H660M494 192H660"/></g>
+  <g class="w" style="stroke-width:1"><path d="M512 56V204M536 56V204M560 56V204M584 56V204M608 56V204M632 56V204"/></g>
+  <text x="570" y="22" text-anchor="middle" class="tl">Mat / Subarray</text>
+  <text x="570" y="52" text-anchor="middle" class="ts">Sense amps</text>
+  <text x="570" y="216" text-anchor="middle" class="ts">Sense amps</text>
+  <text x="487" y="135" class="ts" transform="rotate(-90 487 135)" text-anchor="middle">SWD</text>
+  <text x="570" y="248" text-anchor="middle" class="ts t-mut">~512–1024 rows × 1024 columns</text>
+</svg>
+<figcaption>A 16 Gb DDR5 x8 die has 32 banks (8 bank groups × 4). Each bank is cut into many mats, each sandwiched between sense-amplifier rows, with sub-word-line drivers (SWD) along the side.</figcaption>
+</figure>
+<ul>
+<li><b>Bank</b>: an independently activatable array. Banks can be interleaved — one precharging while another reads — to hide latency. From DDR4 on, banks are grouped into bank groups, with different command spacing within and across groups (t<sub>CCD_L</sub> vs t<sub>CCD_S</sub>).</li>
+<li><b>Row / page</b>: one ACTIVATE loads a whole row (e.g. 1 KB for an x8 device) into the sense amps — a page. Further reads and writes to that row are fast (row hit); a different row needs precharge and activate (row miss).</li>
+<li><b>Hierarchical word lines</b>: a main word line (MWL, thick low-resistance metal) spans the bank, and at each mat an SWD generates the local word line, balancing speed and area.</li>
+<li><b>Hierarchical data lines</b>: bit line → local I/O (LIO) → global I/O (GIO) → read/write amplifiers in the chip center.</li>
+</ul>
+<div class="tryit">▶ Enter density, width and bank count to get row / column address bits and page size: <a href="designer.html">Spec Designer</a></div>
+
+<h2 id="bitline-arch">Bit-line architecture: open vs folded</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>Folded</th><th>Open</th></tr>
+<tr><td>Reference bit line</td><td>BL and BLB run side by side in the same mat into one SA</td><td>BL and BLB are in different mats on either side of the SA</td></tr>
+<tr><td>Cell area</td><td>8F² (only half the crossings can hold cells)</td><td>6F²</td></tr>
+<tr><td>Noise</td><td>Word-line coupling is common-mode on BL/BLB and cancels</td><td>The two sides see different environments; noise does not fully cancel</td></tr>
+<tr><td>Use</td><td>Early DRAM</td><td>Mainstream modern 6F² DRAM (better SAs and layout compensate)</td></tr>
+</table></div>
+<p>In an open architecture the edge mats have reference bit lines on one side only, so the array ends need extra dummy mats — one source of lost array efficiency.</p>
+
+<h2 id="sense-amp">The sense amplifier</h2>
+<p>A DRAM bit-line sense amplifier (BLSA) is essentially two cross-coupled inverters (much like an SRAM cell) between BL and BLB, using positive feedback to amplify a tiny difference to full swing. One read:</p>
+<ol>
+<li><b>Equalize and precharge</b> (EQ): short BL and BLB together at V<sub>BLP</sub> = V<sub>DD</sub>/2.</li>
+<li><b>Word line on</b>: the word line rises to V<sub>PP</sub> (above V<sub>DD</sub>, around 2.5–3 V, because the access transistor’s V<sub>t</sub> is high and a full “1” must be written and read). Charge sharing creates ΔV.</li>
+<li><b>Fire the SA</b>: first pull the NMOS common node down (SAN→0), then the PMOS common node up (SAP→V<sub>DD</sub>); the bit lines split to 0 / V<sub>DD</sub>.</li>
+<li><b>Restore and output</b>: with WL still on, the amplified voltage is written back into the capacitor; when the column select (CSL) opens, data goes to the LIO.</li>
+<li><b>Precharge</b>: turn WL off, equalize again, ready for the next activate.</li>
+</ol>
+<p><b>The key figure is offset</b>: V<sub>t</sub> mismatch between the two halves of the SA creates a fixed input offset, and if ΔV is smaller than the offset the read is wrong. Advanced DRAM uses offset-cancellation SAs that first sample their own offset onto the bit lines and then sense.</p>
+<p>SRAM typically uses a voltage latch SA, fired (SAE) only after the bit lines have developed 50–100 mV. The timing is tracked by a replica bit line so the SA fires when the signal is sufficient across PVT corners.</p>
+<div class="tryit">▶ See how SA offset compares with ΔV: <a href="lab.html#dram">Lab · DRAM read</a></div>
+
+<h2 id="timing">DRAM commands and timing</h2>
+<p>The memory controller drives DRAM with commands: <code>ACT</code> (open a row) → <code>RD</code>/<code>WR</code> (access columns) → <code>PRE</code> (close the row and precharge). The minimum spacing between commands is the timing table in the datasheet.</p>
+<figure>
+<svg viewBox="0 0 640 220" role="img" aria-label="DRAM ACT-RD-PRE timing">
+  <text x="10" y="56" class="ts t-mono">CMD</text><text x="10" y="106" class="ts t-mono">DQ</text>
+  <path class="wm" d="M60 50H620M60 100H620"/>
+  <rect class="c1" x="80" y="38" width="40" height="24" rx="3"/><text x="100" y="55" text-anchor="middle" class="ts t-mono">ACT</text>
+  <rect class="c3" x="208" y="38" width="40" height="24" rx="3"/><text x="228" y="55" text-anchor="middle" class="ts t-mono">RD</text>
+  <rect class="c2" x="336" y="38" width="40" height="24" rx="3"/><text x="356" y="55" text-anchor="middle" class="ts t-mono">PRE</text>
+  <rect class="c1" x="464" y="38" width="40" height="24" rx="3"/><text x="484" y="55" text-anchor="middle" class="ts t-mono">ACT</text>
+  <rect class="c3" x="336" y="90" width="56" height="20" rx="2"/><text x="364" y="104" text-anchor="middle" class="ts t-mono">BL16</text>
+  <g class="w" style="stroke-width:1.2">
+    <path d="M80 136H208M80 132V140M208 132V140"/><path d="M208 136H336M336 132V140"/>
+    <path d="M80 166H336M80 162V170M336 162V170"/><path d="M336 166H464M464 162V170"/>
+    <path d="M80 196H464M80 192V200M464 192V200"/>
+  </g>
+  <text x="144" y="130" text-anchor="middle" class="ts t-mono">tRCD</text>
+  <text x="272" y="130" text-anchor="middle" class="ts t-mono">CL</text>
+  <text x="208" y="160" text-anchor="middle" class="ts t-mono">tRAS</text>
+  <text x="400" y="160" text-anchor="middle" class="ts t-mono">tRP</text>
+  <text x="272" y="190" text-anchor="middle" class="ts t-mono">tRC = tRAS + tRP</text>
+  <text x="520" y="136" class="ts t-mut">Roughly DDR5-4800:</text>
+  <text x="520" y="152" class="ts t-mut">tRCD ≈ CL ≈ tRP ≈ 16 ns</text>
+  <text x="520" y="168" class="ts t-mut">tRAS ≈ 32 ns</text>
+</svg>
+<figcaption>A full open → read → close → reopen cycle on one bank. If the next access hits the already-open row (row hit), you pay only CL, not tRCD and tRP.</figcaption>
+</figure>
+<div class="tblwrap"><table>
+<tr><th>Parameter</th><th>Meaning</th><th>Set by</th></tr>
+<tr><td><code>tRCD</code></td><td>ACT to RD/WR</td><td>Word-line rise + charge sharing + SA amplification</td></tr>
+<tr><td><code>CL</code> (tAA)</td><td>RD to first data</td><td>Column decode + LIO/GIO transfer + pipeline + I/O</td></tr>
+<tr><td><code>tRAS</code></td><td>Minimum ACT to PRE</td><td>Restore must complete</td></tr>
+<tr><td><code>tRP</code></td><td>PRE to next ACT</td><td>Word line off + bit-line equalization</td></tr>
+<tr><td><code>tWR</code></td><td>Last write data to PRE</td><td>Write data must really reach the capacitor</td></tr>
+<tr><td><code>tRRD / tFAW</code></td><td>Spacing of ACTs to different banks / window for four ACTs</td><td>Peak current and supply noise (V<sub>PP</sub> pump capacity)</td></tr>
+<tr><td><code>tRFC / tREFI</code></td><td>Time taken by a refresh command / average interval</td><td>Rows refreshed per command, density</td></tr>
+</table></div>
+<p>Interestingly, from DDR to DDR5 the data rate rose more than tenfold, but tRCD, CL and tRP in nanoseconds barely moved (they have stayed around 13–18 ns) because they are limited by the analog physics of the array. Bandwidth gains came mainly from the interface and parallelism.</p>
+
+<h2 id="interface">I/O interfaces and prefetch</h2>
+<p>The array runs at only a few hundred MHz while the interface runs at several Gb/s. The answer is <b>prefetch</b>: each internal access fetches n times the I/O width at once, and a serializer (SERDES) streams it out at high speed.</p>
+<div class="tblwrap"><table>
+<tr><th>Generation</th><th class="n">Prefetch</th><th class="n">Data rate (MT/s)</th><th class="n">V<sub>DD</sub></th><th>Highlights</th></tr>
+<tr><td>DDR</td><td class="n">2n</td><td class="n">200–400</td><td class="n">2.5 V</td><td>Double data rate</td></tr>
+<tr><td>DDR2</td><td class="n">4n</td><td class="n">400–1066</td><td class="n">1.8 V</td><td>On-die termination (ODT)</td></tr>
+<tr><td>DDR3</td><td class="n">8n</td><td class="n">800–2133</td><td class="n">1.5 V</td><td>Fly-by topology, write leveling</td></tr>
+<tr><td>DDR4</td><td class="n">8n</td><td class="n">1600–3200</td><td class="n">1.2 V</td><td>Bank groups, POD signaling, external V<sub>PP</sub></td></tr>
+<tr><td>DDR5</td><td class="n">16n</td><td class="n">4800–8800</td><td class="n">1.1 V</td><td>BL16, two 32-bit sub-channels per DIMM, on-die ECC, on-DIMM PMIC, DFE</td></tr>
+</table></div>
+<p>Key high-speed circuits: DLL / DCC (clock alignment and duty-cycle correction), ZQ calibration (driver impedance and ODT), receiver equalization (CTLE, DFE), and read/write training (the controller sweeps V<sub>ref</sub> and timing to find the best sampling point). GDDR6X uses PAM4 and GDDR7 uses PAM3, carrying more than one bit per symbol.</p>
+
+<h2 id="refresh">Refresh</h2>
+<ul>
+<li><b>Auto refresh (REF)</b>: the controller issues a REF on average every t<sub>REFI</sub> (7.8 µs for DDR4, 3.9 µs for DDR5), and an internal counter picks which rows to refresh. During t<sub>RFC</sub> (about 300 ns for 16 Gb) those banks are unavailable.</li>
+<li><b>Refresh overhead</b> ≈ t<sub>RFC</sub> / t<sub>REFI</sub>. Higher density means longer t<sub>RFC</sub> and more overhead (about 7–8% for DDR5 16 Gb). DDR5 therefore adds <b>same-bank refresh</b>, locking only one bank per bank group while the others keep working.</li>
+<li><b>Self refresh</b>: in standby the DRAM refreshes itself from an internal oscillator so the controller can shut down the interface; LPDDR adjusts the refresh rate with temperature (TCSR).</li>
+<li><b>High temperature</b>: above 85 °C the refresh rate doubles, because retention falls exponentially with temperature.</li>
+</ul>
+<div class="tryit">▶ Change temperature and tREFI to see failing-cell fraction and refresh overhead: <a href="lab.html#retention">Lab · retention and refresh</a></div>
+
+<h2 id="ecc">Error correction (ECC)</h2>
+<ul>
+<li><b>SECDED Hamming</b>: 64 data bits plus 8 check bits (72,64) correct one bit and detect two. The baseline for server ECC DIMMs.</li>
+<li><b>Chipkill / SDDC</b>: spreads codewords across chips so even a whole failed DRAM is correctable; used in data centers.</li>
+<li><b>DDR5 on-die ECC</b>: every 128 data bits get 8 internal check bits for single-bit correction (SEC), compensating for weaker cells and lower yield after scaling. It is transparent to the controller and does not replace system-level ECC.</li>
+<li><b>NAND</b>: the raw bit error rate (RBER) is far higher. Early controllers used BCH; today LDPC with soft-decision reads (several reads at different V<sub>ref</sub> to gather reliability information) corrects hundreds of bits per 1–4 KB.</li>
+<li><b>SRAM</b>: large caches also use SECDED and interleave physically adjacent cells into different codewords so one particle strike causing a multi-bit upset (MBU) stays correctable.</li>
+</ul>
+
+<h2 id="redundancy">Redundancy and repair</h2>
+<p>A few dozen bad cells among billions is normal. Every mat reserves <b>spare rows</b> and <b>spare columns</b>. After test finds bad bits, <b>fuses</b> (laser fuses or electrical e-fuses / anti-fuses) record the bad addresses; every access is then compared against them and a hit is redirected to a spare line.</p>
+<ul>
+<li><b>Redundancy analysis (RA)</b>: given the failing-bit pattern and a limited number of spare rows / columns, find an assignment that repairs every failure. This is NP-complete in general; in practice heuristics are used (must-repair first, then branch-and-bound).</li>
+<li><b>PPR (post-package repair)</b>: DDR4/DDR5 let new bad rows be repaired after packaging, even in the system, with anti-fuses (hPPR permanent, sPPR temporary).</li>
+<li><b>BISR</b>: embedded SRAM uses MBIST to find failures and built-in analysis (BIRA) to allocate repair automatically.</li>
+</ul>
+<p>The test and repair flow is detailed in <a href="test.html#repair">Test &amp; packaging</a>.</p>
+
+<h2 id="sram-assist">SRAM macros and assist circuits</h2>
+<p>SRAM in an SoC is usually generated by a <b>memory compiler</b>: the designer specifies words × bits, column mux and ports, and the compiler outputs layout, timing models (.lib), a Verilog model and LEF. A macro contains the bitcell array, row decoders and word-line drivers, column mux (e.g. 4:1 or 8:1 so the SA fits the pitch), SAs, write drivers and timing control (a replica bit line).</p>
+<h3 id="assist-types">Read and write assist</h3>
+<ul>
+<li><b>WL underdrive</b>: lower the word-line voltage slightly during reads to weaken the PG and improve read stability (at some speed cost).</li>
+<li><b>Negative bit line</b>: pull BL below 0 (e.g. −100 mV) during writes to strengthen the PG.</li>
+<li><b>Cell-VDD collapse</b>: briefly lower the supply of the columns being written to weaken the PU.</li>
+<li><b>Dual rails</b>: the array runs on a higher, stable V<sub>DDM</sub> while logic runs on a scalable V<sub>DD</sub>, with level shifters in between.</li>
+</ul>
+<p>Because a chip holds millions of bitcells, V<sub>min</sub> is set by the worst cells beyond 6σ, so SRAM yield analysis needs high-sigma statistical simulation (importance sampling and the like).</p>
+
+<h2 id="nand-design">NAND chip design</h2>
+<ul>
+<li><b>Page buffer</b>: a set of latches and sense circuits per bit line senses a whole page (16 KB) at once. Multi-level reads sense the same page at several V<sub>READ</sub> levels in turn, and latch logic combines them into bits.</li>
+<li><b>ISPP programming</b>: the program voltage starts around 15 V and rises by ΔV<sub>PGM</sub> (a few hundred mV) per pulse, with a program verify after each. Cells that reach their target have their bit line raised to V<sub>DD</sub> to inhibit further programming. Smaller steps give narrower distributions but take longer.</li>
+<li><b>Program inhibit (self-boosting)</b>: cells on the same word line that must not be programmed have their channels capacitively boosted to about 8 V, lowering the gate-to-channel field to avoid disturb.</li>
+<li><b>Charge pumps</b>: on-chip pumps generate V<sub>PGM</sub>, V<sub>PASS</sub> and erase voltages of 20 V and more.</li>
+<li><b>Multi-plane</b>: one die is split into 2–6 planes that read and program in parallel for more throughput.</li>
+<li><b>Read retry / read calibration</b>: when retention or disturb shifts the distributions, the controller rereads with another set of V<sub>READ</sub>; newer chips can track optimal read levels automatically.</li>
+</ul>
+<div class="tryit">▶ See how ISPP step, P/E cycles and retention affect V<sub>t</sub> distributions and error rate: <a href="lab.html#nand">Lab · NAND</a></div>
+
+<h2 id="des-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>Bank / Bank group</dt><dd>An independently activatable array / a group of banks sharing some resources.</dd></div>
+<div><dt>Page (DRAM)</dt><dd>The whole row loaded into the sense amps by one ACT; typically 1 KB for x8 devices.</dd></div>
+<div><dt>Mat / Subarray</dt><dd>The smallest array block in a bank, bounded by SA rows and SWD columns.</dd></div>
+<div><dt>SWD / MWL</dt><dd>Sub-word-line driver / main word line in a hierarchical word-line scheme.</dd></div>
+<div><dt>V<sub>PP</sub></dt><dd>Word-line high voltage above V<sub>DD</sub> so the access transistor turns fully on.</dd></div>
+<div><dt>V<sub>BLP</sub></dt><dd>Bit-line precharge voltage, usually V<sub>DD</sub>/2 in DRAM.</dd></div>
+<div><dt>SA offset</dt><dd>Input offset of a sense amp caused by mismatch; ΔV must exceed it.</dd></div>
+<div><dt>Row hit / miss</dt><dd>Whether the accessed row is already in the sense amps.</dd></div>
+<div><dt>Prefetch</dt><dd>Reading several times the I/O width internally and serializing it out at high speed.</dd></div>
+<div><dt>BL16</dt><dd>Burst length 16: one read or write transfers 16 beats.</dd></div>
+<div><dt>DFE / CTLE</dt><dd>Decision-feedback / continuous-time linear equalization to compensate channel loss.</dd></div>
+<div><dt>ZQ calibration</dt><dd>Calibrating output drive and termination impedance against a precision external resistor.</dd></div>
+<div><dt>tREFI / tRFC</dt><dd>Average refresh interval / time each refresh command occupies.</dd></div>
+<div><dt>SECDED</dt><dd>Single error correction, double error detection.</dd></div>
+<div><dt>LDPC</dt><dd>Low-density parity-check codes, the mainstream ECC in NAND controllers.</dd></div>
+<div><dt>PPR</dt><dd>Post-package repair of bad rows.</dd></div>
+<div><dt>Memory compiler</dt><dd>A tool that generates SRAM macro layouts and models from parameters.</dd></div>
+<div><dt>Column mux</dt><dd>Several bit lines sharing one SA.</dd></div>
+<div><dt>Program verify</dt><dd>Checking after each program pulse whether V<sub>t</sub> has reached its target.</dd></div>
+<div><dt>Self-boosting</dt><dd>NAND program-inhibit technique that couples up the channel of unselected cells.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Timing values are typical of DDR5-4800; see JEDEC JESD79-5 and vendor datasheets for actual numbers.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

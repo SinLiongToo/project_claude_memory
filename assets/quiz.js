@@ -1,6 +1,9 @@
 /* Memory Notes — quiz. Question bank per chapter; each has 4 options (first is correct, shuffled at run time). */
 (function(){
-  const CH = {dev:'元件', des:'設計', app:'應用', fab:'製程', tst:'封測', rel:'可靠度'};
+  const t = (window.MemSite && window.MemSite.t) || (zh => zh);
+  const EN = !!(window.MemSite && window.MemSite.EN);
+  const CH = EN ? {dev:'Devices', des:'Design', app:'Applications', fab:'Process', tst:'Test & Pkg', rel:'Reliability'}
+              : {dev:'元件', des:'設計', app:'應用', fab:'製程', tst:'封測', rel:'可靠度'};
   const Q = [
     // ---------- 元件 ----------
     {c:'dev', q:'SRAM 6T 單元的讀取穩定度主要取決於哪個強度比？', o:['PD / PG（cell ratio）', 'PG / PU（pull-up ratio）', 'PU / PD', 'WL 電壓 / BL 電壓'], e:'讀取時 PG 會把存 0 的節點往上抬，PD 必須比 PG 強才能把它壓住。寫入則需要 PG 比 PU 強。', l:'device.html#sram-rw'},
@@ -58,6 +61,59 @@
     {c:'rel', q:'E_a = 0.7 eV，使用溫度 55 °C、測試溫度 125 °C，Arrhenius 加速因子約為？', o:['約 78', '約 8', '約 780', '約 2'], e:'AF = exp[(0.7/8.617e-5) × (1/328 − 1/398)] ≈ e^4.35 ≈ 78。', l:'reliability.html#arrhenius'},
     {c:'rel', q:'NAND 的 read disturb 主要造成什麼？', o:['同一串未選中單元承受 V_PASS 被輕微寫入，V_t 上移（特別是抹除態）', '選中單元被抹除', '位元線斷線', '電荷捕捉層崩潰'], e:'讀取密集的 block 要定期搬移資料。', l:'reliability.html#disturb'}
   ];
+  // English versions, same order as Q (c and l are shared)
+  const QEN = [
+    {q:'Read stability of a 6T SRAM cell depends mainly on which strength ratio?', o:['PD / PG (cell ratio)', 'PG / PU (pull-up ratio)', 'PU / PD', 'WL voltage / BL voltage'], e:'During a read the PG lifts the node holding 0; the PD must be stronger than the PG to hold it down. Writes need the PG to beat the PU.'},
+    {q:'Why does DRAM need periodic refresh?', o:['Charge on the capacitor leaks away through several paths', 'The sense amps need periodic offset calibration', 'The bit-line precharge voltage drifts', 'The word-line voltage droops over time'], e:'Junction leakage, sub-threshold leakage and GIDL drain the stored charge; weak tail cells hold data for only tens to hundreds of ms.'},
+    {q:'C_s = 10 fF, C_BL = 40 fF, V_DD = 1.2 V. Roughly what bit-line signal ΔV does reading a stored “1” give?', o:['120 mV', '60 mV', '240 mV', '600 mV'], e:'ΔV = (1.2 − 0.6) × 10 / (10 + 40) = 0.6 × 0.2 = 120 mV.'},
+    {q:'Why must DRAM restore the data after a read?', o:['After charge sharing the cell sits near V_DD/2 — the read destroyed the data', 'To lower bit-line capacitance', 'So the word line can turn off', 'To update the ECC check bits'], e:'DRAM reads are destructive. While the SA drives full swing, the word line stays on and writes the value back.'},
+    {q:'How many V_t states must a TLC NAND cell distinguish?', o:['8', '3', '6', '16'], e:'n bits need 2ⁿ states; TLC stores 3 bits, so 8.'},
+    {q:'What is the main advantage of a charge-trap cell over a floating gate?', o:['The trap layer is an insulator, so a local defect only drains nearby charge — it scales better', 'Program voltage is ten times lower', 'Unlimited endurance', 'No tunnel oxide is needed'], e:'A floating gate is a conductor: one defect can drain all of it. Electrons in SiN are held in individual traps.'},
+    {q:'During a NAND string read, what goes on the unselected word lines?', o:['A high V_PASS so they conduct whatever they store', '0 V to turn them off', 'A negative voltage to avoid disturb', 'The same V_READ as the selected word line'], e:'Then only the selected cell decides whether the string conducts. Repeated V_PASS is also what causes read disturb.'},
+    {q:'What physical quantity stores the bit in STT-MRAM?', o:['Magnetization of the MTJ free layer (parallel / antiparallel → low / high resistance)', 'Crystal phase of a chalcogenide', 'An oxygen-vacancy filament', 'Polarization of a ferroelectric layer'], e:'Phase is PCM, filaments are ReRAM, polarization is FeRAM.'},
+    {q:'What cell area does the mainstream open bit-line DRAM architecture reach?', o:['6F²', '4F²', '8F²', '12F²'], e:'Folded bit lines need 8F²; open bit lines reach 6F² at the cost of noise that no longer cancels as common mode. 4F² is the VCT goal.'},
+    {q:'What prefetch does DDR5 use?', o:['16n', '2n', '4n', '8n'], e:'DDR5 uses 16n prefetch and BL16; DDR3/DDR4 used 8n.'},
+    {q:'What mainly sets tRAS (minimum ACT to PRE)?', o:['Restore must finish', 'Column decode delay', 'I/O driver speed', 'ZQ calibration'], e:'Reads are destructive, so the data must be fully written back before the row closes.'},
+    {q:'On a row hit (row already in the sense amps), which latency do you mainly pay?', o:['CL', 'tRCD + CL', 'tRP + tRCD + CL', 'tRFC'], e:'A row miss first needs PRE (tRP), then ACT (tRCD), then CL.'},
+    {q:'Why is the DRAM word line driven to V_PP above V_DD?', o:['The access transistor has a high V_t; it must be fully on to write and read a full “1”', 'To lower bit-line capacitance', 'To speed up refresh', 'To reduce leakage'], e:'With only V_DD on the word line, a written “1” would stop at V_DD − V_t.'},
+    {q:'Which statement about DDR5 on-die ECC is correct?', o:['It corrects single-bit errors inside the die to offset weaker cells and does not replace system ECC', 'It can correct a whole failed chip', 'The memory controller computes its check bits', 'It only runs during refresh'], e:'It is transparent to the controller and protects yield; whole-chip failures need system ECC such as Chipkill.'},
+    {q:'In redundancy analysis, what does “must-repair” mean?', o:['A row with more failing bits than remaining spare columns must use a spare row', 'All failures must be fixed with spare columns', 'Repair must happen after packaging', 'Only laser fuses can be used'], e:'Forced assignments come first; a search handles the rest, which shrinks the search space dramatically.'},
+    {q:'What is SRAM negative-bit-line write assist for?', o:['Strengthening the PG for writes', 'Weakening the PD to improve read stability', 'Lowering leakage', 'Faster bit-line precharge'], e:'Pulling BL below 0 increases the PG’s V_GS so it beats the PU more easily.'},
+    {q:'What happens when the NAND ISPP step gets smaller?', o:['V_t distributions get narrower but programming takes longer', 'Distributions widen and programming speeds up', 'Only erase is affected', 'Distributions do not change'], e:'Quantization error is about step ÷ √12; smaller steps are more precise but need more pulses and verifies.'},
+    {q:'What is the peak bandwidth of one DDR5-6400 DIMM (64-bit data)?', o:['51.2 GB/s', '25.6 GB/s', '102.4 GB/s', '6.4 GB/s'], e:'6.4 Gb/s × 64 ÷ 8 = 51.2 GB/s.'},
+    {q:'How does HBM reach the highest bandwidth per package?', o:['A very wide interface (1024 / 2048 bits) with short traces on an interposer', 'The highest per-pin data rate', 'PAM4 signaling', 'The most banks'], e:'HBM runs slower per pin than GDDR; width and short links win, and energy per bit is the lowest.'},
+    {q:'A 70B-parameter model with FP16 weights on 3.35 TB/s of memory: roughly the batch-1 token rate ceiling?', o:['About 24 tokens/s', 'About 2.4 tokens/s', 'About 240 tokens/s', 'About 2400 tokens/s'], e:'Each token reads 140 GB of weights: 3350 ÷ 140 ≈ 24.'},
+    {q:'How is SSD write amplification (WAF) defined?', o:['NAND bytes written ÷ host bytes written', 'Host bytes written ÷ NAND bytes written', 'Write latency ÷ read latency', 'P/E cycles ÷ warranty years'], e:'Garbage collection relocates valid pages, so NAND writes more than the host asked for.'},
+    {q:'What is the main effect of adding SSD over-provisioning (OP)?', o:['More efficient GC: lower WAF, better endurance and steadier performance', 'More user capacity', 'Higher read bandwidth', 'Less DRAM needed'], e:'With more free space, GC picks blocks with more invalid pages and moves fewer valid ones.'},
+    {q:'2 TB TLC, 3000 P/E cycles, WAF 2.5: roughly what TBW?', o:['2400 TB', '6000 TB', '750 TB', '15000 TB'], e:'TBW ≈ capacity × P/E ÷ WAF = 2 × 3000 ÷ 2.5 = 2400 TB.'},
+    {q:'Why are MCUs below 28 nm moving to eMRAM / ePCM / eReRAM?', o:['Floating-gate eFlash is hard to integrate with HKMG; emerging NVM sits in the BEOL metal stack', 'Emerging NVM is cheaper per bit than NAND', 'eFlash cannot meet automotive grades', 'Emerging NVM needs no ECC'], e:'Integrating between BEOL metal layers leaves the front-end transistor process untouched.'},
+    {q:'What is CXL.mem mainly used for?', o:['Expanding and sharing memory capacity over the PCIe physical layer', 'Replacing HBM', 'A storage protocol for SSDs', 'A phone memory interface'], e:'It breaks the DIMM-slot limit and enables pooling, at roughly 100 ns or more of extra latency.'},
+    {q:'What is a typical challenge of high-aspect-ratio DRAM capacitors?', o:['Tall, thin structures collapse while drying after wet steps, so support layers are needed', 'Capacitors are too short and capacitance too high', 'ALD cannot be used', 'Epitaxy is required'], e:'Besides leaning, etch bowing and tapered bottoms are common.'},
+    {q:'What does the Al₂O₃ middle layer in a ZAZ capacitor dielectric do?', o:['Suppresses leakage', 'Raises the dielectric constant', 'Acts as an electrode', 'Acts as an etch stop'], e:'ZrO₂ has a high k but leaks; Al₂O₃ has a wide band gap that blocks leakage paths.'},
+    {q:'What is the main benefit of a buried word line (BCAT)?', o:['A longer effective channel and much lower leakage', 'Higher word-line resistance', 'No need for STI', 'Shorter bit lines'], e:'Burying the gate in a silicon trench gives a long effective channel in a tiny footprint.'},
+    {q:'What is the 3D NAND replacement-gate process?', o:['SiN placeholders are etched out through slits and refilled with W or Mo word lines', 'Replacing the poly channel with metal', 'Replacing the floating gate with charge trap', 'Replacing the tunnel oxide with high-k'], e:'The SiN in the ON stack is sacrificial: hot phosphoric acid removes it and ALD fills metal.'},
+    {q:'What is the advantage of CMOS bonded Array (CBA) over CuA?', o:['The periphery is built on a separate wafer, avoids the array’s thermal budget and performs better', 'Only one wafer is needed', 'No hybrid bonding is needed', 'The staircase can be skipped'], e:'Each wafer is optimized separately, then joined by hybrid bonding.'},
+    {q:'Poisson yield for a 1 cm² die at D₀ = 0.1 /cm²?', o:['90.5%', '99%', '81%', '10%'], e:'Y = e^(−0.1) ≈ 0.905.'},
+    {q:'Why can memory chips tolerate more random defects than logic?', o:['Array defects can be repaired with spare rows / columns', 'Memory fabs have zero defects', 'Memory is not functionally tested', 'Memory dies are smaller'], e:'What kills a die is periphery defects and clusters that exceed the repair budget.'},
+    {q:'Which is NOT a reason SRAM bitcell scaling slowed after 5 nm?', o:['DRAM capacitor height limits', 'Metal pitch and contact limits', 'V_t variation', 'Minimum sizes needed to hold V_min'], e:'DRAM capacitors have nothing to do with SRAM in a logic process.'},
+    {q:'What is the complexity of March C−?', o:['10N', '5N', '6N', '4N²'], e:'{⇕(w0); ⇑(r0,w1); ⇑(r1,w0); ⇓(r0,w1); ⇓(r1,w0); ⇕(r0)}: 1+2+2+2+2+1 = 10.'},
+    {q:'Which algorithm detects SAF and AF but does not guarantee all transition faults?', o:['MATS+', 'March C−', 'March B', 'GALPAT'], e:'MATS+ never reads after its final w0, so a cell that cannot go 1→0 can escape.'},
+    {q:'A whole failing row on a fail bit map usually points to?', o:['A broken word line or sub-word-line driver (SWD)', 'A bit line or sense amp', 'Particle contamination', 'One weak cell'], e:'A whole column points to a bit line / SA; clusters point to particles.'},
+    {q:'Why is Known Good Die (KGD) so important for HBM?', o:['One bad die scraps the whole expensive stack', 'HBM needs no post-package test', 'HBM dies cannot be repaired', 'HBM has no redundancy'], e:'Stack yield is roughly the per-layer yield to the n-th power.'},
+    {q:'Which fuse type can be programmed after packaging (e.g. PPR)?', o:['Electrical fuse / anti-fuse', 'Laser fuse', 'Neither', 'Both, but only on wafer'], e:'Laser fuses need an opening in the passivation and only work at wafer level.'},
+    {q:'What characterizes the MR-MUF HBM stacking process?', o:['All layers are joined in one reflow, then liquid mold fills the gaps', 'Non-conductive film between layers, thermo-compressed one by one', 'Bumpless direct Cu–Cu bonding', 'Wire bonds between layers'], e:'Film plus layer-by-layer bonding is TC-NCF; direct Cu–Cu is hybrid bonding.'},
+    {q:'What is the main purpose of burn-in?', o:['Accelerate and screen out infant-mortality failures before shipping', 'Measure maximum speed for binning', 'Repair failing bits', 'Calibrate output impedance'], e:'Heat and voltage make latent defects fail early, matching the infant-mortality part of the bathtub curve.'},
+    {q:'Why do March tests walk addresses both up and down?', o:['So that for every cell pair the aggressor is operated before the victim is read in some element', 'To shorten test time', 'To test refresh', 'Because of ATE hardware limits'], e:'One direction only catches couplings where the aggressor address is lower (or higher) than the victim.'},
+    {q:'What is PRAC in DDR5?', o:['Every row has an activation counter; at a threshold the DRAM asks the controller for time to mitigate', 'The controller issues extra refresh per bank activation count', 'The DRAM tracks a few suspicious rows internally', 'A power-saving mode that lowers refresh rate'], e:'Per-bank counting with commands is RFM; tracking a few rows internally is TRR.'},
+    {q:'Why can many-sided row hammer (e.g. TRRespass) bypass TRR?', o:['More aggressors than the TRR table can hold, so tracking thrashes', 'TRR only works when hot', 'Many-sided attacks need no activations', 'TRR only protects bank 0'], e:'Try it in the Lab’s Row Hammer tab: change aggressors from 2 to 20.'},
+    {q:'Roughly how does DRAM retention time depend on temperature?', o:['It halves for about every 10 °C rise', 'It doubles every 10 °C', 'It does not depend on temperature', 'It halves for every 1 °C'], e:'Leakage follows Arrhenius behaviour, which is why refresh doubles above 85 °C.'},
+    {q:'What is VRT (Variable Retention Time)?', o:['Some cells randomly jump between a few retention times', 'Retention varies linearly with voltage', 'Refresh interval can be tuned dynamically', 'Retention grows with write count'], e:'It makes “test once to find the weak cells” unreliable.'},
+    {q:'What does JEDEC JESD218 require of client SSDs for retention?', o:['After rated TBW, keep data 1 year powered off at 30 °C', 'Keep data 3 months at 40 °C', 'Keep data 10 years at 85 °C', 'Keep data forever at 25 °C'], e:'3 months at 40 °C is the enterprise requirement.'},
+    {q:'Why is SRAM especially sensitive to soft errors?', o:['Small node capacitance means a low critical charge Q_crit', 'SRAM cannot use ECC', 'SRAM runs at the highest voltage', 'SRAM has no refresh'], e:'Scaling makes single-bit hits rarer but multi-bit upsets (MBU) more common.'},
+    {q:'E_a = 0.7 eV, use at 55 °C, stress at 125 °C: roughly the Arrhenius acceleration factor?', o:['About 78', 'About 8', 'About 780', 'About 2'], e:'AF = exp[(0.7/8.617e-5) × (1/328 − 1/398)] ≈ e^4.35 ≈ 78.'},
+    {q:'What does NAND read disturb mainly cause?', o:['Unselected cells on the string see V_PASS and get slightly programmed (V_t shifts up, especially erased cells)', 'The selected cell is erased', 'A bit line opens', 'The charge-trap layer breaks down'], e:'Read-hot blocks must be relocated periodically.'}
+  ];
+  if(EN) Q.forEach((q, i) => Object.assign(q, QEN[i]));
 
   const $ = id => document.getElementById(id);
   const store = (k, v) => { try { if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch(e){ return null; } };
@@ -78,9 +134,9 @@
     $('qz-start').addEventListener('click', start);
     count();
     const best = store('mem-quiz-best');
-    $('qz-best').textContent = best ? '最佳紀錄：' + best : '';
+    $('qz-best').textContent = best ? t('最佳紀錄：', 'Best: ') + best : '';
   }
-  function count(){ const n = Q.filter(q => sel.has(q.c)).length; $('qz-count').textContent = '題庫 ' + n + ' 題'; }
+  function count(){ const n = Q.filter(q => sel.has(q.c)).length; $('qz-count').textContent = t('題庫 ', '') + n + t(' 題', ' questions'); }
   function start(){
     const pool = shuffle(Q.filter(q => sel.has(q.c)).slice());
     const n = $('qz-n').value === 'all' ? pool.length : Math.min(+$('qz-n').value, pool.length);
@@ -91,7 +147,7 @@
   function show(){
     const q = run.qs[run.i];
     $('qz-prog').style.width = (run.i / run.qs.length * 100) + '%';
-    $('qz-meta').innerHTML = '<span class="tag ' + q.c + '">' + CH[q.c] + '</span>第 ' + (run.i + 1) + ' / ' + run.qs.length + ' 題 · 得分 ' + run.score;
+    $('qz-meta').innerHTML = '<span class="tag ' + q.c + '">' + CH[q.c] + '</span>' + t('第 ', 'Question ') + (run.i + 1) + ' / ' + run.qs.length + t(' 題 · 得分 ', ' · score ') + run.score;
     $('qz-q').textContent = q.q;
     $('qz-opts').innerHTML = q.opts.map((o, i) => '<button class="qopt" type="button" data-i="' + i + '"><b>' + 'ABCD'[i] + '</b><span>' + o.t + '</span></button>').join('');
     $('qz-fb').hidden = true;
@@ -103,8 +159,8 @@
     if(ok) run.score++; else run.wrong.push(q);
     [...$('qz-opts').children].forEach((b, k) => { b.disabled = true; if(q.opts[k].ok) b.classList.add('right'); else if(k === i) b.classList.add('wrong'); });
     $('qz-fb').hidden = false;
-    $('qz-fb').innerHTML = '<p class="' + (ok ? 'okc' : 'badc') + '"><b>' + (ok ? '答對了' : '答錯了') + '</b></p><p>' + q.e + '</p><p><a href="' + q.l + '">複習這一節 →</a></p>' +
-      '<button class="btn pri" id="qz-next" type="button">' + (run.i + 1 < run.qs.length ? '下一題 →' : '看結果') + '</button>';
+    $('qz-fb').innerHTML = '<p class="' + (ok ? 'okc' : 'badc') + '"><b>' + (ok ? t('答對了', 'Correct') : t('答錯了', 'Not quite')) + '</b></p><p>' + q.e + '</p><p><a href="' + q.l + '">' + t('複習這一節 →', 'Review this section →') + '</a></p>' +
+      '<button class="btn pri" id="qz-next" type="button">' + (run.i + 1 < run.qs.length ? t('下一題 →', 'Next →') : t('看結果', 'See results')) + '</button>';
     $('qz-next').addEventListener('click', next);
     $('qz-next').focus({preventScroll:true});
   }
@@ -113,14 +169,14 @@
     $('qz-card').hidden = true; $('qz-end').hidden = false;
     const pct = Math.round(run.score / run.qs.length * 100);
     const prev = store('mem-quiz-best'), prevPct = prev ? parseInt(prev, 10) : -1;
-    if(pct > prevPct) store('mem-quiz-best', pct + '%（' + run.score + '/' + run.qs.length + '）');
+    if(pct > prevPct) store('mem-quiz-best', pct + '% (' + run.score + '/' + run.qs.length + ')');
     const by = {};
     run.qs.forEach(q => { by[q.c] = by[q.c] || [0, 0]; by[q.c][1]++; if(!run.wrong.includes(q)) by[q.c][0]++; });
     $('qz-score').innerHTML = '<div class="metrics">' +
-      '<div class="metric ' + (pct >= 80 ? 'ok' : pct >= 60 ? 'warn' : 'bad') + '"><div class="ml">得分</div><div class="mv">' + pct + ' <small>%</small></div><div class="ms">' + run.score + ' / ' + run.qs.length + ' 題</div></div>' +
+      '<div class="metric ' + (pct >= 80 ? 'ok' : pct >= 60 ? 'warn' : 'bad') + '"><div class="ml">' + t('得分', 'Score') + '</div><div class="mv">' + pct + ' <small>%</small></div><div class="ms">' + run.score + ' / ' + run.qs.length + t(' 題', '') + '</div></div>' +
       Object.entries(by).map(([c, v]) => '<div class="metric"><div class="ml">' + CH[c] + '</div><div class="mv">' + v[0] + ' <small>/ ' + v[1] + '</small></div></div>').join('') + '</div>';
-    $('qz-review').innerHTML = run.wrong.length ? '<h3>答錯的題目</h3>' + run.wrong.map(q => '<div class="rev"><p><span class="tag ' + q.c + '">' + CH[q.c] + '</span>' + q.q + '</p><p class="note">正解：' + q.o[0] + '。' + q.e + ' <a href="' + q.l + '">複習 →</a></p></div>').join('') : '<p>全部答對，太強了。</p>';
-    $('qz-best').textContent = '最佳紀錄：' + (store('mem-quiz-best') || pct + '%');
+    $('qz-review').innerHTML = run.wrong.length ? '<h3>' + t('答錯的題目', 'Missed questions') + '</h3>' + run.wrong.map(q => '<div class="rev"><p><span class="tag ' + q.c + '">' + CH[q.c] + '</span>' + q.q + '</p><p class="note">' + t('正解：', 'Answer: ') + q.o[0] + t('。', '. ') + q.e + ' <a href="' + q.l + '">' + t('複習 →', 'Review →') + '</a></p></div>').join('') : '<p>' + t('全部答對，太強了。', 'All correct — impressive.') + '</p>';
+    $('qz-best').textContent = t('最佳紀錄：', 'Best: ') + (store('mem-quiz-best') || pct + '%');
   }
   $('qz-opts').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if(b) answer(+b.dataset.i); });
   document.addEventListener('keydown', e => {

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Devices · Memory Notes</title>
+<meta name="description" content="Memory devices: the memory hierarchy, 6T SRAM, 1T1C DRAM, NOR / NAND flash, 3D NAND, and emerging memories such as MRAM, ReRAM, PCM and FeRAM.">
+<link rel="alternate" hreflang="zh-Hant" href="../device.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="device" data-ch="dev">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 1 · Devices</div>
+<h1>Devices: how a bit gets stored</h1>
+<p class="lead">Every memory boils down to “use some physical state to mean 0 or 1”. SRAM uses a bistable circuit, DRAM uses charge on a capacitor, flash uses electrons trapped in a gate stack, MRAM uses a magnetization direction, and PCM uses the resistance of a crystalline or amorphous material. That choice decides speed, density, cost and whether the data survives power-off.</p>
+
+<h2 id="hierarchy">The memory hierarchy</h2>
+<p>No memory is fast, large and cheap at the same time, so computers stack them in a hierarchy: the closer to the processor, the faster, smaller and more expensive per bit; further down, larger and cheaper, but with latency orders of magnitude higher.</p>
+<figure>
+<svg viewBox="0 0 680 300" role="img" aria-label="Memory hierarchy pyramid">
+  <polygon class="c1" points="200,20 200,20 230,65 170,65"/>
+  <polygon class="c2" points="170,65 230,65 260,110 140,110"/>
+  <polygon class="c3" points="140,110 260,110 290,155 110,155"/>
+  <polygon class="c5" points="110,155 290,155 320,200 80,200"/>
+  <polygon class="c4" points="80,200 320,200 350,245 50,245"/>
+  <polygon class="c6" points="50,245 350,245 380,290 20,290"/>
+  <path class="wm" d="M395 280V34m-5 8 5-8 5 8"/>
+  <text x="404" y="30" class="ts t-mut">faster · costlier per bit</text>
+  <text x="404" y="294" class="ts t-mut">larger · cheaper per bit</text>
+  <text x="430" y="47">Registers <tspan class="t-mono t-mut ts">&lt; 1 ns</tspan></text>
+  <text x="430" y="92">SRAM caches L1–L3 <tspan class="t-mono t-mut ts">1–40 ns</tspan></text>
+  <text x="430" y="137">DRAM main memory / HBM <tspan class="t-mono t-mut ts">~100 ns</tspan></text>
+  <text x="430" y="182">CXL memory / SCM <tspan class="t-mono t-mut ts">0.2–1 µs</tspan></text>
+  <text x="430" y="227">NAND SSD <tspan class="t-mono t-mut ts">50–100 µs</tspan></text>
+  <text x="430" y="272">HDD / tape <tspan class="t-mono t-mut ts">ms – s</tspan></text>
+</svg>
+<figcaption>Each level down holds roughly 10–1000× more and is 10–1000× slower. Numbers are orders of magnitude and depend on product and access pattern.</figcaption>
+</figure>
+<p>The hierarchy works because programs have <b>locality</b>: data used recently is likely to be used again soon (temporal locality), and nearby data is likely to be used next (spatial locality). If the cache captures that small hot set, average access time approaches SRAM while average cost approaches DRAM.</p>
+
+<h2 id="taxonomy">Volatile vs non-volatile</h2>
+<div class="tblwrap"><table>
+<tr><th>Class</th><th>Memory</th><th>What it stores</th><th>Typical use</th></tr>
+<tr><td rowspan="2">Volatile<br><small>lost at power-off</small></td><td>SRAM</td><td>Bistable latch (6 transistors)</td><td>CPU/GPU caches, register files, embedded in SoCs</td></tr>
+<tr><td>DRAM</td><td>Charge on a capacitor (1T1C)</td><td>DDR main memory, LPDDR in phones, GDDR in graphics, HBM in AI accelerators</td></tr>
+<tr><td rowspan="4">Non-volatile<br><small>kept at power-off</small></td><td>NAND flash</td><td>Electrons trapped in the gate stack → V<sub>t</sub> shift</td><td>SSDs, UFS phone storage, memory cards</td></tr>
+<tr><td>NOR flash</td><td>Same, but cells in parallel</td><td>Boot code, firmware, execute-in-place (XIP)</td></tr>
+<tr><td>EEPROM / eFlash</td><td>Floating-gate charge</td><td>Embedded code and parameters in MCUs</td></tr>
+<tr><td>Emerging</td><td>Magnetization (MRAM), resistance (ReRAM/PCM), polarization (FeRAM)</td><td>Embedded NVM, caches, compute-in-memory</td></tr>
+</table></div>
+
+<h2 id="sram">The 6T SRAM cell</h2>
+<p>SRAM (static RAM) uses two cross-coupled inverters as a bistable latch: when Q is 1, QB must be 0 and vice versa. As long as power is applied the state holds without refresh — that is what “static” means. Two access transistors (pass gates, PG) controlled by the word line WL connect the internal nodes to the bit lines BL / BLB.</p>
+<figure>
+<svg viewBox="0 0 640 250" role="img" aria-label="6T SRAM cell block diagram">
+  <path class="w" d="M60 30V230M580 30V230"/>
+  <path class="wa" d="M40 40H600"/>
+  <text x="604" y="44" class="t-mono ts">WL</text>
+  <text x="48" y="246" class="t-mono ts">BL</text><text x="562" y="246" class="t-mono ts">BLB</text>
+  <rect class="boxi" x="130" y="120" width="60" height="30" rx="4"/><text x="160" y="140" text-anchor="middle" class="ts">PG1</text>
+  <rect class="boxi" x="450" y="120" width="60" height="30" rx="4"/><text x="480" y="140" text-anchor="middle" class="ts">PG2</text>
+  <path class="wa" d="M160 40V120M480 40V120"/>
+  <path class="w" d="M60 135H130M190 135H250M390 135H450M510 135H580"/>
+  <polygon class="c1" points="270,100 370,78 370,122"/><circle class="boxi" cx="264" cy="100" r="5"/>
+  <polygon class="c1" points="370,170 270,148 270,192"/><circle class="boxi" cx="376" cy="170" r="5"/>
+  <path class="w" d="M250 100V170M390 100V170M259 100H250M370 100H390M250 170H270M381 170H390"/>
+  <circle class="fi" cx="250" cy="135" r="4"/><circle class="fi" cx="390" cy="135" r="4"/>
+  <text x="236" y="131" text-anchor="end" class="tl">Q</text><text x="404" y="131" class="tl">QB</text>
+  <text x="320" y="70" text-anchor="middle" class="ts t-mut">INV1: PU1 + PD1</text>
+  <text x="320" y="212" text-anchor="middle" class="ts t-mut">INV2: PU2 + PD2</text>
+</svg>
+<figcaption>Each inverter is a PMOS pull-up (PU) and an NMOS pull-down (PD). The two inverters loop into positive feedback; when WL is high, the PGs connect Q/QB to the bit lines.</figcaption>
+</figure>
+<h3 id="sram-rw">The read / write tug-of-war</h3>
+<ul>
+<li><b>Read</b>: BL and BLB are precharged to V<sub>DD</sub>. With WL on, the side storing 0 slowly discharges its bit line through PG→PD. The sense amp needs only tens of mV of difference. The danger is that during a read the PG lifts the “0” node; if it rises too far the latch can flip (read disturb). So <b>the PD must be stronger than the PG</b> — the cell ratio (β = PD/PG, commonly 1.5–2.5 in planar processes).</li>
+<li><b>Write</b>: the write driver pulls one bit line hard to 0 and, through the PG, drags the node holding 1 down, fighting the PU. So <b>the PG must be stronger than the PU</b> (the pull-up ratio).</li>
+<li>Reads want a strong PD, writes want a strong PG — that conflict is the core of SRAM sizing. In FinFET/GAA processes fin counts are integers (e.g. 1:1:1 for high-density cells), so read/write assist circuits make up the difference; see <a href="design.html#sram-assist">Design</a>.</li>
+</ul>
+<h3 id="snm">Static noise margin (SNM)</h3>
+<p>Plot the transfer curves of both inverters, one mirrored, on the same axes and you get the “butterfly curve”. The side of the largest square that fits in its eyes is the SNM — how much noise voltage the cell tolerates without flipping. Read SNM is much smaller than hold SNM, and it shrinks as voltage drops and transistor V<sub>t</sub> mismatch grows. That sets the minimum operating voltage V<sub>min</sub>.</p>
+<div class="tryit">▶ Adjust β, V<sub>DD</sub> and mismatch and watch the butterfly curve: <a href="lab.html#sram">Lab · SRAM butterfly</a></div>
+<h3 id="sram-area">Area and scaling</h3>
+<p>A 6T cell takes about 120–150 F² in a logic process — over twenty times DRAM’s 6F² — so SRAM is used only where speed matters most. High-density bitcells at 5 nm / 3 nm are around 0.02 µm². SRAM scaling has slowed sharply: when logic shrinks 1.6×, SRAM often shrinks only 1.0–1.2×, which is one reason 3D-stacked cache (SRAM dies on top of compute dies) has taken off.</p>
+<p>Variants: <b>8T</b> adds a separate read port (reads do not disturb the storage nodes, good at low voltage); <b>dual-port / multi-port</b> cells for register files; <b>TCAM</b> for network routing lookups.</p>
+
+<h2 id="dram">The 1T1C DRAM cell</h2>
+<p>DRAM (dynamic RAM) uses one transistor and one capacitor per bit: a charged capacitor is 1, an empty one is 0. The structure is minimal, so density is high and cost low. The price is that capacitors leak and must be refreshed periodically — that is what “dynamic” means.</p>
+<figure>
+<svg viewBox="0 0 640 260" role="img" aria-label="1T1C DRAM cell and read waveform">
+  <path class="w" d="M80 20V240"/><text x="66" y="250" class="t-mono ts">BL</text>
+  <path class="wa" d="M40 60H300"/><text x="268" y="52" class="t-mono ts">WL</text>
+  <path class="w" d="M80 140H130M190 140H240M240 140V150M240 162V190"/>
+  <path class="wt" d="M130 140H190M130 126H190"/>
+  <path class="wa" d="M160 60V126"/>
+  <path class="wt" d="M218 150H262M218 162H262"/>
+  <circle class="fi" cx="80" cy="140" r="4"/><circle class="fi" cx="240" cy="140" r="3.5"/>
+  <text x="250" y="137" class="ts">SN storage node</text>
+  <text x="270" y="160" class="ts">C<tspan dy="3" class="ts">s</tspan></text>
+  <text x="240" y="208" text-anchor="middle" class="ts t-mut">Plate = V<tspan dy="3">DD</tspan><tspan dy="-3">/2</tspan></text>
+  <text x="168" y="104" class="ts t-mut">access transistor</text>
+  <path class="wm" d="M340 60H620M340 220H620"/>
+  <path class="wd" d="M340 140H620M420 40V228M480 40V228M540 40V228"/>
+  <text x="626" y="64" class="ts t-mono">V<tspan dy="3">DD</tspan></text>
+  <text x="626" y="144" class="ts t-mono">½</text><text x="626" y="224" class="ts t-mono">0</text>
+  <path class="wa" d="M340 140H420L436 122H480C500 122 510 60 540 60H620"/>
+  <path class="w" style="stroke:var(--s2)" d="M340 140H480C500 140 510 220 540 220H620"/>
+  <path class="wm" d="M462 122V140"/><text x="466" y="116" class="ts">ΔV</text>
+  <text x="380" y="252" text-anchor="middle" class="ts t-mut">precharge</text>
+  <text x="450" y="252" text-anchor="middle" class="ts t-mut">share</text>
+  <text x="510" y="252" text-anchor="middle" class="ts t-mut">SA</text>
+  <text x="580" y="252" text-anchor="middle" class="ts t-mut">restore</text>
+  <text x="560" y="54" class="ts" style="fill:var(--accent)">BL</text><text x="560" y="214" class="ts" style="fill:var(--s2)">BLB (ref)</text>
+</svg>
+<figcaption>Left: the 1T1C cell. Right: bit-line waveforms when reading a “1”. The bit line is precharged to V<sub>DD</sub>/2; when WL turns on, the capacitor shares charge with the bit line, creating a small ΔV that the sense amplifier amplifies to full swing while also writing it back into the cell.</figcaption>
+</figure>
+<h3 id="charge-sharing">Charge sharing: why the signal is so small</h3>
+<p>The cell capacitance C<sub>s</sub> is tiny (a few fF to around 10 fF), while hundreds of cells hang on the bit line, so its parasitic C<sub>BL</sub> is several times larger. When WL turns on, charge redistributes:</p>
+<div class="eq">ΔV = (V<sub>cell</sub> − V<sub>DD</sub>/2) · C<sub>s</sub> / (C<sub>s</sub> + C<sub>BL</sub>)</div>
+<p>For V<sub>DD</sub> = 1.1 V, C<sub>s</sub> = 10 fF and C<sub>BL</sub> = 50 fF, a stored 1 gives ΔV ≈ 0.55 × 10/60 ≈ 92 mV. That is why DRAM design obsesses over a few things: <b>enough capacitance</b> (hence extremely tall cylinder capacitors), <b>short bit lines</b> (hence many small mats) and <b>low sense-amp offset</b>.</p>
+<h3 id="destructive-read">Destructive read and restore</h3>
+<p>After charge sharing the capacitor sits near V<sub>DD</sub>/2 — the original data is destroyed. So while the sense amplifier drives the bit line to full swing, WL stays on and the correct value is written back into the capacitor (restore). That is why DRAM timing has t<sub>RAS</sub>, the minimum time from activating a row until it may be precharged.</p>
+<h3 id="leakage">Leakage and refresh</h3>
+<p>Stored charge leaks through several paths: junction leakage, sub-threshold leakage of the access transistor, gate-induced drain leakage (GIDL) and dielectric leakage. Most cells hold data for seconds, but a few “tail” cells last only tens to hundreds of milliseconds, so JEDEC requires every cell to be refreshed within 64 ms (32 ms for DDR5; halved again at high temperature). Retention roughly halves for every 10 °C rise.</p>
+<div class="tryit">▶ Change C<sub>s</sub>, C<sub>BL</sub>, temperature and wait time to see when the sense margin fails: <a href="lab.html#dram">Lab · DRAM read</a></div>
+<h3 id="dram-cell-arch">6F² and the access transistor</h3>
+<p>Modern DRAM cells are 6F² (F is the feature size, e.g. 3F × 2F) with diagonally laid-out active areas. To keep leakage low in such a tiny footprint, the access transistor is a buried word line (buried channel array transistor, BCAT): the gate is buried in a silicon trench, the effective channel gets longer and leakage drops sharply. The next steps are 4F² vertical-channel transistors (VCT) and 3D DRAM; see <a href="process.html#dram-future">Process</a>.</p>
+
+<h2 id="flash">Flash: locking electrons in the gate</h2>
+<p>A flash cell is a MOSFET with an extra charge-storage layer between the control gate and the channel. Injecting electrons raises the transistor’s threshold voltage V<sub>t</sub>; reading applies a reference voltage to the control gate and checks whether the transistor conducts. The electrons are wrapped in insulators, so data lasts about ten years without power.</p>
+<figure>
+<svg viewBox="0 0 640 250" role="img" aria-label="Floating-gate and charge-trap cell cross-sections">
+  <text x="170" y="30" text-anchor="middle" class="tl">Floating gate</text>
+  <text x="470" y="30" text-anchor="middle" class="tl">Charge trap</text>
+  <rect class="sunk" x="40" y="170" width="260" height="60"/><rect class="sunk" x="340" y="170" width="260" height="60"/>
+  <rect class="c1" x="40" y="170" width="60" height="22"/><rect class="c1" x="240" y="170" width="60" height="22"/>
+  <rect class="c1" x="340" y="170" width="60" height="22"/><rect class="c1" x="540" y="170" width="60" height="22"/>
+  <text x="70" y="186" text-anchor="middle" class="ts">n+ S</text><text x="270" y="186" text-anchor="middle" class="ts">n+ D</text>
+  <text x="370" y="186" text-anchor="middle" class="ts">n+ S</text><text x="570" y="186" text-anchor="middle" class="ts">n+ D</text>
+  <text x="170" y="216" text-anchor="middle" class="ts t-mut">p-type substrate / channel</text><text x="470" y="216" text-anchor="middle" class="ts t-mut">p-type substrate / channel</text>
+  <rect class="box" x="100" y="160" width="140" height="10"/><rect class="box" x="400" y="160" width="140" height="10"/>
+  <rect class="c2" x="100" y="120" width="140" height="40"/>
+  <rect class="box" x="100" y="108" width="140" height="12"/>
+  <rect class="c5" x="100" y="68" width="140" height="40"/>
+  <text x="170" y="144" text-anchor="middle" class="ts">FG (poly-Si, conductor)</text>
+  <text x="170" y="92" text-anchor="middle" class="ts">Control gate CG</text>
+  <path class="wm" d="M246 165h30M246 114h30"/><text x="280" y="168" class="ts t-mut">tunnel oxide</text><text x="280" y="117" class="ts t-mut">ONO</text>
+  <rect class="c2" x="400" y="140" width="140" height="20"/>
+  <rect class="box" x="400" y="125" width="140" height="15"/>
+  <rect class="c5" x="400" y="80" width="140" height="45"/>
+  <text x="470" y="106" text-anchor="middle" class="ts">Metal gate (TiN / W)</text>
+  <text x="470" y="154" text-anchor="middle" class="ts">SiN trap (insulator)</text>
+  <path class="wm" d="M546 165h20M546 132h20"/><text x="570" y="168" class="ts t-mut">tunnel ox</text><text x="570" y="135" class="ts t-mut">blocking ox</text>
+  <g class="fi"><circle cx="125" cy="134" r="3"/><circle cx="215" cy="134" r="3"/><circle cx="420" cy="146" r="2.5"/><circle cx="455" cy="146" r="2.5"/><circle cx="512" cy="146" r="2.5"/></g>
+</svg>
+<figcaption>The floating gate is a conductor: electrons move freely inside it, so a single defect in the tunnel oxide can drain the whole gate. The charge-trap layer is an insulator: electrons sit in individual traps and a local defect only affects its neighbourhood. It scales better and dominates 3D NAND.</figcaption>
+</figure>
+<h3 id="program-erase">Program and erase</h3>
+<ul>
+<li><b>Fowler–Nordheim (FN) tunnelling</b>: about 15–20 V on the control gate creates a field strong enough for electrons to tunnel through the oxide into the storage layer. The current is tiny and efficient; NAND uses it for program and erase.</li>
+<li><b>Channel hot-electron injection (CHE)</b>: a high drain voltage creates energetic electrons that jump into the floating gate. Fast but power-hungry; NOR uses it to program.</li>
+<li><b>Erase</b>: a high voltage on the substrate (p-well) pulls electrons out. NAND erases a whole block at once, so data cannot be overwritten in place — which is exactly why SSD controllers need an FTL (see <a href="application.html#ssd">Applications</a>).</li>
+</ul>
+<h3 id="nor-nand">NOR vs NAND</h3>
+<div class="tblwrap"><table>
+<tr><th></th><th>NOR</th><th>NAND</th></tr>
+<tr><td>Cell connection</td><td>Each cell connects directly to the bit line (parallel, like a NOR gate)</td><td>Tens to hundreds of cells in series form a string, with the bit line and source line only at the ends</td></tr>
+<tr><td>Density</td><td>Low (about 10F²)</td><td>High (about 4F² in 2D; 3D multiplies by layers and bits per cell)</td></tr>
+<tr><td>Read</td><td>Fast random access (tens of ns), can execute code in place (XIP)</td><td>By page (typically 16 KB), t<sub>R</sub> of tens of µs</td></tr>
+<tr><td>Program / erase</td><td>Slow and power-hungry (CHE)</td><td>Page program, block erase, high throughput</td></tr>
+<tr><td>Use</td><td>Boot code, automotive / industrial firmware</td><td>Bulk storage: SSDs, UFS, memory cards</td></tr>
+</table></div>
+<p>Reading a NAND string: the selected word line gets the reference voltage V<sub>READ</sub>; all others get a higher pass voltage V<sub>PASS</sub> so they conduct regardless of what they store. Whether the string conducts then depends only on the selected cell.</p>
+<h3 id="mlc">Multi-level cells: SLC / MLC / TLC / QLC</h3>
+<p>If the amount of injected charge can be controlled precisely, one cell can hold more V<sub>t</sub> levels: n bits need 2ⁿ states.</p>
+<figure>
+<svg viewBox="0 0 640 200" role="img" aria-label="Four MLC Vt distributions">
+  <path class="wm" d="M30 170H620"/><text x="612" y="190" class="ts t-mono" text-anchor="end">V<tspan dy="3">t</tspan></text>
+  <path class="c1" style="stroke-width:1.5" d="M30 170C70 170 80 40 110 40C140 40 150 170 190 170Z"/>
+  <path class="c2" style="stroke-width:1.5" d="M220 170C245 170 245 70 260 70C275 70 275 170 300 170Z"/>
+  <path class="c3" style="stroke-width:1.5" d="M360 170C385 170 385 70 400 70C415 70 415 170 440 170Z"/>
+  <path class="c4" style="stroke-width:1.5" d="M500 170C525 170 525 70 540 70C555 70 555 170 580 170Z"/>
+  <path class="wd" d="M205 30V176M330 30V176M470 30V176"/>
+  <text x="205" y="24" text-anchor="middle" class="ts t-mono">R1</text><text x="330" y="24" text-anchor="middle" class="ts t-mono">R2</text><text x="470" y="24" text-anchor="middle" class="ts t-mono">R3</text>
+  <text x="110" y="190" text-anchor="middle" class="ts">E · 11</text><text x="260" y="190" text-anchor="middle" class="ts">P1 · 01</text>
+  <text x="400" y="190" text-anchor="middle" class="ts">P2 · 00</text><text x="540" y="190" text-anchor="middle" class="ts">P3 · 10</text>
+</svg>
+<figcaption>The four MLC states. The erased state E is the widest; read references R1–R3 sit in the gaps. Gray coding makes neighbouring states differ by one bit, so a misread costs only one bit.</figcaption>
+</figure>
+<div class="tblwrap"><table>
+<tr><th>Type</th><th class="n">bits/cell</th><th class="n">V<sub>t</sub> states</th><th>Typical P/E endurance</th><th>Notes</th></tr>
+<tr><td>SLC</td><td class="n">1</td><td class="n">2</td><td>50k–100k</td><td>Fastest, most durable; enterprise caching, industrial</td></tr>
+<tr><td>MLC</td><td class="n">2</td><td class="n">4</td><td>3k–10k</td><td>Now rare in consumer parts</td></tr>
+<tr><td>TLC</td><td class="n">3</td><td class="n">8</td><td>1k–3k</td><td>Mainstream SSDs and phones</td></tr>
+<tr><td>QLC</td><td class="n">4</td><td class="n">16</td><td>Hundreds to ~1k</td><td>High capacity, read-heavy and cold data</td></tr>
+<tr><td>PLC</td><td class="n">5</td><td class="n">32</td><td>In development</td><td>Extremely narrow state spacing</td></tr>
+</table></div>
+<p>Each extra bit narrows the gaps between states, so programming needs finer steps (ISPP) and more verifies — slower — while retention and disturb shifts more easily make neighbouring states overlap — shorter life and stronger ECC (LDPC).</p>
+<div class="tryit">▶ Switch SLC→QLC, add P/E cycles and retention time, and watch the distributions overlap: <a href="lab.html#nand">Lab · NAND V<sub>t</sub> distributions</a></div>
+
+<h2 id="nand3d">3D NAND: building upward</h2>
+<p>Planar NAND hit its limit around 15 nm: cell-to-cell interference became too strong and only a few dozen electrons remained in a floating gate. The industry turned to stacking cells vertically. First deposit a hundred-plus alternating layers of insulator and word-line material, then etch channel holes through all of them at once and line each hole with blocking oxide, a SiN trap layer, tunnel oxide and a poly-silicon channel. Each crossing of a word-line layer and a channel hole is a gate-all-around charge-trap cell.</p>
+<figure>
+<svg viewBox="0 0 640 280" role="img" aria-label="3D NAND vertical channel sketch">
+  <g>
+    <rect class="c5" x="80" y="50" width="400" height="16"/><rect class="box" x="80" y="66" width="400" height="8"/>
+    <rect class="c5" x="80" y="74" width="400" height="16"/><rect class="box" x="80" y="90" width="400" height="8"/>
+    <rect class="c5" x="80" y="98" width="400" height="16"/><rect class="box" x="80" y="114" width="400" height="8"/>
+    <rect class="c5" x="80" y="122" width="400" height="16"/><rect class="box" x="80" y="138" width="400" height="8"/>
+    <rect class="c5" x="80" y="146" width="400" height="16"/><rect class="box" x="80" y="162" width="400" height="8"/>
+    <rect class="c5" x="80" y="170" width="400" height="16"/><rect class="box" x="80" y="186" width="400" height="8"/>
+    <rect class="c5" x="80" y="194" width="400" height="16"/>
+  </g>
+  <rect class="sunk" x="80" y="210" width="400" height="30"/>
+  <text x="280" y="230" text-anchor="middle" class="ts">Common source CSL (CMOS periphery may sit below)</text>
+  <g><rect class="c2" x="186" y="40" width="48" height="170"/><rect class="sunk" x="196" y="40" width="28" height="170"/><rect class="c3" x="200" y="40" width="20" height="170"/></g>
+  <g><rect class="c2" x="326" y="40" width="48" height="170"/><rect class="sunk" x="336" y="40" width="28" height="170"/><rect class="c3" x="340" y="40" width="20" height="170"/></g>
+  <path class="wt" d="M150 30H420"/><text x="430" y="34" class="ts t-mono">BL</text>
+  <path class="w" d="M210 30V40M350 30V40"/>
+  <path class="wm" d="M486 58h30M486 70h30"/><text x="520" y="62" class="ts">Word line (W / Mo)</text><text x="520" y="78" class="ts t-mut">Inter-layer SiO₂</text>
+  <path class="wm" d="M234 260V212M210 260V212M346 252h-20"/>
+  <text x="234" y="274" text-anchor="middle" class="ts">ONO charge trap</text><text x="140" y="274" class="ts t-mut">poly channel</text>
+  <text x="560" y="140" class="ts t-mut">each crossing =</text><text x="560" y="156" class="ts t-mut">one GAA cell</text>
+</svg>
+<figcaption>Cross-section sketch: word-line and oxide layers alternate, and channel holes pierce all layers. Real products have 200–300+ layers per string, etched in several decks.</figcaption>
+</figure>
+<p>3D NAND density no longer comes from shrinking line width but from (1) more layers, (2) more bits per cell (TLC/QLC), and (3) moving the peripheral CMOS under the array (CMOS under Array) or onto a separately built wafer that is bonded on (CMOS bonded Array) to save die area. Process details are in <a href="process.html#nand3d-flow">Process</a>.</p>
+<div class="callout co"><b>Micron note</b>　Micron and Intel’s early 3D NAND (the 32-, 64- and 96-layer generations) used a <b>floating gate</b>, and put the CMOS periphery under the array (CuA) from the very first generation. Micron later moved to <b>replacement gate + charge trap</b> (from roughly the 128 / 176-layer generations) and kept it for 232 layers and beyond. So “3D NAND is all charge trap” is not quite right — floating-gate 3D NAND shipped in volume.<span class="note">(Compiled from public sources, not official; see Micron’s own announcements for details.)</span></div>
+
+<h2 id="emerging">Emerging non-volatile memories</h2>
+<p>These technologies aim to fill the gap between DRAM and NAND (storage-class memory, SCM) or to replace embedded flash, which is increasingly hard to integrate in advanced nodes. Most are built between back-end metal layers (BEOL) and take no front-end transistor area.</p>
+<h3 id="mram">MRAM (magnetoresistive)</h3>
+<p>The core is a magnetic tunnel junction (MTJ): two ferromagnetic layers (CoFeB) around a very thin MgO barrier. One layer’s magnetization is fixed (reference layer), the other can switch (free layer). Parallel means low resistance, antiparallel high; the difference (TMR) can exceed 150%. <b>STT-MRAM</b> switches the free layer with spin-polarized current through the MTJ; <b>SOT-MRAM</b> uses current in an adjacent heavy-metal layer, separating read and write paths for more speed and endurance. STT-MRAM is in production at 28/22 nm and below as an eFlash replacement and is common in automotive MCUs.</p>
+<h3 id="reram">ReRAM / RRAM (resistive)</h3>
+<p>A metal–insulator–metal stack (e.g. TiN/HfO<sub>x</sub>/Ti). A voltage forms a conductive filament of oxygen vacancies (SET, low resistance); a reverse voltage breaks it (RESET, high resistance). Simple and CMOS-compatible, it is used as embedded NVM, and because resistance can take multiple levels it is studied for analog compute-in-memory. The challenge is resistance variation from random filament formation.</p>
+<h3 id="pcm">PCM (phase change)</h3>
+<p>A chalcogenide such as Ge<sub>2</sub>Sb<sub>2</sub>Te<sub>5</sub> switches between amorphous (high resistance) and crystalline (low resistance): a short, strong pulse melts and quenches it amorphous (RESET); a longer, weaker pulse anneals it crystalline (SET). Intel/Micron’s 3D XPoint (Optane) was a cross-point PCM array with ovonic threshold switch (OTS) selectors. It was discontinued in 2022, demonstrating both the value and the commercial difficulty of SCM.</p>
+<h3 id="feram">FeRAM / FeFET (ferroelectric)</h3>
+<p>Stores data as the polarization of a ferroelectric. Classic FeRAM uses PZT and scales poorly. In 2011 doped HfO<sub>2</sub> (e.g. HfZrO<sub>2</sub>) was found to be ferroelectric at a few nanometres and CMOS-compatible, reviving 1T1C FeRAM and FeFETs (a ferroelectric layer inside the gate).</p>
+
+<h2 id="compare">Comparison table</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>SRAM</th><th>DRAM</th><th>NAND</th><th>NOR</th><th>STT-MRAM</th><th>ReRAM</th><th>PCM</th></tr>
+<tr><td>Cell area</td><td>120–150F²</td><td>6F²</td><td>&lt;1F² effective*</td><td>~10F²</td><td>20–60F²</td><td>4–30F²</td><td>4–20F²</td></tr>
+<tr><td>Read latency</td><td>~1 ns</td><td>~15–50 ns</td><td>20–100 µs</td><td>~50 ns</td><td>5–30 ns</td><td>10–100 ns</td><td>50–150 ns</td></tr>
+<tr><td>Write latency</td><td>~1 ns</td><td>~15–50 ns</td><td>0.2–3 ms</td><td>µs</td><td>10–50 ns</td><td>10–100 ns</td><td>0.1–1 µs</td></tr>
+<tr><td>Endurance</td><td>Unlimited</td><td>&gt;10¹⁵</td><td>10³–10⁵</td><td>~10⁵</td><td>10⁶–10¹²</td><td>10⁵–10⁸</td><td>10⁶–10⁹</td></tr>
+<tr><td>Non-volatile</td><td>No</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Main market</td><td>Caches</td><td>Main memory</td><td>Storage</td><td>Firmware</td><td>eNVM, cache</td><td>eNVM, CIM</td><td>SCM (exited)</td></tr>
+</table></div>
+<p class="note">* NAND effective area = cell area ÷ (layers × bits per cell). Latencies are array-level orders of magnitude, excluding controller and interface.</p>
+
+<h2 id="dev-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>F (feature size)</dt><dd>The process’s minimum half-pitch, used to normalize cell area as nF² across generations.</dd></div>
+<div><dt>Bit line / Word line</dt><dd>The bit line (BL) carries data along a column; the word line (WL) selects the row being accessed.</dd></div>
+<div><dt>Cell ratio β</dt><dd>Strength ratio of PD to PG in SRAM, which sets read stability.</dd></div>
+<div><dt>SNM</dt><dd>Static noise margin: the side of the largest square that fits in the butterfly curve.</dd></div>
+<div><dt>V<sub>min</sub></dt><dd>The lowest supply at which SRAM reads and writes correctly, usually set by the worst few cells.</dd></div>
+<div><dt>C<sub>s</sub> / C<sub>BL</sub></dt><dd>DRAM cell capacitance and bit-line parasitic capacitance; their ratio sets the signal after charge sharing.</dd></div>
+<div><dt>Restore</dt><dd>Writing data back into a DRAM cell after a read, because the read is destructive.</dd></div>
+<div><dt>Retention time</dt><dd>How long a cell keeps correct data without refresh.</dd></div>
+<div><dt>GIDL</dt><dd>Gate-induced drain leakage: band-to-band tunnelling from the strong field where gate and drain overlap.</dd></div>
+<div><dt>BCAT</dt><dd>Buried channel array transistor, the buried-word-line DRAM access device.</dd></div>
+<div><dt>FN tunnelling</dt><dd>Quantum tunnelling of electrons through a triangular barrier under high field; the NAND program/erase mechanism.</dd></div>
+<div><dt>CHE</dt><dd>Channel hot-electron injection, the NOR program mechanism.</dd></div>
+<div><dt>ISPP</dt><dd>Incremental step pulse programming: raise the program voltage step by step with verifies to tighten V<sub>t</sub> distributions.</dd></div>
+<div><dt>V<sub>PASS</sub> / V<sub>READ</sub></dt><dd>Voltages on unselected / selected word lines during a NAND read.</dd></div>
+<div><dt>Charge trap (CTF)</dt><dd>A flash cell that traps electrons in an insulating SiN layer; the 3D NAND mainstream.</dd></div>
+<div><dt>MTJ / TMR</dt><dd>Magnetic tunnel junction and its tunnelling magnetoresistance; the core of MRAM and its read signal.</dd></div>
+<div><dt>SCM</dt><dd>Storage-class memory: close to DRAM speed, potentially non-volatile, sitting between DRAM and storage.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Notes for teaching; numbers are orders of magnitude. Actual specs follow vendor datasheets and JEDEC standards.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory Reliability · Memory Notes</title>
+<meta name="description" content="Memory reliability: the bathtub curve and FIT, DRAM retention and VRT, row hammer and PRAC, flash endurance and retention, read / program disturb, soft errors, device aging, qualification and Arrhenius acceleration.">
+<link rel="alternate" hreflang="zh-Hant" href="../reliability.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="rel" data-ch="rel">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Chapter 6 · Reliability</div>
+<h1>Reliability: will the data last until the last day?</h1>
+<p class="lead">Testing only proves a chip is good on the day it ships. Reliability asks whether, over five or ten years in a user’s hands — or fifteen in a car — charge will leak away, neighbouring rows will disturb each other, cosmic rays will flip bits, or oxides will wear out.</p>
+
+<h2 id="bathtub">The bathtub curve and FIT</h2>
+<figure>
+<svg viewBox="0 0 640 220" role="img" aria-label="Bathtub curve">
+  <path class="wm" d="M50 20V180H620"/>
+  <path class="wa" d="M56 30C80 120 120 150 200 156H460C520 156 560 130 600 50"/>
+  <path class="wd" d="M200 30V180M460 30V180"/>
+  <text x="125" y="200" text-anchor="middle" class="ts">Infant mortality</text><text x="330" y="200" text-anchor="middle" class="ts">Random failures (useful life)</text><text x="540" y="200" text-anchor="middle" class="ts">Wear-out</text>
+  <text x="125" y="70" text-anchor="middle" class="ts t-mut">latent defects</text><text x="125" y="86" text-anchor="middle" class="ts t-mut">→ screened by burn-in</text>
+  <text x="330" y="140" text-anchor="middle" class="ts t-mut">roughly constant rate (FIT)</text>
+  <text x="530" y="70" text-anchor="middle" class="ts t-mut">oxide wear, P/E exhausted</text>
+  <text x="30" y="100" text-anchor="middle" class="ts t-mono" transform="rotate(-90 30 100)">failure rate λ(t)</text>
+  <text x="620" y="214" text-anchor="end" class="ts t-mono">time</text>
+</svg>
+<figcaption>Burn-in screens infant mortality; the design goal is to push wear-out well beyond product life.</figcaption>
+</figure>
+<ul>
+<li><b>FIT</b> (failures in time): failures per 10⁹ device-hours. 1 FIT ≈ one failure every 114,000 years for a single device.</li>
+<li><b>MTTF</b> = 10⁹ / FIT hours. In a system of 1000 devices, FITs add up.</li>
+<li>Memory also separates <b>hard errors</b> (permanent damage) from <b>soft errors</b> (a bit flips but the device is fine; rewriting fixes it).</li>
+</ul>
+
+<h2 id="dram-retention">DRAM retention</h2>
+<p>Cell retention times have a long tail: almost all cells hold data for seconds, but a few in each chip last only tens of milliseconds. The refresh period exists for those tail cells.</p>
+<ul>
+<li><b>Temperature</b>: leakage (especially junction leakage) follows an Arrhenius law, and retention roughly halves for each 10 °C rise. That is why DRAM above 85 °C must refresh twice as often.</li>
+<li><b>VRT (variable retention time)</b>: some cells randomly jump between two or three retention times, thought to come from defects near the drain changing state. It makes “test once to find the weak cells” unreliable and is one reason retention-aware refresh schemes are hard to deploy.</li>
+<li><b>Data-pattern dependence</b>: neighbouring data changes leakage paths, so retention tests use several data backgrounds.</li>
+</ul>
+<div class="tryit">▶ Adjust temperature and refresh window to see retention failures: <a href="lab.html#retention">Lab · retention and refresh</a></div>
+
+<h2 id="rowhammer">Row hammer</h2>
+<figure>
+<svg viewBox="0 0 640 210" role="img" aria-label="Row hammer aggressor and victim rows">
+  <g class="box"><rect x="120" y="20" width="400" height="22"/><rect x="120" y="46" width="400" height="22"/><rect x="120" y="98" width="400" height="22"/><rect x="120" y="150" width="400" height="22"/><rect x="120" y="176" width="400" height="22"/></g>
+  <rect x="120" y="72" width="400" height="22" style="fill:color-mix(in srgb,var(--bad) 30%,var(--surface));stroke:var(--bad)"/>
+  <rect x="120" y="124" width="400" height="22" style="fill:color-mix(in srgb,var(--bad) 30%,var(--surface));stroke:var(--bad)"/>
+  <rect x="120" y="98" width="400" height="22" style="fill:color-mix(in srgb,var(--warn) 30%,var(--surface));stroke:var(--warn)"/>
+  <text x="320" y="88" text-anchor="middle" class="ts">Aggressor (repeated ACT / PRE)</text>
+  <text x="320" y="140" text-anchor="middle" class="ts">Aggressor</text>
+  <text x="320" y="114" text-anchor="middle" class="ts">Victim → bit flips</text>
+  <text x="320" y="62" text-anchor="middle" class="ts t-mut">Neighbour (also at risk with Half-Double)</text>
+  <path class="w" style="stroke:var(--bad)" d="M540 83C570 83 570 104 540 107M540 135C570 135 570 116 540 113"/>
+  <text x="575" y="114" class="ts">disturb</text>
+  <text x="105" y="114" text-anchor="end" class="ts t-mono">Row n</text><text x="105" y="88" text-anchor="end" class="ts t-mono">n−1</text><text x="105" y="140" text-anchor="end" class="ts t-mono">n+1</text>
+</svg>
+<figcaption>Double-sided row hammer: two aggressor rows sandwiching a victim are activated tens of thousands of times within one refresh window, and the victim’s cells lose charge fast enough to flip.</figcaption>
+</figure>
+<p>Research in 2014 confirmed that repeatedly activating one row makes cells in neighbouring rows lose data before refresh. Mechanisms include capacitive coupling from the word line toggling and electrons injected and migrating into neighbouring storage nodes. It is not just a reliability problem but a <b>security hole</b>: an attacker’s user program can flip page-table bits in the kernel and gain privileges.</p>
+<ul>
+<li><b>Worse with scaling</b>: the activation count needed to flip a bit (hammer count threshold) has fallen from over 100k in the DDR3 era to a few thousand in newer generations.</li>
+<li><b>Variants</b>: Half-Double (the row two away is also affected), RowPress (not many activations but keeping the aggressor open for long).</li>
+<li><b>Mitigations</b>:
+  <ul>
+  <li>TRR (target row refresh): the DRAM tracks suspicious rows and refreshes their neighbours, but tracking capacity is limited and has been shown to be bypassable.</li>
+  <li>RFM (refresh management, DDR5 / LPDDR5): the controller issues extra refresh commands based on each bank’s activation count.</li>
+  <li>PRAC (per-row activation counting, new in DDR5): every row has a counter; past a threshold the DRAM asks the controller (via ALERT) for time to mitigate. The cost is longer timings and area.</li>
+  <li>ECC reduces but does not eliminate the risk; systems also isolate memory and limit activation rates.</li>
+  </ul></li>
+</ul>
+<div class="tryit">▶ Compare TRR, RFM and PRAC against many-sided attacks: <a href="lab.html#rowhammer">Lab · Row hammer</a></div>
+
+<h2 id="flash-endurance">Flash endurance</h2>
+<p>Every program and erase pushes electrons through the tunnel oxide under a high field. Over time traps form in the oxide:</p>
+<ul>
+<li>Trapped charge shifts and widens V<sub>t</sub> distributions, and program / erase slow down (more ISPP pulses).</li>
+<li>Defects form leakage paths (SILC, stress-induced leakage current), degrading retention.</li>
+<li>Eventually the V<sub>t</sub> window closes and states can no longer be told apart.</li>
+</ul>
+<p>So endurance and retention go together: <b>the more a block has been cycled, the worse it retains data</b>. SSD TBW ratings are defined as “after the rated number of cycles, still retain data for a given time at a given temperature”.</p>
+
+<h2 id="flash-retention">Flash data retention</h2>
+<ul>
+<li><b>Mechanisms</b>: charge leaks through tunnel-oxide defects (V<sub>t</sub> drops), or charge in shallow traps escapes (detrapping). In 3D NAND the trap layer is continuous along the channel, adding <b>lateral charge migration</b> into the space between cells. A fast V<sub>t</sub> shift shortly after programming (early retention loss) must also be handled.</li>
+<li><b>Temperature acceleration</b>: hotter storage loses charge faster; programming temperature matters too (cross-temperature: program cold and read hot, or vice versa, shifts V<sub>t</sub>).</li>
+<li><b>JEDEC</b> (JESD218): a client SSD written to its rated TBW must retain data for 1 year powered off at 30 °C; enterprise drives for 3 months at 40 °C.</li>
+<li><b>Countermeasures</b>: background scans (patrol read) find blocks whose error count approaches the ECC limit and rewrite them elsewhere (refresh / relocation); read voltages are adjusted dynamically (read retry).</li>
+</ul>
+<div class="tryit">▶ Add P/E cycles and retention time and watch V<sub>t</sub> overlap and RBER: <a href="lab.html#nand">Lab · NAND</a></div>
+
+<h2 id="disturb">Read and program disturb</h2>
+<ul>
+<li><b>Read disturb</b>: during a read, unselected cells on the string see V<sub>PASS</sub> (about 6–8 V); repeated reads slightly program them and shift V<sub>t</sub> up, especially in the erased state. Read-hot blocks must be relocated periodically.</li>
+<li><b>Program disturb</b>: inhibited cells on the same word line, and other cells on the string, see V<sub>PGM</sub> or V<sub>PASS</sub> and can be programmed by accident.</li>
+<li><b>Cell-to-cell interference</b>: charge written into neighbours shifts a cell’s V<sub>t</sub> through parasitic capacitance. Controllers compensate with program order (e.g. coarse then fine multi-pass programming).</li>
+<li><b>SRAM read disturb</b>: see <a href="device.html#sram-rw">Devices</a>; a circuit-level stability issue.</li>
+</ul>
+
+<h2 id="ser">Soft errors</h2>
+<p>An energetic particle entering silicon creates electron–hole pairs; if the collected charge exceeds a node’s <b>critical charge Q<sub>crit</sub></b>, the bit flips.</p>
+<ul>
+<li><b>Sources</b>: alpha particles from trace radioactive elements in package materials and solder; atmospheric neutrons from cosmic rays (more at altitude, in aircraft and in space); thermal neutrons reacting with boron-10.</li>
+<li><b>SRAM is most sensitive</b>: small node capacitance, low Q<sub>crit</sub>. Scaling lowers the chance any one bit is hit (smaller area), but raises the share of strikes that flip several neighbouring bits (MBU / MCU).</li>
+<li><b>DRAM</b>: relatively large cell capacitance gives a lower per-bit soft-error rate, but the bit count is enormous; periphery and sense amps can be hit too.</li>
+<li><b>Countermeasures</b>: ECC with bit interleaving, low-alpha materials, hardened designs (e.g. DICE dual-interlocked cells), and memory scrubbing (periodically read, correct and write back so errors do not accumulate into multi-bit errors).</li>
+<li>Soft-error rate is expressed in FIT/Mb and measured with accelerated neutron beams or alpha sources (JESD89).</li>
+</ul>
+
+<h2 id="aging">Transistor and interconnect aging</h2>
+<ul>
+<li><b>BTI</b> (bias temperature instability): long bias shifts V<sub>t</sub>. SRAM cells holding the same value for a long time age asymmetrically, lowering SNM and raising V<sub>min</sub>.</li>
+<li><b>HCI</b> (hot carrier injection): carriers in high fields damage the oxide interface, affecting high-speed periphery and I/O.</li>
+<li><b>TDDB</b> (time-dependent dielectric breakdown): gate oxides or capacitor dielectrics break down after long field stress; DRAM capacitor dielectrics and V<sub>PP</sub> high-voltage circuits are the focus.</li>
+<li><b>Electromigration (EM)</b>: high current density moves metal atoms, causing opens or shorts in power grids and TSVs / bumps.</li>
+</ul>
+
+<h2 id="qualification">Qualification tests</h2>
+<div class="tblwrap"><table>
+<tr><th>Test</th><th>Typical conditions</th><th>Purpose</th></tr>
+<tr><td>HTOL</td><td>125 °C, high-voltage dynamic operation, 1000 hours</td><td>Intrinsic failure rate, infant mortality and wear-out</td></tr>
+<tr><td>HTSL / HTS</td><td>150 °C storage</td><td>Material and interface stability</td></tr>
+<tr><td>TC</td><td>−65 to 150 °C temperature cycling, hundreds to thousands of cycles</td><td>Package thermal stress, solder joints and wire bonds</td></tr>
+<tr><td>THB / HAST</td><td>85 °C/85%RH or 130 °C/85%RH with bias</td><td>Moisture corrosion</td></tr>
+<tr><td>ESD</td><td>HBM (human body model), CDM (charged device model)</td><td>Electrostatic discharge robustness</td></tr>
+<tr><td>Latch-up</td><td>JESD78 current injection and overvoltage</td><td>Parasitic latch-up</td></tr>
+<tr><td>NVM endurance / retention</td><td>Bake after cycling to the rated count (JESD22-A117)</td><td>Flash / emerging NVM lifetime</td></tr>
+<tr><td>SER</td><td>Accelerated neutron / alpha testing (JESD89)</td><td>Soft-error rate</td></tr>
+</table></div>
+<p>Overall frameworks: commercial parts follow JEDEC JESD47, automotive AEC-Q100, and SSD endurance JESD218 / JESD219.</p>
+
+<h2 id="arrhenius">Acceleration models and FIT math</h2>
+<p>Reliability tests simulate years of use in weeks through an acceleration factor (AF). Temperature acceleration uses the Arrhenius model:</p>
+<div class="eq">AF = exp[ (E<sub>a</sub>/k) · (1/T<sub>use</sub> − 1/T<sub>stress</sub>) ]　　k = 8.617×10⁻⁵ eV/K</div>
+<p>Example: E<sub>a</sub> = 0.7 eV, use at 55 °C (328 K), stress at 125 °C (398 K) → AF ≈ e<sup>4.35</sup> ≈ 78. 1000 hours of HTOL ≈ 78,000 hours ≈ 8.9 years of use.</p>
+<p>With zero failures, the failure-rate upper bound comes from the chi-square distribution:</p>
+<div class="eq">λ ≤ χ²(CL, 2f+2) / (2 · N · t · AF)</div>
+<p>231 units, 1000 hours, AF 78, 0 failures, 60% confidence (χ² = 1.83) → λ ≤ 1.83 / (2 × 231 × 1000 × 78) ≈ 5.1×10⁻⁸ /h ≈ 51 FIT. Voltage acceleration uses exponential or power-law models; humidity acceleration commonly uses the Peck model.</p>
+
+<h2 id="rel-terms">Glossary</h2>
+<dl class="terms">
+<div><dt>FIT</dt><dd>Failures per 10⁹ device-hours.</dd></div>
+<div><dt>MTTF</dt><dd>Mean time to failure.</dd></div>
+<div><dt>VRT</dt><dd>Variable retention time: DRAM cells whose retention jumps randomly.</dd></div>
+<div><dt>Row hammer</dt><dd>Repeatedly activating a row flips bits in neighbouring rows.</dd></div>
+<div><dt>RowPress</dt><dd>Keeping a row open for long flips bits in neighbouring rows.</dd></div>
+<div><dt>TRR / RFM / PRAC</dt><dd>Three DRAM row-hammer mitigation mechanisms.</dd></div>
+<div><dt>P/E cycle</dt><dd>One program plus one erase.</dd></div>
+<div><dt>SILC</dt><dd>Stress-induced leakage current.</dd></div>
+<div><dt>Detrapping</dt><dd>Escape of trapped charge.</dd></div>
+<div><dt>Lateral migration</dt><dd>Charge spreading sideways along the trap layer in 3D NAND.</dd></div>
+<div><dt>Read disturb</dt><dd>Slight programming of unselected cells by repeated reads.</dd></div>
+<div><dt>RBER</dt><dd>Raw bit error rate before ECC.</dd></div>
+<div><dt>Q<sub>crit</sub></dt><dd>The minimum collected charge that flips a node.</dd></div>
+<div><dt>MBU / MCU</dt><dd>Multi-bit / multi-cell upsets from one particle event.</dd></div>
+<div><dt>Scrubbing</dt><dd>Periodically reading, correcting and writing back to stop errors accumulating.</dd></div>
+<div><dt>BTI / HCI / TDDB / EM</dt><dd>The four main device and interconnect aging mechanisms.</dd></div>
+<div><dt>HTOL</dt><dd>High-temperature operating life test.</dd></div>
+<div><dt>Arrhenius</dt><dd>Exponential dependence of reaction rate on temperature, used for thermal acceleration.</dd></div>
+<div><dt>E<sub>a</sub></dt><dd>Activation energy, which sets how strong thermal acceleration is.</dd></div>
+</dl>
+
+<div class="pager"></div>
+<p class="foot">Qualification conditions vary by grade and customer; follow JEDEC / AEC documents.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>
