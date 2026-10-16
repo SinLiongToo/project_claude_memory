@@ -1,7 +1,7 @@
 /* Memory Lab — reliability / fab tabs: row hammer mitigation, wafer yield with repair, HBM stack yield, cost per Gb. */
 (function(){
   const t = (window.MemSite && window.MemSite.t) || (zh => zh);
-  const {plot, Phi, fmtSci} = window.MemPlot;
+  const {plot, Phi, Q, fmtSci} = window.MemPlot;
   const {INIT, metrics, toggle, range, $, clamp} = window.MemLab;
   const fmtK = v => v >= 1e6 ? +(v / 1e6).toPrecision(3) + 'M' : v >= 1e3 ? +(v / 1e3).toPrecision(3) + 'K' : String(Math.round(v));
   function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -329,6 +329,83 @@
       plot($('sh-temps'), {W:640, H:260, x:[0.8, 1.3], y:[2000, 11000], xlabel:'V_DD (V)', ylabel:t('最高速度 (MT/s)', 'Max speed (MT/s)'), series,
         hlines:[{y:bin, color:'var(--ink)', label:t('目標 ', 'target ') + bin}],
         vlines:[{x:0.94, color:'var(--muted)', label:t('反轉點 ≈ 0.94 V', 'inversion ≈ 0.94 V')}, {x:specLo, color:'var(--ink)', label:t('規格下限', 'spec low'), dy:16, anchor:'end'}]});
+    }
+    render();
+  };
+  /* =====================================================================
+     Voltage screening: Vmin / Vmax margin tests, VLV, Vmin PAT and VHV stress on a die population
+     ===================================================================== */
+  INIT.voltage = function(){
+    const MU = 0.80, VMIN_TEST = 1.02, SPEC_HI = 1.155;
+    const P = {H:1 - 6000e-6, R:3000e-6, L:2000e-6, V:1000e-6};
+    const DA = 0.03, DB = 0.25, VF0 = 1.12, VF1 = 1.30;
+    const FIELD = {R:0.5, L:0.6, D:0.3};
+    const on = {vmin:true, vmax:true, vlv:false, pat:false, vhv:false};
+    ['vmin', 'vmax', 'vlv', 'pat', 'vhv'].forEach(k => toggle('vt-' + k, v => { on[k] = v === '1'; render(); }));
+    const sig = range('vt-sig', v => v + ' mV', render);
+    const vmaxv = range('vt-vmaxv', v => v.toFixed(3) + ' V', render);
+    const vlvv = range('vt-vlvv', v => v.toFixed(3) + ' V (' + (v / 1.1).toFixed(2) + '×)', render);
+    const kk = range('vt-k', v => v.toFixed(2), render);
+    const vhvr = range('vt-vhvr', v => v.toFixed(2) + '× (' + (v * 1.1).toFixed(2) + ' V)', render);
+    const vhvt = range('vt-vhvt', v => { const s = Math.pow(10, v); return s < 1 ? Math.round(s * 1000) + ' ms' : s.toPrecision(2) + ' s'; }, render);
+    const clamp01 = x => Math.max(0, Math.min(1, x));
+    const fmtP = x => x >= 100 ? Math.round(x).toLocaleString() : x >= 1 ? x.toFixed(1) : x >= 0.01 ? x.toFixed(2) : x > 0 ? '<0.01' : '0';
+
+    function render(){
+      const s = sig.get() / 1000;
+      const lims = [];
+      if(on.vmin) lims.push(VMIN_TEST);
+      if(on.vlv) lims.push(vlvv.get());
+      if(on.pat) lims.push(MU + kk.get() * s);
+      const T = lims.length ? Math.min(...lims) : Infinity;
+      const hRej = isFinite(T) ? Q((T - MU) / s) : 0;
+      // resistive: Vmin = MU + delta + noise, delta ~ U(DA, DB)
+      let cR = 0;
+      if(isFinite(T)){ const n = 60; for(let i = 0; i < n; i++){ const d = DA + (i + 0.5) * (DB - DA) / n; cR += Q((T - MU - d) / s) / n; } }
+      // latent oxide: only VHV converts them
+      const r = vhvr.get(), tt = Math.pow(10, vhvt.get());
+      const conv = on.vhv ? 1 - Math.exp(-tt / (0.5 * Math.exp(20 * (1.4 - r)))) : 0;
+      const dmg = on.vhv ? 1 - Math.exp(-tt / (1e11 * Math.exp(-40 * (r - 1)))) : 0;
+      const cL = conv + (1 - conv) * hRej;
+      // high-voltage sensitive: fail point Vf ~ U(VF0, VF1)
+      const vtop = on.vmax ? vmaxv.get() : 1.1;
+      const cV = clamp01((vtop - VF0) / (VF1 - VF0));
+      const vFieldEsc = P.V * clamp01((SPEC_HI - Math.max(vtop, VF0)) / (VF1 - VF0));
+
+      const goodShip = P.H * (1 - hRej);
+      const escR = P.R * (1 - cR), escL = P.L * (1 - cL);
+      const shipped = goodShip + escR + escL + P.V * (1 - cV);
+      const escapes = escR + escL + vFieldEsc;
+      const field = FIELD.R * escR + FIELD.L * escL + vFieldEsc + FIELD.D * goodShip * dmg;
+      const ppm = x => x * 1e6;
+
+      metrics($('vt-metrics'), [
+        {l:t('良率（出貨比例）', 'Yield (shipped)'), v:(shipped * 100).toFixed(2), u:'%'},
+        {l:t('誤殺健康晶片', 'Healthy dies overkilled'), v:fmtP(ppm(P.H * hRej)), u:'ppm', cls: ppm(P.H * hRej) < 100 ? 'ok' : ppm(P.H * hRej) < 2000 ? 'warn' : 'bad'},
+        {l:t('出貨中的不良品', 'Defective among shipped'), v:fmtP(escapes / shipped * 1e6), u:'DPPM', cls: escapes / shipped * 1e6 < 300 ? 'ok' : escapes / shipped * 1e6 < 2000 ? 'warn' : 'bad', s:t('會在規格條件下失效的晶片', 'dies that will fail within spec')},
+        {l:t('預期現場失效', 'Expected field failures'), v:fmtP(field / shipped * 1e6), u:'DPPM', cls: field / shipped * 1e6 < 300 ? 'ok' : field / shipped * 1e6 < 2000 ? 'warn' : 'bad', s:t('含 VHV 對健康晶片的損傷', 'incl. VHV damage to healthy dies')},
+        {l:t('VHV：潛在缺陷轉換率', 'VHV: latent conversion'), v: on.vhv ? (conv * 100).toFixed(1) : '—', u: on.vhv ? '%' : '', s: on.vhv ? t('健康晶片受損 ', 'healthy damaged ') + fmtP(ppm(dmg)) + ' ppm' : t('未啟用', 'off')}
+      ]);
+
+      const row = (name, pop, caught, esc, fld) => '<tr><td>' + name + '</td><td class="n">' + fmtP(ppm(pop)) + '</td><td class="n">' + fmtP(ppm(caught)) + '</td><td class="n">' + fmtP(ppm(esc)) + '</td><td class="n">' + fmtP(ppm(fld)) + '</td></tr>';
+      $('vt-table').innerHTML = '<tr><th>' + t('類別', 'Class') + '</th><th class="n">' + t('母體 ppm', 'Population ppm') + '</th><th class="n">' + t('被剔除', 'Rejected') + '</th><th class="n">' + t('出貨', 'Shipped') + '</th><th class="n">' + t('現場失效', 'Field fails') + '</th></tr>' +
+        row(t('健康晶片', 'Healthy'), P.H, P.H * hRej, goodShip, FIELD.D * goodShip * dmg) +
+        row(t('電阻性缺陷', 'Resistive defect'), P.R, P.R * cR, escR, FIELD.R * escR) +
+        row(t('潛在氧化層缺陷', 'Latent oxide defect'), P.L, P.L * cL, escL, FIELD.L * escL) +
+        row(t('高壓敏感缺陷', 'High-V sensitive'), P.V, P.V * cV, P.V * (1 - cV), vFieldEsc);
+
+      // Vmin distribution
+      const H = [], Rd = [];
+      let peak = 0;
+      for(let v = 0.70; v <= 1.15001; v += 0.002){
+        const h = P.H * 1e6 * Math.exp(-0.5 * Math.pow((v - MU) / s, 2)) / (s * Math.sqrt(2 * Math.PI)) / 1000;
+        const rd = P.R * 1e6 / (DB - DA) * (Phi((v - MU - DA) / s) - Phi((v - MU - DB) / s)) / 1000;
+        peak = Math.max(peak, h); H.push([v, h]); Rd.push([v, rd]);
+      }
+      const vl = (x, label, active, dy) => ({x, color: active ? 'var(--accent)' : 'var(--muted)', dash: active ? false : '3 4', w: active ? 1.8 : 1, label: label + (active ? '' : t('（關）', ' (off)')), dy});
+      plot($('vt-plot'), {W:640, H:300, x:[0.70, 1.15], y:[1e-3, peak * 3], logy:true, xlabel:'Vmin (V)', ylabel:t('晶粒數 / 百萬 / mV', 'dies / million / mV'),
+        series:[{pts:H, color:'var(--s3)', w:2, fill:true, op:.15}, {pts:Rd, color:'var(--s4)', w:2, fill:true, op:.15}],
+        vlines:[vl(VMIN_TEST, t('Vmin 測試', 'Vmin test'), on.vmin, 0), vl(vlvv.get(), 'VLV', on.vlv, 16), vl(MU + kk.get() * s, 'PAT', on.pat, 32)]});
     }
     render();
   };

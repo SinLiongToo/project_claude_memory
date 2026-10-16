@@ -332,6 +332,50 @@
 <li><b>Statistics</b>: a parameter’s Cpk (process capability) sets the cost of its guard band; high-Cpk parameters can use smaller guard bands without more escapes.</li>
 </ul>
 
+<h2 id="voltage-tests">Voltage tests: Vmin, Vmax, VLV, VHV</h2>
+<p>Voltage is the cheapest and most effective test knob. The four common voltage tests have different goals: Vmax and Vmin are <b>margin tests</b> that confirm the chip works across the spec voltage range; VLV and VHV are <b>screening tests</b> that deliberately go outside spec to expose latent defects.</p>
+<div class="tblwrap"><table>
+<tr><th>Test</th><th>Conditions (nominal 1.1 V)</th><th>Purpose</th><th>Mainly catches</th></tr>
+<tr><td><b>Vmax</b></td><td>Spec maximum plus guard band (e.g. 1.155 V → 1.2 V), full-speed functional test</td><td>Confirm the high-voltage end works</td><td>Leakage, high-voltage timing races (hold time), voltage-sensitive circuits</td></tr>
+<tr><td><b>Vmin</b></td><td>Spec minimum minus guard band (e.g. 1.045 V → 1.02 V), full-speed functional test; in characterization, step down to find each die’s actual Vmin</td><td>Confirm the low-voltage end works and measure margin</td><td>Slow paths, functional limits of SAs / SRAM</td></tr>
+<tr><td><b>VLV</b><br><small>Very Low Voltage</small></td><td>Far below spec (about 0.6–0.8 × nominal, but above the Vmin of healthy dies), usually at a slower clock</td><td>Defect screening</td><td>Resistive bridges / opens, weak vias, gate-oxide shorts — defects masked by strong drive at nominal voltage</td></tr>
+<tr><td><b>VHV</b><br><small>Very High Voltage</small></td><td>Far above spec (about 1.3–1.5 × nominal) applied for milliseconds to seconds as a stress, then retest at nominal</td><td>Accelerated screening (a short burn-in)</td><td>Oxide weak spots, dielectric defects and other infant-mortality failures</td></tr>
+</table></div>
+
+<h3 id="vlv-why">Why VLV catches defects nominal voltage misses</h3>
+<ul>
+<li>At nominal voltage transistors drive hard, so a resistive bridge or open of a few kΩ only adds a little delay and the function stays correct. At low voltage drive current drops sharply, the same resistance becomes a large share of the delay or pulls a node into the wrong logic level, and the defect shows up.</li>
+<li>These are often <b>reliability defects</b>: they work today but worsen in the field (electromigration, corrosion, thermal stress), so VLV screening directly cuts early field failures.</li>
+<li>The VLV voltage must sit where every healthy die passes and defective ones fail. Too low and slow-but-healthy dies are overkilled; it is usually set from the healthy population’s Vmin distribution (e.g. 4–6σ above the mean) with a slower clock.</li>
+<li>Very-low-voltage testing was proposed in the 1990s by Hao and McCluskey and others to screen weak CMOS devices.</li>
+</ul>
+
+<h3 id="vhv-how">How VHV stress works</h3>
+<ul>
+<li>Apply 1.3–1.5 × nominal for a short time (possible at wafer test) so defective, weak oxides break down early; then retest at nominal, Vmin and VLV to catch dies “converted” into hard failures.</li>
+<li>Voltage usually accelerates far more than temperature: time to dielectric breakdown depends exponentially on field, so a few seconds at high voltage can replace a long burn-in, and VHV is often used to shorten or partly replace burn-in.</li>
+<li>The risk is <b>overstress</b>: too high a voltage or too long a time damages healthy dies and leaves a “reliability debt”. The voltage limit must come from TDDB data, and healthy-die parameters must be verified unchanged after stress.</li>
+<li>DRAM can stress internal supplies separately through test modes: raised V<sub>PP</sub> stresses the access-transistor gate oxide, a WL stress turns on all word lines at once, and a raised plate voltage stresses the capacitor dielectric.</li>
+</ul>
+
+<h3 id="vmin-stats">Statistical uses of Vmin</h3>
+<ul>
+<li><b>Vmin outliers</b>: a die’s actual Vmin is a sensitive health indicator. Dies with clearly higher Vmin than their lot often carry latent defects even if they pass spec, and can be removed with PAT (e.g. above median + 4σ).</li>
+<li><b>ΔVmin</b>: measuring Vmin before and after burn-in or HTOL; dies with large shifts are aging or defective, useful for screening and reliability analysis.</li>
+<li><b>Vmin binning and AVS</b>: logic chips are often binned by Vmin or use adaptive voltage scaling (AVS) in the system; SRAM Vmin usually sets the lowest operating voltage of a whole SoC.</li>
+<li><b>Temperature</b>: Vmin is often worst cold (temperature inversion), so Vmin and VLV tests should consider cold temperature.</li>
+</ul>
+
+<h3 id="voltage-pitfalls">Common pitfalls</h3>
+<ul>
+<li><b>Supply accuracy and droop</b>: at low voltage, tens of mV of error is a large fraction. Measure close to the die pins (remote sense) and watch IR drop at high current.</li>
+<li><b>VLV timing</b>: dies are slower at low voltage; keeping full-speed timing overkills healthy dies.</li>
+<li><b>Testing only spec corners</b>: a Vmin test at the spec minimum barely catches resistive defects, because healthy and defective dies both pass inside spec — exactly why VLV exists.</li>
+<li><b>No retest after stress</b>: always rerun functional tests after VHV, or the failures it converts will ship.</li>
+<li><b>External V<sub>DD</sub> vs internal supplies</b>: DRAM has internal regulators, so changing external V<sub>DD</sub> may not change the array voltage; use test modes to adjust or monitor internal voltages directly (see <a href="design.html#power">internal supplies</a>).</li>
+</ul>
+<div class="tryit">▶ Toggle each voltage test and watch yield, overkill and escape DPPM: <a href="lab.html#voltage">Lab · voltage screening</a></div>
+
 <h2 id="mbist">MBIST for embedded memories</h2>
 <p>An SoC has hundreds of SRAMs that external pins cannot reach directly. <b>MBIST</b> (memory built-in self-test) adds a controller beside each group of memories that generates March sequences on chip, compares the results and reports only pass/fail and failing addresses. With <b>BIRA / BISR</b> (built-in repair analysis / self-repair) spares are allocated automatically and the repair information stored in e-fuses, loaded at boot. Automotive chips also run MBIST at power-up or periodically in the field (in-system test) for functional safety.</p>
 
@@ -397,6 +441,10 @@
 <div><dt>TSV</dt><dd>Through-silicon via.</dd></div>
 <div><dt>TC-NCF / MR-MUF</dt><dd>The two main bonding and underfill approaches for HBM stacks.</dd></div>
 <div><dt>Burn-in / WLBI</dt><dd>Hot, high-voltage accelerated screening / wafer-level burn-in.</dd></div>
+<div><dt>Vmin / Vmax</dt><dd>The lowest / highest voltage at which a die works correctly, and the matching margin tests.</dd></div>
+<div><dt>VLV</dt><dd>Very-low-voltage test: a functional test far below spec that screens resistive and other latent defects.</dd></div>
+<div><dt>VHV</dt><dd>Very-high-voltage stress: a short high-voltage stress that accelerates oxide defects into failures, followed by retest.</dd></div>
+<div><dt>ΔVmin</dt><dd>Vmin shift across stress or burn-in, an aging and defect indicator.</dd></div>
 <div><dt>Shmoo plot</dt><dd>A 2D pass / fail map over two swept test conditions.</dd></div>
 <div><dt>Guard band</dt><dd>The amount by which the test limit is tighter than the spec.</dd></div>
 <div><dt>Overkill / Underkill</dt><dd>Scrapping good parts / shipping bad ones.</dd></div>

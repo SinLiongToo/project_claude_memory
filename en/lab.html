@@ -26,6 +26,7 @@
   <button role="tab" data-tab="rowhammer" aria-selected="false">Row hammer</button>
   <button role="tab" data-tab="march" aria-selected="false">March test</button>
   <button role="tab" data-tab="shmoo" aria-selected="false">Shmoo</button>
+  <button role="tab" data-tab="voltage" aria-selected="false">Voltage screen</button>
   <button role="tab" data-tab="wafer" aria-selected="false">Wafer yield</button>
   <button role="tab" data-tab="hbm" aria-selected="false">HBM stack yield</button>
   <button role="tab" data-tab="cost" aria-selected="false">Cost per Gb</button>
@@ -298,6 +299,48 @@
     <li>TT corner, offset +2σ, test at 25 °C, timing guard band 0: the test passes but the all-temperature check fails at 95 °C — an escape. Set the guard band back to 4% and it is correctly rejected.</li>
     <li>Test at −40 °C and watch the low-voltage region get slower (temperature inversion).</li>
     <li>Read more: <a href="test.html#shmoo">shmoo plots</a>, <a href="test.html#guardband">guard bands</a>, <a href="lessons.html#test-issues">common test problems</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ VOLTAGE SCREENING ============ -->
+<section class="tabp" id="tab-voltage" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Test recipe <small>nominal 1.1 V</small></h3>
+    <div class="ctl"><label for="vt-sig">Healthy-die Vmin σ <output id="vt-sig-o"></output></label><input id="vt-sig" type="range" min="10" max="40" step="1" value="18"></div>
+    <div class="eyebrow" style="margin:16px 0 8px;color:var(--muted)">Margin tests</div>
+    <div class="ctl"><label>Vmin test (spec min 1.045 V)</label><div class="btnrow" id="vt-vmin"><button class="btn" data-v="1" aria-pressed="true">On</button><button class="btn" data-v="0" aria-pressed="false">Off</button></div></div>
+    <div class="ctl"><label>Vmax test</label><div class="btnrow" id="vt-vmax"><button class="btn" data-v="1" aria-pressed="true">On</button><button class="btn" data-v="0" aria-pressed="false">Off</button></div></div>
+    <div class="ctl"><label for="vt-vmaxv">Vmax test voltage <output id="vt-vmaxv-o"></output></label><input id="vt-vmaxv" type="range" min="1.155" max="1.3" step="0.005" value="1.2"></div>
+    <div class="eyebrow" style="margin:16px 0 8px;color:var(--muted)">Screening tests</div>
+    <div class="ctl"><label>VLV test</label><div class="btnrow" id="vt-vlv"><button class="btn" data-v="1" aria-pressed="false">On</button><button class="btn" data-v="0" aria-pressed="true">Off</button></div></div>
+    <div class="ctl"><label for="vt-vlvv">VLV voltage <output id="vt-vlvv-o"></output></label><input id="vt-vlvv" type="range" min="0.80" max="1.00" step="0.005" value="0.88"></div>
+    <div class="ctl"><label>Vmin outlier removal (PAT)</label><div class="btnrow" id="vt-pat"><button class="btn" data-v="1" aria-pressed="false">On</button><button class="btn" data-v="0" aria-pressed="true">Off</button></div></div>
+    <div class="ctl"><label for="vt-k">PAT limit: mean + kσ <output id="vt-k-o"></output></label><input id="vt-k" type="range" min="3" max="8" step="0.25" value="4"></div>
+    <div class="ctl"><label>VHV stress + retest</label><div class="btnrow" id="vt-vhv"><button class="btn" data-v="1" aria-pressed="false">On</button><button class="btn" data-v="0" aria-pressed="true">Off</button></div></div>
+    <div class="ctl"><label for="vt-vhvr">VHV voltage <output id="vt-vhvr-o"></output></label><input id="vt-vhvr" type="range" min="1.2" max="1.7" step="0.01" value="1.4"></div>
+    <div class="ctl"><label for="vt-vhvt">VHV time <output id="vt-vhvt-o"></output></label><input id="vt-vhvt" type="range" min="-2" max="1" step="0.05" value="0"></div>
+    <p class="note">Population per million: 994,000 healthy; 3,000 resistive defects (Vmin raised 30–250 mV); 2,000 latent oxide defects (fully working today); 1,000 high-voltage-sensitive defects (fail somewhere in 1.12–1.30 V). Numbers are teaching assumptions.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="vt-metrics"></div>
+    <div class="panel"><h3>Vmin distribution and screen limits <small>per million dies per mV</small></h3><svg class="viz" id="vt-plot" role="img" aria-label="Vmin distribution"></svg>
+      <div class="legend"><span><i style="background:var(--s3)"></i>Healthy dies</span><span><i style="background:var(--s4)"></i>Resistive-defect dies</span></div></div>
+    <div class="panel"><h3>Where each defect class ends up</h3><div class="tblwrap" style="margin:0"><table id="vt-table"></table></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>What the model does</h3><ul>
+    <li>Resistive defects raise Vmin, but most stay below the spec minimum, so <b>the Vmin spec test barely catches them</b>; VLV or Vmin PAT pull the limit down to the tail of the healthy distribution.</li>
+    <li>Latent oxide defects work at any voltage; only VHV stress converts them into detectable failures, and the conversion rises exponentially with voltage.</li>
+    <li>Too high or too long a VHV damages healthy dies — an invisible reliability debt counted in field failures.</li>
+    <li>Assumed field-failure probability: resistive escapes 50%, oxide escapes 60%, damaged healthy dies 30%, high-voltage-sensitive with a failure point inside spec 100%.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Only Vmin and Vmax: high yield but about 4,600 DPPM shipped defective. Turn on VLV (0.88 V): escapes drop sharply with almost no extra overkill.</li>
+    <li>Lower VLV to 0.84 V: more defects caught, but healthy dies start to be overkilled (watch overkill ppm).</li>
+    <li>Turn on VHV at 1.4×, 1 s: most latent oxide defects convert. Push to 1.6×: field failures soar — overstress.</li>
+    <li>Widen the healthy σ: the same VLV limit overkills more, so the limit must track the population.</li>
+    <li>Read more: <a href="test.html#voltage-tests">voltage tests</a>、<a href="test.html#guardband">Guard band</a>、<a href="reliability.html#bathtub">bathtub curve</a>。</li></ul></div>
 </div>
 </section>
 

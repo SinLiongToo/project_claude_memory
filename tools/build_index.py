@@ -30,6 +30,7 @@ EXTRA = [  # interactive pages, written by hand
     {"p": "lab.html", "a": "hbm", "t": "HBM 堆疊良率", "s": "KGD 測試漏網 TSV 修補 堆疊層數 12-Hi 16-Hi 接合良率", "g": "lab", "lv": 1},
     {"p": "lab.html", "a": "cost", "t": "每 Gb 成本模型", "s": "cost per bit 晶圓成本 dies per wafer DPW 良率 微縮 下一代節點 bit cost reduction", "g": "lab", "lv": 1},
     {"p": "lab.html", "a": "shmoo", "t": "Shmoo 圖與 guard band 模擬", "s": "shmoo plot 溫度反轉 temperature inversion guard band overkill 漏網 escape 速度分級 speed bin Vmin", "g": "lab", "lv": 1},
+    {"p": "lab.html", "a": "voltage", "t": "電壓篩選模擬：Vmin / Vmax / VLV / VHV", "s": "電壓測試 極低電壓 極高電壓 應力 Vmin PAT 離群值 誤殺 漏網 DPPM 電阻性缺陷 氧化層 burn-in", "g": "lab", "lv": 1},
     {"p": "quiz.html", "a": "", "t": "記憶體測驗", "s": "quiz 題庫 自我檢查 元件 設計 應用 製程 封測 可靠度", "g": "quiz", "lv": 1},
     {"p": "designer.html", "a": "", "t": "記憶體規格設計器", "s": "DRAM NAND SRAM HBM 容量 位址 bank page 頻寬 die size 面積 感測裕度 refresh 計算器", "g": "designer", "lv": 1},
 ]
@@ -45,6 +46,7 @@ EXTRA_EN = [
     {"p": "lab.html", "a": "hbm", "t": "HBM stack yield", "s": "KGD test escapes TSV repair stack height 12-Hi 16-Hi bond yield", "g": "lab", "lv": 1},
     {"p": "lab.html", "a": "cost", "t": "Cost per Gb model", "s": "cost per bit wafer cost dies per wafer DPW yield scaling next node bit cost reduction", "g": "lab", "lv": 1},
     {"p": "lab.html", "a": "shmoo", "t": "Shmoo plot and guard band simulation", "s": "shmoo plot temperature inversion guard band overkill escape speed bin Vmin", "g": "lab", "lv": 1},
+    {"p": "lab.html", "a": "voltage", "t": "Voltage screening: Vmin / Vmax / VLV / VHV", "s": "voltage test very low voltage very high voltage stress Vmin PAT outlier overkill escape DPPM resistive defect oxide burn-in", "g": "lab", "lv": 1},
     {"p": "quiz.html", "a": "", "t": "Memory quiz", "s": "quiz questions self-check devices design applications process test reliability", "g": "quiz", "lv": 1},
     {"p": "designer.html", "a": "", "t": "Memory spec designer", "s": "DRAM NAND SRAM HBM density address bank page bandwidth die size area sense margin refresh calculator", "g": "designer", "lv": 1},
 ]

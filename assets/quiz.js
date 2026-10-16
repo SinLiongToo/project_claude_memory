@@ -68,7 +68,11 @@
     {c:'tst', q:'Shmoo 圖上，低電壓區在低溫反而比高溫慢的現象稱為？', o:['溫度反轉（temperature inversion）', '熱失控', '電遷移', '閂鎖效應'], e:'低溫時 V_t 升高的影響超過遷移率提升，在低電壓下特別明顯。', l:'test.html#shmoo'},
     {c:'tst', q:'Guard band 太大的直接代價是？', o:['誤殺（overkill）增加，良率與營收下降', '漏網（escape）增加', '測試機精度變差', '保存時間變短'], e:'Guard band 補償測試機誤差與條件差異；太小則會漏網，所以要依精度與 Cpk 設定。', l:'test.html#guardband'},
     {c:'des', q:'在 DRAM 感測訊號預算中，下列哪一項「不會」直接吃掉位元線上的 ΔV？', o:['I/O 輸出驅動的阻抗', '保存期間的漏電', 'SA 偏移', '相鄰位元線的耦合雜訊'], e:'I/O 阻抗影響的是晶片外的訊號，不是陣列內的感測裕度。', l:'design.html#signal-budget'},
-    {c:'des', q:'DRAM 使用負字元線電壓（V_NWL）的主要目的是？', o:['讓存取電晶體關得更徹底，降低漏電、延長保存時間', '加快字元線上升', '降低 V_PP', '減少位元線電容'], e:'關態時閘極再低一點，次臨界漏電就少很多。', l:'design.html#power'}
+    {c:'des', q:'DRAM 使用負字元線電壓（V_NWL）的主要目的是？', o:['讓存取電晶體關得更徹底，降低漏電、延長保存時間', '加快字元線上升', '降低 V_PP', '減少位元線電容'], e:'關態時閘極再低一點，次臨界漏電就少很多。', l:'design.html#power'},
+    {c:'tst', q:'VLV（極低電壓）測試主要用來篩選哪一類缺陷？', o:['電阻性橋接 / 開路等在標稱電壓下被強驅動力掩蓋的缺陷', '保存時間不足的 DRAM 單元', 'ESD 損傷', '封裝翹曲'], e:'低壓時驅動電流小，同樣的電阻佔延遲的比例變大，缺陷才會現形。', l:'test.html#vlv-why'},
+    {c:'tst', q:'VHV（極高電壓）應力的主要風險是？', o:['過度應力傷害健康晶片，留下可靠度負債', '測試時間太長', '無法在晶圓階段進行', '會讓 Vmin 降低'], e:'電壓上限要依 TDDB 資料決定，應力後也一定要重測。', l:'test.html#vhv-how'},
+    {c:'tst', q:'為什麼規格下限的 Vmin 測試幾乎抓不到電阻性缺陷？', o:['缺陷晶片的 Vmin 雖然升高，但多數仍低於規格下限，在規格內照樣通過', '測試機在低電壓量不準', 'Vmin 測試只測 I/O', '電阻性缺陷只在高溫出現'], e:'這就是 VLV 與 Vmin PAT 的價值：把門檻拉到健康分佈的尾端。', l:'lab.html#voltage'},
+    {c:'tst', q:'Vmin PAT 剔除的是哪一種晶片？', o:['Vmin 雖在規格內、但明顯高於同批分佈的離群晶片', '所有 Vmin 低於規格的晶片', '速度最快的晶片', '漏電最小的晶片'], e:'離群的 Vmin 常代表潛在缺陷，即使現在通過規格。', l:'test.html#vmin-stats'}
   ];
   // English versions, same order as Q (c and l are shared)
   const QEN = [
@@ -128,7 +132,11 @@
     {q:'On a shmoo plot, the low-voltage region is slower when cold than when hot. What is this called?', o:['Temperature inversion', 'Thermal runaway', 'Electromigration', 'Latch-up'], e:'At low temperature V_t rises more than mobility improves, which dominates at low voltage.'},
     {q:'What is the direct cost of too large a guard band?', o:['More overkill, lower yield and revenue', 'More escapes', 'Worse tester accuracy', 'Shorter retention'], e:'Guard bands cover tester error and condition differences; too small causes escapes, so set them from accuracy and Cpk.'},
     {q:'In a DRAM sensing signal budget, which item does NOT directly eat the bit-line ΔV?', o:['I/O output driver impedance', 'Leakage during retention', 'SA offset', 'Coupling noise from neighbouring bit lines'], e:'I/O impedance affects off-chip signals, not the sense margin inside the array.'},
-    {q:'Why does DRAM use a negative word-line voltage (V_NWL)?', o:['To turn the access transistor off harder, cutting leakage and extending retention', 'To speed up the word-line rise', 'To lower V_PP', 'To reduce bit-line capacitance'], e:'A slightly lower gate in the off state cuts sub-threshold leakage substantially.'}
+    {q:'Why does DRAM use a negative word-line voltage (V_NWL)?', o:['To turn the access transistor off harder, cutting leakage and extending retention', 'To speed up the word-line rise', 'To lower V_PP', 'To reduce bit-line capacitance'], e:'A slightly lower gate in the off state cuts sub-threshold leakage substantially.'},
+    {q:'Which defects is a VLV (very-low-voltage) test mainly meant to screen?', o:['Resistive bridges / opens and similar defects masked by strong drive at nominal voltage', 'DRAM cells with short retention', 'ESD damage', 'Package warpage'], e:'At low voltage drive current is small, so the same resistance becomes a larger share of the delay and the defect shows.'},
+    {q:'What is the main risk of VHV (very-high-voltage) stress?', o:['Overstress damages healthy dies and leaves a reliability debt', 'Test time becomes too long', 'It cannot be done at wafer level', 'It lowers Vmin'], e:'The voltage limit must come from TDDB data, and a retest after stress is mandatory.'},
+    {q:'Why does a Vmin test at the spec minimum barely catch resistive defects?', o:['Defective dies have higher Vmin, but most still sit below the spec minimum and pass inside spec', 'The tester cannot measure accurately at low voltage', 'The Vmin test only checks I/O', 'Resistive defects appear only when hot'], e:'That is the value of VLV and Vmin PAT: they pull the limit to the tail of the healthy distribution.'},
+    {q:'Which dies does Vmin PAT remove?', o:['Dies whose Vmin is in spec but clearly above their lot’s distribution', 'All dies with Vmin below spec', 'The fastest dies', 'The lowest-leakage dies'], e:'An outlying Vmin often signals a latent defect even when the die passes spec today.'}
   ];
   if(EN) Q.forEach((q, i) => Object.assign(q, QEN[i]));
 

@@ -25,6 +25,7 @@
   <button role="tab" data-tab="rowhammer" aria-selected="false">Row Hammer</button>
   <button role="tab" data-tab="march" aria-selected="false">March 測試</button>
   <button role="tab" data-tab="shmoo" aria-selected="false">Shmoo 圖</button>
+  <button role="tab" data-tab="voltage" aria-selected="false">電壓篩選</button>
   <button role="tab" data-tab="wafer" aria-selected="false">晶圓良率</button>
   <button role="tab" data-tab="hbm" aria-selected="false">HBM 堆疊良率</button>
   <button role="tab" data-tab="cost" aria-selected="false">每 Gb 成本</button>
@@ -299,6 +300,48 @@
     <li>TT corner、偏移 +2σ、測試溫度 25 °C，把時序 guard band 調到 0：測試通過，但全溫檢查在 95 °C 失敗 → 漏網。把 guard band 調回 4%，它就被正確剔除。</li>
     <li>把測試溫度調到 −40 °C，看低電壓區的速度反而變差（溫度反轉）。</li>
     <li>延伸閱讀：<a href="test.html#shmoo">Shmoo 圖</a>、<a href="test.html#guardband">Guard band</a>、<a href="lessons.html#test-issues">測試常見問題</a>。</li></ul></div>
+</div>
+</section>
+
+<!-- ============ VOLTAGE SCREENING ============ -->
+<section class="tabp" id="tab-voltage" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>測試組合 <small>標稱 1.1 V</small></h3>
+    <div class="ctl"><label for="vt-sig">健康晶片 Vmin 分佈的 σ <output id="vt-sig-o"></output></label><input id="vt-sig" type="range" min="10" max="40" step="1" value="18"></div>
+    <div class="eyebrow" style="margin:16px 0 8px;color:var(--muted)">邊界測試</div>
+    <div class="ctl"><label>Vmin 測試（規格下限 1.045 V）</label><div class="btnrow" id="vt-vmin"><button class="btn" data-v="1" aria-pressed="true">開</button><button class="btn" data-v="0" aria-pressed="false">關</button></div></div>
+    <div class="ctl"><label>Vmax 測試</label><div class="btnrow" id="vt-vmax"><button class="btn" data-v="1" aria-pressed="true">開</button><button class="btn" data-v="0" aria-pressed="false">關</button></div></div>
+    <div class="ctl"><label for="vt-vmaxv">Vmax 測試電壓 <output id="vt-vmaxv-o"></output></label><input id="vt-vmaxv" type="range" min="1.155" max="1.3" step="0.005" value="1.2"></div>
+    <div class="eyebrow" style="margin:16px 0 8px;color:var(--muted)">篩選測試</div>
+    <div class="ctl"><label>VLV 測試</label><div class="btnrow" id="vt-vlv"><button class="btn" data-v="1" aria-pressed="false">開</button><button class="btn" data-v="0" aria-pressed="true">關</button></div></div>
+    <div class="ctl"><label for="vt-vlvv">VLV 電壓 <output id="vt-vlvv-o"></output></label><input id="vt-vlvv" type="range" min="0.80" max="1.00" step="0.005" value="0.88"></div>
+    <div class="ctl"><label>Vmin 離群值剔除（PAT）</label><div class="btnrow" id="vt-pat"><button class="btn" data-v="1" aria-pressed="false">開</button><button class="btn" data-v="0" aria-pressed="true">關</button></div></div>
+    <div class="ctl"><label for="vt-k">PAT 門檻：平均 + kσ <output id="vt-k-o"></output></label><input id="vt-k" type="range" min="3" max="8" step="0.25" value="4"></div>
+    <div class="ctl"><label>VHV 應力 + 重測</label><div class="btnrow" id="vt-vhv"><button class="btn" data-v="1" aria-pressed="false">開</button><button class="btn" data-v="0" aria-pressed="true">關</button></div></div>
+    <div class="ctl"><label for="vt-vhvr">VHV 電壓 <output id="vt-vhvr-o"></output></label><input id="vt-vhvr" type="range" min="1.2" max="1.7" step="0.01" value="1.4"></div>
+    <div class="ctl"><label for="vt-vhvt">VHV 時間 <output id="vt-vhvt-o"></output></label><input id="vt-vhvt" type="range" min="-2" max="1" step="0.05" value="0"></div>
+    <p class="note">母體（每百萬顆）：健康晶片 994,000；電阻性缺陷 3,000（Vmin 升高 30–250 mV）；潛在氧化層缺陷 2,000（現在完全正常）；高壓敏感缺陷 1,000（在 1.12–1.30 V 之間失效）。數字為教學用假設。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="vt-metrics"></div>
+    <div class="panel"><h3>Vmin 分佈與篩選門檻 <small>每百萬顆、每 mV</small></h3><svg class="viz" id="vt-plot" role="img" aria-label="Vmin 分佈"></svg>
+      <div class="legend"><span><i style="background:var(--s3)"></i>健康晶片</span><span><i style="background:var(--s4)"></i>電阻性缺陷晶片</span></div></div>
+    <div class="panel"><h3>各類缺陷的去向</h3><div class="tblwrap" style="margin:0"><table id="vt-table"></table></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>模型在做什麼</h3><ul>
+    <li>電阻性缺陷讓 Vmin 升高，但多數仍低於規格下限，所以 <b>Vmin 規格測試幾乎抓不到</b>；VLV 或 Vmin PAT 把門檻拉到健康分佈的尾端才抓得到。</li>
+    <li>潛在氧化層缺陷在任何電壓都能動，只有 VHV 應力能把它「轉換」成可測的失效；轉換比例隨電壓呈指數上升。</li>
+    <li>VHV 太高或太久會傷害健康晶片，造成看不到的「可靠度負債」，算在現場失效裡。</li>
+    <li>現場失效機率假設：電阻性漏網 50%、氧化層漏網 60%、受損健康晶片 30%、高壓敏感且失效點在規格內 100%。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>只開 Vmin、Vmax：良率很高，但出貨不良率約 4,600 DPPM。打開 VLV（0.88 V），漏網大幅下降，誤殺幾乎不變。</li>
+    <li>把 VLV 調到 0.84 V：抓到更多缺陷，但開始誤殺健康晶片（看誤殺 ppm）。</li>
+    <li>打開 VHV 1.4 倍、1 秒：潛在氧化層缺陷大多被轉換。再把電壓推到 1.6 倍：現場失效反而暴增——過度應力。</li>
+    <li>把健康分佈 σ 調大：同樣的 VLV 門檻誤殺變多，所以門檻要跟著母體分佈調整。</li>
+    <li>延伸閱讀：<a href="test.html#voltage-tests">電壓測試</a>、<a href="test.html#guardband">Guard band</a>、<a href="reliability.html#bathtub">浴缸曲線</a>。</li></ul></div>
 </div>
 </section>
 

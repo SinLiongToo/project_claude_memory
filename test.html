@@ -330,6 +330,50 @@
 <li><b>統計指標</b>：參數的 Cpk（製程能力）決定 guard band 的成本；Cpk 高的參數可以用較小的 guard band 而不增加漏網。</li>
 </ul>
 
+<h2 id="voltage-tests">電壓測試：Vmin、Vmax、VLV、VHV</h2>
+<p>電壓是最便宜、也最有效的測試旋鈕。四種常見的電壓測試目的不同：Vmax 和 Vmin 是<b>邊界測試</b>，確認晶片在規格電壓範圍內正常；VLV 和 VHV 是<b>篩選測試</b>，故意跑到規格外，讓潛在缺陷現形。</p>
+<div class="tblwrap"><table>
+<tr><th>測試</th><th>條件（以標稱 1.1 V 為例）</th><th>目的</th><th>主要抓什麼</th></tr>
+<tr><td><b>Vmax</b></td><td>規格上限再加 guard band（如 1.155 V → 1.2 V），全速功能測試</td><td>確認高電壓端正常</td><td>漏電、高壓下的時序競爭（hold time）、對高壓敏感的電路</td></tr>
+<tr><td><b>Vmin</b></td><td>規格下限再減 guard band（如 1.045 V → 1.02 V），全速功能測試；特性分析時逐步降壓找出每顆晶片的實際 Vmin</td><td>確認低電壓端正常、量出裕度</td><td>慢速路徑、SA / SRAM 的功能極限</td></tr>
+<tr><td><b>VLV</b><br><small>Very Low Voltage</small></td><td>遠低於規格（約 0.6–0.8 × 標稱，但仍高於健康晶片的 Vmin），通常放慢時脈做功能測試</td><td>缺陷篩選</td><td>電阻性橋接 / 開路、弱接觸孔、閘極氧化層短路等，在標稱電壓下被強驅動力掩蓋的缺陷</td></tr>
+<tr><td><b>VHV</b><br><small>Very High Voltage</small></td><td>遠高於規格（約 1.3–1.5 × 標稱），施加毫秒到數秒的電壓應力，之後回到標稱電壓重測</td><td>加速篩選（像縮短版的 burn-in）</td><td>氧化層弱點、介電層缺陷等早夭失效</td></tr>
+</table></div>
+
+<h3 id="vlv-why">為什麼 VLV 抓得到標稱電壓抓不到的缺陷</h3>
+<ul>
+<li>標稱電壓下電晶體驅動力強，一個幾 kΩ 的電阻性橋接或開路只讓延遲多一點，功能仍然正確。低電壓時驅動電流大幅下降，同樣的電阻佔延遲的比例變大，或讓節點電壓落在錯誤的邏輯準位，缺陷就現形了。</li>
+<li>這類缺陷常是<b>可靠度缺陷</b>：現在能動，但在現場會隨時間惡化（電遷移、腐蝕、熱應力），所以 VLV 篩選能直接降低出貨後的早期失效。</li>
+<li>VLV 的電壓要選在「健康晶片全部通過、缺陷晶片會失敗」的位置。太低會誤殺健康但偏慢的晶片；通常依健康母體的 Vmin 分佈決定（例如高於平均值 4–6σ），並且放慢時脈。</li>
+<li>極低電壓測試（very-low-voltage testing）在 1990 年代由 Hao 與 McCluskey 等人提出，用來篩選弱 CMOS 元件。</li>
+</ul>
+
+<h3 id="vhv-how">VHV 應力怎麼做</h3>
+<ul>
+<li>以標稱電壓的 1.3–1.5 倍施加短時間電壓（可以在晶圓測試時做），讓帶有缺陷的薄弱氧化層提早崩潰；之後以正常電壓、Vmin、VLV 重測，抓出被「轉換」成硬失效的晶片。</li>
+<li>電壓加速通常遠比溫度有效：介電崩潰時間對電場呈指數關係，幾秒的高壓可以取代很長的 burn-in，所以常用來縮短或取代部分 burn-in。</li>
+<li>風險是<b>過度應力</b>：電壓太高或時間太長，會傷害健康晶片，留下「可靠度負債」。電壓上限要依 TDDB 資料決定，並驗證應力前後健康晶片的參數沒有漂移。</li>
+<li>DRAM 可以用測試模式對內部電壓單獨加應力：提高 V<sub>PP</sub> 對存取電晶體的閘極氧化層加壓、讓所有字元線同時開啟的 WL stress、提高電容上極板電壓對電容介電層加壓。</li>
+</ul>
+
+<h3 id="vmin-stats">Vmin 的統計用法</h3>
+<ul>
+<li><b>Vmin 離群值</b>：每顆晶片的實際 Vmin 是很靈敏的健康指標。同一批中 Vmin 明顯偏高的晶片，即使在規格內通過，也常帶有潛在缺陷，可以用 PAT 剔除（例如超過中位數 + 4σ）。</li>
+<li><b>ΔVmin</b>：在 burn-in 或 HTOL 前後量 Vmin，偏移量大的晶片代表正在老化或有缺陷，可用於篩選與可靠度分析。</li>
+<li><b>Vmin 分級與 AVS</b>：邏輯晶片常依 Vmin 分級，或在系統中做自適應電壓調整（AVS）；SRAM 的 Vmin 通常決定整顆 SoC 的最低工作電壓。</li>
+<li><b>溫度</b>：Vmin 常在低溫最差（溫度反轉），所以 Vmin 與 VLV 測試要考慮在冷溫進行。</li>
+</ul>
+
+<h3 id="voltage-pitfalls">常見陷阱</h3>
+<ul>
+<li><b>電源精度與壓降</b>：低電壓時，幾十 mV 的誤差就佔很大比例。要在晶片腳位附近量測（remote sense），並注意大電流時的 IR drop。</li>
+<li><b>VLV 的時序</b>：低壓下速度變慢，如果沿用全速時序，會把健康晶片誤殺。</li>
+<li><b>只測規格角落</b>：規格下限的 Vmin 測試幾乎抓不到電阻性缺陷，因為健康與缺陷晶片在規格內都通過——這正是 VLV 存在的理由。</li>
+<li><b>應力後沒有重測</b>：VHV 之後一定要再跑功能測試，否則被轉換出來的失效會直接出貨。</li>
+<li><b>外部 V<sub>DD</sub> 與內部電壓</b>：DRAM 內部有穩壓器，改變外部 V<sub>DD</sub> 不一定會改變陣列電壓，要用測試模式直接調整或監測內部電壓（見<a href="design.html#power">內部電源</a>）。</li>
+</ul>
+<div class="tryit">▶ 開關每種電壓測試，看良率、誤殺與漏網 DPPM 怎麼變：<a href="lab.html#voltage">互動實驗室 · 電壓篩選</a></div>
+
 <h2 id="mbist">嵌入式記憶體的 MBIST</h2>
 <p>SoC 裡的 SRAM 數以百計，無法從外部腳位直接存取。<b>MBIST</b>（Memory Built-In Self-Test）在每組記憶體旁加入控制器，由晶片內部產生 March 序列並比較結果，只把通過 / 失敗與失效位址送出。搭配 <b>BIRA / BISR</b>（內建修補分析 / 自我修補）可以自動配置備用元件，修補資訊存在 e-fuse 中，開機時載入。車用晶片還要求開機或執行期週期性執行 MBIST（in-system test）以符合功能安全。</p>
 
@@ -396,6 +440,10 @@
 <div><dt>TSV</dt><dd>Through-Silicon Via，矽穿孔。</dd></div>
 <div><dt>TC-NCF / MR-MUF</dt><dd>HBM 堆疊的兩種主要接合與填充方式。</dd></div>
 <div><dt>Burn-in / WLBI</dt><dd>高溫高壓加速篩選 / 晶圓層級 burn-in。</dd></div>
+<div><dt>Vmin / Vmax</dt><dd>晶片能正確運作的最低 / 最高電壓，以及對應的邊界測試。</dd></div>
+<div><dt>VLV</dt><dd>Very Low Voltage 測試：遠低於規格的功能測試，篩選電阻性等潛在缺陷。</dd></div>
+<div><dt>VHV</dt><dd>Very High Voltage 應力：短時間高電壓加速氧化層缺陷失效，之後重測。</dd></div>
+<div><dt>ΔVmin</dt><dd>應力或 burn-in 前後 Vmin 的變化量，可作為老化與缺陷指標。</dd></div>
 <div><dt>Shmoo plot</dt><dd>掃描兩個測試條件並標示通過 / 失敗的二維圖。</dd></div>
 <div><dt>Guard band</dt><dd>測試限值比規格更嚴的那段預留量。</dd></div>
 <div><dt>Overkill / Underkill</dt><dd>誤殺良品 / 漏放不良品。</dd></div>
