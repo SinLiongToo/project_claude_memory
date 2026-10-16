@@ -25,6 +25,7 @@
   <button role="tab" data-tab="retention" aria-selected="false">Retention &amp; refresh</button>
   <button role="tab" data-tab="rowhammer" aria-selected="false">Row hammer</button>
   <button role="tab" data-tab="march" aria-selected="false">March test</button>
+  <button role="tab" data-tab="shmoo" aria-selected="false">Shmoo</button>
   <button role="tab" data-tab="wafer" aria-selected="false">Wafer yield</button>
   <button role="tab" data-tab="hbm" aria-selected="false">HBM stack yield</button>
   <button role="tab" data-tab="cost" aria-selected="false">Cost per Gb</button>
@@ -261,6 +262,42 @@
     <li>Inject an AF: even MATS+ catches it, because every element reads before writing.</li>
     <li>Check the coverage table: March C− covers all these single faults 100% at 10N; Checkerboard is cheap but poor on TF and coupling faults.</li>
     <li>Read more: <a href="test.html#fault-models">fault models</a>, <a href="test.html#march">March algorithms</a>.</li></ul></div>
+</div>
+</section>
+
+<!-- ============ SHMOO ============ -->
+<section class="tabp" id="tab-shmoo" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>Parameters <small>DRAM speed path</small></h3>
+    <div class="ctl"><label for="sh-corner">Process corner</label><select id="sh-corner"><option value="1.15">SS (slow)</option><option value="1" selected>TT (typical)</option><option value="0.88">FF (fast)</option></select></div>
+    <div class="ctl"><label for="sh-sig">This die’s offset <output id="sh-sig-o"></output></label><input id="sh-sig" type="range" min="-3" max="3" step="0.25" value="0"></div>
+    <div class="ctl"><label for="sh-temp">Test temperature <output id="sh-temp-o"></output></label><input id="sh-temp" type="range" min="-40" max="125" step="5" value="25"></div>
+    <div class="ctl"><label for="sh-bin">Target speed bin</label><select id="sh-bin"><option>4800</option><option>5600</option><option selected>6400</option><option>7200</option><option>8000</option></select></div>
+    <div class="ctl"><label for="sh-gbt">Timing guard band <output id="sh-gbt-o"></output></label><input id="sh-gbt" type="range" min="0" max="15" step="0.5" value="4"></div>
+    <div class="ctl"><label for="sh-gbv">Voltage guard band <output id="sh-gbv-o"></output></label><input id="sh-gbv" type="range" min="0" max="60" step="5" value="20"></div>
+    <div class="ctl"><label>Pattern-dependent marginal fails (holes)</label><div class="btnrow" id="sh-holes"><button class="btn" data-v="1" aria-pressed="false">On</button><button class="btn" data-v="0" aria-pressed="true">Off</button></div></div>
+    <p class="note">Speed follows an alpha-power model: delay ∝ μ(T)·V / (V − V<sub>t</sub>(T))<sup>1.3</sup>. V<sub>t</sub> rises when cold and mobility falls when hot, which produces temperature inversion. Spec: V<sub>DD</sub> 1.1 V ±5%, customer temperature 0–95 °C.</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="sh-metrics"></div>
+    <div class="panel"><h3>Shmoo plot <small id="sh-sub"></small></h3><svg class="viz" id="sh-plot" role="img" aria-label="Shmoo plot"></svg>
+      <div class="legend"><span><i style="background:var(--s3)"></i>Pass</span><span><i style="background:var(--s4)"></i>Fail</span><span><i style="background:var(--ink)"></i>Spec window</span><span><i style="background:var(--accent)"></i>Test window (with guard band)</span></div></div>
+    <div class="panel"><h3>Max speed vs V<sub>DD</sub> at different temperatures</h3><svg class="viz" id="sh-temps" role="img" aria-label="Speed curves by temperature"></svg>
+      <div class="legend"><span><i style="background:var(--s1)"></i>−40 °C</span><span><i style="background:var(--s3)"></i>25 °C</span><span><i style="background:var(--s2)"></i>95 °C</span><span><i style="background:var(--s4)"></i>125 °C</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>How to read it</h3><ul>
+    <li>The spec window (black box) is what customers will use; the test window (blue box) adds guard band and is what is actually tested — tighter than spec.</li>
+    <li>A part ships only if the whole test window passes. Passing the spec window but failing the test window = <b>overkill</b>.</li>
+    <li>The “all-temperature check” asks whether this die also meets spec at 0 °C and 95 °C; passing only at the test temperature is the escape risk of single-temperature testing.</li>
+    <li>The lower curves show temperature inversion: below about 0.94 V cold is slower, above it hot is slower.</li></ul></div>
+  <div class="panel"><h3>Try this</h3><ul>
+    <li>Set the guard band to 0, then to 12%: see which dies move from “ship” to “overkill”.</li>
+    <li>TT corner, offset +2σ, test at 25 °C, timing guard band 0: the test passes but the all-temperature check fails at 95 °C — an escape. Set the guard band back to 4% and it is correctly rejected.</li>
+    <li>Test at −40 °C and watch the low-voltage region get slower (temperature inversion).</li>
+    <li>Read more: <a href="test.html#shmoo">shmoo plots</a>, <a href="test.html#guardband">guard bands</a>, <a href="lessons.html#test-issues">common test problems</a>.</li></ul></div>
 </div>
 </section>
 

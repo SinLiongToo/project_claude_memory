@@ -86,6 +86,22 @@
 <p>SRAM 的 SA 通常是電壓式閂鎖 SA：位元線放電出 50–100 mV 的差後才啟動（SAE），時間由複製位元線（replica bitline）追蹤，確保不同 PVT 下都在訊號足夠時才啟動。</p>
 <div class="tryit">▶ 看 SA 偏移與 ΔV 的關係：<a href="lab.html#dram">互動實驗室 · DRAM 讀取</a></div>
 
+<h2 id="signal-budget">感測訊號預算 Signal Budget</h2>
+<p>電荷分享算出的 ΔV 只是「理想值」。設計時要把所有會吃掉訊號的項目逐一扣掉，剩下的才是真正的裕度。以下是一個示意的預算（V<sub>DD</sub> = 1.1 V、C<sub>s</sub> = 10 fF、C<sub>BL</sub> = 50 fF）：</p>
+<div class="tblwrap"><table>
+<tr><th>項目</th><th class="n">mV</th><th>來源與對策</th></tr>
+<tr><td>理想電荷分享訊號</td><td class="n">+92</td><td>(V<sub>DD</sub>/2)·C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)</td></tr>
+<tr><td>保存漏電（refresh 視窗末端的尾端單元）</td><td class="n">−25</td><td>電容漏電、GIDL；靠更低漏電的電晶體與更短的 tREFW</td></tr>
+<tr><td>寫入不完整</td><td class="n">−8</td><td>tWR 太短或 V<sub>PP</sub> 不足，單元沒充到 V<sub>DD</sub></td></tr>
+<tr><td>SA 偏移（6σ）</td><td class="n">−20</td><td>V<sub>t</sub> 失配；靠大尺寸、對稱佈局、偏移補償 SA</td></tr>
+<tr><td>位元線耦合雜訊</td><td class="n">−10</td><td>相鄰 BL、WL 上升時的耦合；靠屏蔽、twisted BL、時序錯開</td></tr>
+<tr><td>預充不平衡 / V<sub>BLP</sub> 誤差</td><td class="n">−5</td><td>等化時間不足、V<sub>BLP</sub> 調整器誤差</td></tr>
+<tr><td><b>剩餘裕度</b></td><td class="n"><b>+24</b></td><td>還要留給溫度、電壓雜訊、老化</td></tr>
+</table></div>
+<p class="note">數字為示意，用來說明「預算」的思考方式。實際設計會在每個 PVT corner 與 Monte Carlo 下逐項計算。</p>
+<p>這個表說明了為什麼 DRAM 微縮這麼難：每一代 C<sub>s</sub> 很難再大，C<sub>BL</sub> 和偏移又不會自動變小，裕度只會被一點一點吃掉。設計器裡的「感測裕度」只扣了 SA 偏移，是最樂觀的估計。</p>
+<div class="tryit">▶ 看 C<sub>BL</sub>、C<sub>s</sub> 與偏移的關係：<a href="lab.html#dram">互動實驗室 · DRAM 讀取</a>、<a href="designer.html#dram">規格設計器</a></div>
+
 <h2 id="timing">DRAM 指令與時序</h2>
 <p>記憶體控制器透過指令操作 DRAM：<code>ACT</code>（啟動一列）→ <code>RD</code>/<code>WR</code>（讀寫某些行）→ <code>PRE</code>（關閉該列、預充）。各指令之間的最小間隔就是資料表上的時序參數。</p>
 <figure>
@@ -125,6 +141,18 @@
 </table></div>
 <p>有趣的是：從 DDR 到 DDR5，資料速率提升了十幾倍，但以奈秒計算的 tRCD、CL、tRP 幾乎沒變（一直在 13–18 ns 附近），因為它們受限於陣列本身的類比物理。頻寬的進步主要來自介面與平行度。</p>
 
+<h2 id="trcd-breakdown">tRCD 拆開來看</h2>
+<p>tRCD 約 13–16 ns，看起來是一個數字，其實是一串類比事件依序完成的時間：</p>
+<div class="tblwrap"><table>
+<tr><th>階段</th><th class="n">約略時間</th><th>受什麼限制</th></tr>
+<tr><td>指令解碼、列位址送到 bank</td><td class="n">1–2 ns</td><td>周邊邏輯速度、長距離走線</td></tr>
+<tr><td>主字元線 → 子字元線上升到 V<sub>PP</sub></td><td class="n">2–4 ns</td><td>字元線 RC、SWD 驅動能力、V<sub>PP</sub> 電荷泵</td></tr>
+<tr><td>電荷分享</td><td class="n">2–3 ns</td><td>存取電晶體導通電阻 × (C<sub>s</sub>+C<sub>BL</sub>)</td></tr>
+<tr><td>SA 放大到可讀出</td><td class="n">3–5 ns</td><td>初始 ΔV 大小、SA 尺寸、SAN/SAP 驅動</td></tr>
+<tr><td>行選擇可開啟的裕度</td><td class="n">2–3 ns</td><td>PVT 變異、最慢 mat 的保護時間</td></tr>
+</table></div>
+<p>所以想讓 tRCD 變快，要同時縮短字元線（更多 SWD → 面積）、加強 SA（更大 → 面積）、提高 V<sub>PP</sub>（可靠度）。這是為什麼「低延遲 DRAM」（如 RLDRAM、部分伺服器用的低 tRCD 產品）都是用面積換速度。</p>
+
 <h2 id="interface">I/O 介面與預取 Prefetch</h2>
 <p>陣列內部的速度只有數百 MHz，但介面要跑數 Gb/s。解法是<b>預取</b>：每次內部存取一次抓 n 倍位寬的資料，再由並轉串電路（SERDES）在介面高速送出。</p>
 <div class="tblwrap"><table>
@@ -136,6 +164,24 @@
 <tr><td>DDR5</td><td class="n">16n</td><td class="n">4800–8800</td><td class="n">1.1 V</td><td>BL16、DIMM 分成兩個 32-bit 子通道、On-die ECC、DIMM 上 PMIC、DFE 等化</td></tr>
 </table></div>
 <p>高速介面的關鍵電路：DLL / DCC（時脈對齊與工作週期校正）、ZQ 校準（輸出阻抗與 ODT）、接收端等化（CTLE、DFE）、讀寫訓練（read/write training，由控制器掃描 V<sub>ref</sub> 與時序找出最佳取樣點）。GDDR6X 用 PAM4、GDDR7 用 PAM3，每個符號傳送超過 1 位元。</p>
+
+<h2 id="power">內部電源與電荷泵</h2>
+<p>DRAM 外部只給 V<sub>DD</sub>、V<sub>DDQ</sub>（DDR4 起再加 V<sub>PP</sub>），但晶片內部需要好幾種電壓，由調整器與電荷泵產生：</p>
+<div class="tblwrap"><table>
+<tr><th>電壓</th><th>典型值</th><th>用途</th></tr>
+<tr><td>V<sub>PP</sub></td><td>2.5–3 V</td><td>字元線高電位，讓存取電晶體完全導通</td></tr>
+<tr><td>V<sub>NWL</sub> / V<sub>BB</sub></td><td>−0.2 ~ −0.5 V</td><td>字元線低電位或基板偏壓，關得更死、降低漏電</td></tr>
+<tr><td>V<sub>ARY</sub> / V<sub>BLH</sub></td><td>~1.0 V</td><td>陣列高電位（寫入「1」的電壓）</td></tr>
+<tr><td>V<sub>BLP</sub>、V<sub>PLT</sub></td><td>V<sub>ARY</sub>/2</td><td>位元線預充電壓、電容上極板</td></tr>
+<tr><td>V<sub>INT</sub> / V<sub>PERI</sub></td><td>~1.0 V</td><td>周邊邏輯</td></tr>
+<tr><td>V<sub>DDQ</sub></td><td>1.1 V（DDR5）、0.5 V（LPDDR5X）</td><td>I/O</td></tr>
+</table></div>
+<ul>
+<li><b>電荷泵的峰值電流</b>：每次 ACT 要把數千條位元線、整條字元線充放電。多個 bank 同時 ACT 會讓 V<sub>PP</sub> 下陷，這就是 t<sub>RRD</sub> 與 t<sub>FAW</sub> 存在的原因。</li>
+<li><b>Trim</b>：製程變異會讓內部電壓偏離目標，測試時量測後用熔絲微調（見下方 DFT），每顆晶片的設定都不同。</li>
+<li><b>上電順序</b>：上電時要先讓內部電壓穩定、讀取熔絲（修補位址、trim 值），再接受指令；若順序或時間不對，可能載入錯誤的修補資訊，造成「開機才偶發」的失效。</li>
+<li><b>Refresh 與自我更新</b>的電流（I<sub>DD5</sub>、I<sub>DD6</sub>）也由這些電源提供，低功耗設計會在待機時關閉不需要的電荷泵。</li>
+</ul>
 
 <h2 id="refresh">Refresh 機制</h2>
 <ul>
@@ -164,6 +210,18 @@
 </ul>
 <p>測試與修補流程細節見<a href="test.html#repair">封測章節</a>。</p>
 
+<h2 id="dft">DFT 測試模式與 Trim</h2>
+<p>為了能在合理時間內測完幾十億個位元，DRAM 內建許多只有廠內才會用到的測試模式（以特殊指令序列進入）：</p>
+<ul>
+<li><b>平行測試壓縮</b>：一次寫入多個位元或多個 bank，讀出時在晶片內比對，只回報通過 / 失敗，大幅縮短測試時間；代價是失效位址解析度下降，需要時再切回一般模式定位。</li>
+<li><b>內部電壓的強制與監測</b>：把 V<sub>PP</sub>、V<sub>BLP</sub>、V<sub>PLT</sub> 等接到測試腳量測，或由外部強制給值，用來找最佳 trim 與做電壓應力。</li>
+<li><b>時序調整</b>：縮短 / 拉長內部時序（例如 SA 啟動時間、WL 脈寬），找出弱單元或量測裕度。</li>
+<li><b>關閉 ECC 與修補</b>：看原始失效，避免 on-die ECC 或冗餘把問題遮住，這對良率分析與篩選弱單元很重要。</li>
+<li><b>熔絲 trim</b>：根據量測結果燒入內部電壓、計時器、驅動強度的微調值。</li>
+<li><b>應力模式</b>：例如全部字元線同時開啟的 WL stress，在 burn-in 時加速篩選氧化層弱點。</li>
+<li><b>系統端功能</b>：DDR5 / LPDDR5 定義了 PPR、MBIST（部分產品）、ECS（error check and scrub）等，HBM 的基底晶粒提供 IEEE 1500 測試介面。</li>
+</ul>
+
 <h2 id="sram-assist">SRAM 巨集設計與輔助電路</h2>
 <p>SoC 裡的 SRAM 通常由<b>記憶體編譯器</b>（memory compiler）產生：設計者指定字數 × 位寬、行多工比、埠數，編譯器輸出佈局、時序模型（.lib）、Verilog 模型與 LEF。一個巨集包含：位元胞陣列、列解碼與 WL 驅動、行多工（column mux，例如 4:1 或 8:1，讓 SA 間距放得下）、SA、寫入驅動器、時序控制（replica 位元線）。</p>
 <h3 id="assist-types">讀寫輔助 Assist</h3>
@@ -186,6 +244,17 @@
 </ul>
 <div class="tryit">▶ 看 ISPP 步進、P/E 次數、保存時間對 V<sub>t</sub> 分佈與錯誤率的影響：<a href="lab.html#nand">互動實驗室 · NAND</a></div>
 
+<h2 id="design-margin">設計裕度：PVT、統計與老化</h2>
+<ul>
+<li><b>PVT corner</b>：製程（SS/TT/FF，NMOS/PMOS 可各自快慢）、電壓（±5% 以上）、溫度（−40～125 °C 依等級）。DRAM 的最差情況常常不同：SA 偏移在低溫最差、漏電在高溫最差、速度在低壓高溫最差（但低壓時可能變成低溫最差，見溫度反轉）。</li>
+<li><b>統計設計</b>：SA 偏移、SRAM 位元胞要看 6σ 甚至 7σ（幾十億個實例中最差的那個），需要 Monte Carlo 搭配重要性抽樣；只跑典型值的設計，量產時會在尾端翻車。</li>
+<li><b>老化裕度</b>：BTI、HCI 讓 V<sub>t</sub> 隨時間漂移，設計時要預留壽命末期的裕度，例如 SRAM V<sub>min</sub> 會隨使用時間上升。</li>
+<li><b>電源完整性</b>：IR drop 與動態壓降（多 bank 同時動作、I/O 同時切換 SSO）要在時序分析中考慮。</li>
+<li><b>訊號完整性</b>：高速 I/O 要做通道模擬（反射、串音、ISI），並驗證訓練演算法在各種 DIMM / 主機板組合下都能收斂。</li>
+<li><b>ESD 與 latch-up</b>：新的 I/O 結構、更薄的氧化層讓 ESD 保護越來越難，HBM 等 2.5D 產品還要考慮組裝過程中的 CDM 事件。</li>
+</ul>
+<div class="tryit">▶ 業界常見的設計失誤與教訓：<a href="lessons.html#design-issues">業界案例 · 設計常見問題</a></div>
+
 <h2 id="des-terms">名詞解釋</h2>
 <dl class="terms">
 <div><dt>Bank / Bank group</dt><dd>可獨立啟動的陣列 / 共用部分資源的 bank 群組。</dd></div>
@@ -207,6 +276,12 @@
 <div><dt>Memory compiler</dt><dd>依參數自動產生 SRAM 巨集佈局與模型的工具。</dd></div>
 <div><dt>Column mux</dt><dd>多條位元線共用一個 SA 的行多工。</dd></div>
 <div><dt>Program verify</dt><dd>每個寫入脈衝後檢查 V<sub>t</sub> 是否已達目標。</dd></div>
+<div><dt>Signal budget</dt><dd>把理想 ΔV 逐項扣除漏電、偏移、耦合等損失後剩下的裕度。</dd></div>
+<div><dt>V<sub>NWL</sub> / V<sub>BB</sub></dt><dd>負字元線電壓 / 基板偏壓，讓存取電晶體關得更徹底。</dd></div>
+<div><dt>Charge pump</dt><dd>電荷泵，晶片內產生高於或低於電源的電壓。</dd></div>
+<div><dt>Trim</dt><dd>依量測結果以熔絲微調內部電壓或時序。</dd></div>
+<div><dt>Test mode</dt><dd>廠內用的特殊測試模式，如平行測試壓縮、電壓監測。</dd></div>
+<div><dt>PVT corner</dt><dd>製程、電壓、溫度的極端組合。</dd></div>
 <div><dt>Self-boosting</dt><dd>NAND 寫入禁止技術，利用耦合升高未選單元的通道電位。</dd></div>
 </dl>
 

@@ -251,4 +251,85 @@
     }
     render();
   };
+  /* =====================================================================
+     Shmoo: alpha-power speed model with temperature inversion, Vmin wall, guard bands, speed bins
+     ===================================================================== */
+  INIT.shmoo = function(){
+    const A = 1.3, MU = 1.6, VT0 = 0.40, KT = 0.0022, D0 = 75.2;      // tuned: TT 25 °C 1.1 V ≈ 7600 MT/s, inversion near 0.94 V
+    const BINS = [4800, 5600, 6400, 7200, 8000];
+    const VNOM = 1.1, VTOL = 0.055, TCUST = [0, 95];
+    let holes = false;
+    const sig = range('sh-sig', v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' σ', render);
+    const temp = range('sh-temp', v => v + ' °C', render);
+    const gbt = range('sh-gbt', v => v + '%', render);
+    const gbv = range('sh-gbv', v => v + ' mV', render);
+    ['sh-corner', 'sh-bin'].forEach(id => $(id).addEventListener('change', render));
+    toggle('sh-holes', v => { holes = v === '1'; render(); });
+
+    const dly = (V, T, k) => { const vt = VT0 - KT * (T - 25); if(V <= vt + 0.02) return Infinity; return D0 * k * Math.pow((T + 273) / 298, MU) * V / Math.pow(V - vt, A); };
+    const fmax = (V, T, k) => 1e6 / dly(V, T, k);                          // MT/s
+    const vmin = (T, s) => 0.80 + 0.0005 * Math.max(0, 25 - T) + 0.012 * s;  // functional wall (SA / keepers worse when cold)
+    const hash = (a, b) => { let h = Math.imul(a * 73856093 ^ b * 19349663, 0x9E3779B1); h ^= h >>> 15; return (h >>> 0) / 4294967296; };
+    const passAt = (V, rate, T, k, s, useHoles, ix, iy) => {
+      if(V < vmin(T, s)) return false;
+      const f = fmax(V, T, k);
+      if(rate > f) return false;
+      if(useHoles && rate > f * 0.95 && hash(ix, iy) < 0.35) return false;  // marginal, pattern-dependent fails near the edge
+      return true;
+    };
+    // a window passes if its worst corners pass (speed is monotonic in V, so check low-V corner at the rate, plus the Vmin wall)
+    const windowPass = (vlo, rate, T, k, s) => vlo >= vmin(T, s) && rate <= fmax(vlo, T, k);
+
+    function render(){
+      const k = +$('sh-corner').value * (1 + 0.04 * sig.get()), s = sig.get(), T = temp.get();
+      const bin = +$('sh-bin').value, gT = gbt.get() / 100, gV = gbv.get() / 1000;
+      const specLo = VNOM - VTOL, specHi = VNOM + VTOL;
+      const testLo = specLo - gV, testHi = specHi + gV, testRate = bin * (1 + gT);
+      const passSpec = windowPass(specLo, bin, T, k, s);
+      const passTest = windowPass(testLo, testRate, T, k, s);
+      const allTemp = TCUST.every(tc => windowPass(specLo, bin, tc, k, s));
+      let best = null;
+      BINS.forEach(b => { if(windowPass(testLo, b * (1 + gT), T, k, s)) best = b; });
+      const verdict = passTest ? (allTemp ? 'ship' : 'escape') : (passSpec && allTemp) ? 'overkill' : 'reject';
+      const VERD = {ship:[t('出貨', 'Ship'), 'ok', t('測試通過，全溫也符合規格', 'Passes test and meets spec at all temperatures')],
+        escape:[t('漏網風險', 'Escape risk'), 'bad', t('測試溫度下通過，但客戶溫度範圍內會失效', 'Passes at test temperature but fails within the customer temperature range')],
+        overkill:[t('誤殺', 'Overkill'), 'warn', t('符合規格，但沒通過含 guard band 的測試', 'Meets spec but fails the guard-banded test')],
+        reject:[t('正確剔除', 'Correct reject'), '', t('在規格條件（某個客戶溫度）下就會失敗', 'Fails at spec conditions (at some customer temperature)')]};
+      const vAtBin = (() => { let lo = 0.6, hi = 1.6; if(fmax(hi, T, k) < bin) return null; for(let i = 0; i < 40; i++){ const m = (lo + hi) / 2; if(fmax(m, T, k) >= bin) hi = m; else lo = m; } return Math.max(hi, vmin(T, s)); })();
+      metrics($('sh-metrics'), [
+        {l:t('判定', 'Verdict'), v:VERD[verdict][0], cls:VERD[verdict][1], s:VERD[verdict][2]},
+        {l:t('最高可出貨等級', 'Highest shippable bin'), v: best ? best : '—', u: best ? 'MT/s' : '', s:t('在測試溫度、含 guard band', 'at test temperature, with guard band')},
+        {l:t('1.1 V 時最高速度', 'Max speed at 1.1 V'), v:Math.round(fmax(VNOM, T, k)), u:'MT/s'},
+        {l:t('目標速度所需最低 V<sub>DD</sub>', 'Min V<sub>DD</sub> for target bin'), v: vAtBin ? vAtBin.toFixed(3) : '—', u:'V', s:t('規格下限 ', 'spec low ') + specLo.toFixed(3) + ' V'},
+        {l:t('全溫檢查（0 / 95 °C）', 'All-temperature check (0 / 95 °C)'), v: allTemp ? t('通過', 'Pass') : t('失敗', 'Fail'), cls: allTemp ? 'ok' : 'bad', s: TCUST.map(tc => tc + ' °C: ' + Math.round(fmax(specLo, tc, k))).join(' · ') + ' MT/s @ ' + specLo.toFixed(3) + ' V'}
+      ]);
+      $('sh-sub').textContent = t('測試溫度 ', 'test temp ') + T + ' °C · ' + t('測試速度 ', 'test rate ') + Math.round(testRate) + ' MT/s';
+      // grid
+      const V0 = 0.80, dV = 0.02, NV = 26, R0 = 3200, dR = 400, NR = 17;
+      const W = 640, H = 400, m = {l:62, r:14, t:12, b:46}, cw = (W - m.l - m.r) / NV, ch = (H - m.t - m.b) / NR;
+      const X = v => m.l + (v - V0 + dV / 2) / dV * cw, Y = r => m.t + (NR - 1 - (r - R0) / dR) * ch;
+      let svg = '';
+      for(let iy = 0; iy < NR; iy++) for(let ix = 0; ix < NV; ix++){
+        const V = V0 + ix * dV, rate = R0 + iy * dR, ok = passAt(V, rate, T, k, s, holes, ix, iy);
+        svg += '<rect x="' + (m.l + ix * cw + 1).toFixed(1) + '" y="' + (Y(rate) - ch / 2 + 1).toFixed(1) + '" width="' + (cw - 2).toFixed(1) + '" height="' + (ch - 2).toFixed(1) + '" rx="2" style="fill:' + (ok ? 'var(--s3)' : 'var(--s4)') + ';opacity:' + (ok ? .72 : .5) + '"/>';
+      }
+      const box = (vlo, vhi, rate, col, dash, w) => '<rect x="' + X(vlo).toFixed(1) + '" y="' + (Y(rate) - ch / 2).toFixed(1) + '" width="' + (X(vhi) - X(vlo)).toFixed(1) + '" height="' + ch.toFixed(1) + '" style="fill:none;stroke:' + col + ';stroke-width:' + w + (dash ? ';stroke-dasharray:' + dash : '') + '"/>';
+      svg += box(specLo, specHi, bin, 'var(--ink)', '6 3', 2.5);
+      if(testRate <= R0 + (NR - 1) * dR + dR / 2) svg += box(testLo, testHi, Math.min(testRate, R0 + (NR - 1) * dR), 'var(--accent)', '', 2);
+      for(let iy = 0; iy < NR; iy += 2) svg += '<text x="' + (m.l - 6) + '" y="' + (Y(R0 + iy * dR) + 4).toFixed(1) + '" text-anchor="end" class="ts t-mono t-mut">' + (R0 + iy * dR) + '</text>';
+      for(let ix = 0; ix < NV; ix += 5) svg += '<text x="' + X(V0 + ix * dV).toFixed(1) + '" y="' + (H - m.b + 16) + '" text-anchor="middle" class="ts t-mono t-mut">' + (V0 + ix * dV).toFixed(2) + '</text>';
+      svg += '<text x="' + ((W + m.l) / 2) + '" y="' + (H - 8) + '" text-anchor="middle" class="ts t-mut">V_DD (V)</text>';
+      svg += '<text x="14" y="' + (H / 2) + '" text-anchor="middle" class="ts t-mut" transform="rotate(-90 14 ' + (H / 2) + ')">' + t('資料速率 (MT/s)', 'Data rate (MT/s)') + '</text>';
+      const el = $('sh-plot'); el.setAttribute('viewBox', '0 0 ' + W + ' ' + H); el.innerHTML = svg;
+      // speed vs V at four temperatures (same die)
+      const series = [[-40, 'var(--s1)'], [25, 'var(--s3)'], [95, 'var(--s2)'], [125, 'var(--s4)']].map(([tc, col]) => {
+        const pts = []; for(let V = 0.8; V <= 1.301; V += 0.01) pts.push([V, Math.min(12000, fmax(V, tc, k))]);
+        return {pts, color:col, w: tc === T ? 3 : 1.6};
+      });
+      plot($('sh-temps'), {W:640, H:260, x:[0.8, 1.3], y:[2000, 11000], xlabel:'V_DD (V)', ylabel:t('最高速度 (MT/s)', 'Max speed (MT/s)'), series,
+        hlines:[{y:bin, color:'var(--ink)', label:t('目標 ', 'target ') + bin}],
+        vlines:[{x:0.94, color:'var(--muted)', label:t('反轉點 ≈ 0.94 V', 'inversion ≈ 0.94 V')}, {x:specLo, color:'var(--ink)', label:t('規格下限', 'spec low'), dy:16, anchor:'end'}]});
+    }
+    render();
+  };
 })();

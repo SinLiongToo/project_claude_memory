@@ -59,7 +59,16 @@
     {c:'rel', q:'JEDEC JESD218 對消費級（client）SSD 的保存要求是？', o:['寫到額定 TBW 後，斷電在 30 °C 下保存 1 年', '40 °C 下保存 3 個月', '85 °C 下保存 10 年', '25 °C 下永久保存'], e:'40 °C、3 個月是企業級的要求。', l:'reliability.html#flash-retention'},
     {c:'rel', q:'為什麼 SRAM 對軟錯誤特別敏感？', o:['節點電容小，臨界電荷 Q_crit 低', 'SRAM 不能使用 ECC', 'SRAM 用的電壓最高', 'SRAM 沒有 refresh'], e:'微縮後單一位元被擊中的機率下降，但多位元翻轉（MBU）比例上升。', l:'reliability.html#ser'},
     {c:'rel', q:'E_a = 0.7 eV，使用溫度 55 °C、測試溫度 125 °C，Arrhenius 加速因子約為？', o:['約 78', '約 8', '約 780', '約 2'], e:'AF = exp[(0.7/8.617e-5) × (1/328 − 1/398)] ≈ e^4.35 ≈ 78。', l:'reliability.html#arrhenius'},
-    {c:'rel', q:'NAND 的 read disturb 主要造成什麼？', o:['同一串未選中單元承受 V_PASS 被輕微寫入，V_t 上移（特別是抹除態）', '選中單元被抹除', '位元線斷線', '電荷捕捉層崩潰'], e:'讀取密集的 block 要定期搬移資料。', l:'reliability.html#disturb'}
+    {c:'rel', q:'NAND 的 read disturb 主要造成什麼？', o:['同一串未選中單元承受 V_PASS 被輕微寫入，V_t 上移（特別是抹除態）', '選中單元被抹除', '位元線斷線', '電荷捕捉層崩潰'], e:'讀取密集的 block 要定期搬移資料。', l:'reliability.html#disturb'},
+    // ---------- 業界案例 / 測試與設計細節 ----------
+    {c:'rel', q:'1979 年發表的經典研究指出，DRAM 隨機位元翻轉（軟錯誤）的來源是？', o:['封裝材料中微量放射性元素放出的 α 粒子', '電源雜訊', '字元線耦合', '製程中的金屬污染'], e:'陶瓷封裝中的微量鈾、釷放出 α 粒子。對策包括低 α 材料、晶片保護層與 ECC。', l:'lessons.html#c-alpha'},
+    {c:'rel', q:'「DRAM Errors in the Wild」（2009）的主要發現是？', o:['現場錯誤率遠高於實驗室推估，且多為會重複出現的硬錯誤', '現場錯誤幾乎都是宇宙射線造成的軟錯誤', 'ECC 伺服器從不出錯', '錯誤率與使用率無關'], e:'錯誤率與使用率、模組年齡相關；可更正錯誤是故障前兆，應該監控。', l:'lessons.html#c-wild'},
+    {c:'app', q:'2014 年某 TLC SSD 讀取舊資料變慢，根本原因是？', o:['保存期間 V_t 漂移，需要多次 read retry 才能讀對', 'SATA 介面頻寬不足', 'DRAM 快取故障', '檔案系統碎片化'], e:'韌體加入背景掃描、定期重寫舊資料後改善。多階 NAND 的保存漂移也是效能問題。', l:'lessons.html#c-evo'},
+    {c:'rel', q:'TRRespass（2020）給業界的主要教訓是？', o:['不公開、容量有限的晶片內緩解機制可能被繞過，防護要可驗證', 'Row hammer 只影響 DDR3', '提高頻率就能避免 row hammer', 'ECC 可以完全防止 row hammer'], e:'之後業界轉向規格定義的 RFM 與 PRAC。', l:'lessons.html#c-trrespass'},
+    {c:'tst', q:'Shmoo 圖上，低電壓區在低溫反而比高溫慢的現象稱為？', o:['溫度反轉（temperature inversion）', '熱失控', '電遷移', '閂鎖效應'], e:'低溫時 V_t 升高的影響超過遷移率提升，在低電壓下特別明顯。', l:'test.html#shmoo'},
+    {c:'tst', q:'Guard band 太大的直接代價是？', o:['誤殺（overkill）增加，良率與營收下降', '漏網（escape）增加', '測試機精度變差', '保存時間變短'], e:'Guard band 補償測試機誤差與條件差異；太小則會漏網，所以要依精度與 Cpk 設定。', l:'test.html#guardband'},
+    {c:'des', q:'在 DRAM 感測訊號預算中，下列哪一項「不會」直接吃掉位元線上的 ΔV？', o:['I/O 輸出驅動的阻抗', '保存期間的漏電', 'SA 偏移', '相鄰位元線的耦合雜訊'], e:'I/O 阻抗影響的是晶片外的訊號，不是陣列內的感測裕度。', l:'design.html#signal-budget'},
+    {c:'des', q:'DRAM 使用負字元線電壓（V_NWL）的主要目的是？', o:['讓存取電晶體關得更徹底，降低漏電、延長保存時間', '加快字元線上升', '降低 V_PP', '減少位元線電容'], e:'關態時閘極再低一點，次臨界漏電就少很多。', l:'design.html#power'}
   ];
   // English versions, same order as Q (c and l are shared)
   const QEN = [
@@ -111,7 +120,15 @@
     {q:'What does JEDEC JESD218 require of client SSDs for retention?', o:['After rated TBW, keep data 1 year powered off at 30 °C', 'Keep data 3 months at 40 °C', 'Keep data 10 years at 85 °C', 'Keep data forever at 25 °C'], e:'3 months at 40 °C is the enterprise requirement.'},
     {q:'Why is SRAM especially sensitive to soft errors?', o:['Small node capacitance means a low critical charge Q_crit', 'SRAM cannot use ECC', 'SRAM runs at the highest voltage', 'SRAM has no refresh'], e:'Scaling makes single-bit hits rarer but multi-bit upsets (MBU) more common.'},
     {q:'E_a = 0.7 eV, use at 55 °C, stress at 125 °C: roughly the Arrhenius acceleration factor?', o:['About 78', 'About 8', 'About 780', 'About 2'], e:'AF = exp[(0.7/8.617e-5) × (1/328 − 1/398)] ≈ e^4.35 ≈ 78.'},
-    {q:'What does NAND read disturb mainly cause?', o:['Unselected cells on the string see V_PASS and get slightly programmed (V_t shifts up, especially erased cells)', 'The selected cell is erased', 'A bit line opens', 'The charge-trap layer breaks down'], e:'Read-hot blocks must be relocated periodically.'}
+    {q:'What does NAND read disturb mainly cause?', o:['Unselected cells on the string see V_PASS and get slightly programmed (V_t shifts up, especially erased cells)', 'The selected cell is erased', 'A bit line opens', 'The charge-trap layer breaks down'], e:'Read-hot blocks must be relocated periodically.'},
+    {q:'A classic 1979 study traced random DRAM bit flips (soft errors) to what?', o:['Alpha particles from trace radioactive elements in package materials', 'Supply noise', 'Word-line coupling', 'Metal contamination in the fab'], e:'Trace uranium and thorium in ceramic packages emit alpha particles. Fixes include low-alpha materials, a die coating and ECC.'},
+    {q:'What was the main finding of “DRAM Errors in the Wild” (2009)?', o:['Field error rates were far above lab estimates and mostly recurring hard errors', 'Field errors were almost all cosmic-ray soft errors', 'ECC servers never see errors', 'Error rates do not depend on utilization'], e:'Rates correlated with utilization and module age; correctable errors are precursors and should be monitored.'},
+    {q:'In 2014 a TLC SSD read old data slowly. What was the root cause?', o:['V_t drift during retention meant many read retries were needed', 'Insufficient SATA bandwidth', 'A failed DRAM cache', 'File-system fragmentation'], e:'Firmware added background scans that rewrite old data. Retention drift in multi-level NAND is a performance problem too.'},
+    {q:'What is the main lesson of TRRespass (2020)?', o:['Undisclosed, small in-DRAM mitigations can be bypassed; protection must be verifiable', 'Row hammer only affects DDR3', 'Higher clock speed prevents row hammer', 'ECC completely prevents row hammer'], e:'The industry then moved to specified mechanisms: RFM and PRAC.'},
+    {q:'On a shmoo plot, the low-voltage region is slower when cold than when hot. What is this called?', o:['Temperature inversion', 'Thermal runaway', 'Electromigration', 'Latch-up'], e:'At low temperature V_t rises more than mobility improves, which dominates at low voltage.'},
+    {q:'What is the direct cost of too large a guard band?', o:['More overkill, lower yield and revenue', 'More escapes', 'Worse tester accuracy', 'Shorter retention'], e:'Guard bands cover tester error and condition differences; too small causes escapes, so set them from accuracy and Cpk.'},
+    {q:'In a DRAM sensing signal budget, which item does NOT directly eat the bit-line ΔV?', o:['I/O output driver impedance', 'Leakage during retention', 'SA offset', 'Coupling noise from neighbouring bit lines'], e:'I/O impedance affects off-chip signals, not the sense margin inside the array.'},
+    {q:'Why does DRAM use a negative word-line voltage (V_NWL)?', o:['To turn the access transistor off harder, cutting leakage and extending retention', 'To speed up the word-line rise', 'To lower V_PP', 'To reduce bit-line capacitance'], e:'A slightly lower gate in the off state cuts sub-threshold leakage substantially.'}
   ];
   if(EN) Q.forEach((q, i) => Object.assign(q, QEN[i]));
 

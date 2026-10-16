@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Industry Lessons · Memory Notes</title>
+<meta name="description" content="Lessons learned in the memory industry: soft errors, data-center DRAM errors, row hammer, SSD field issues, packaging-material incidents, the Optane exit, and common process, test and design problems with how to debug them.">
+<link rel="alternate" hreflang="zh-Hant" href="../lessons.html">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-page="lessons">
+<main class="doc">
+<nav class="toc" aria-label="On this page"></nav>
+<article>
+<div class="eyebrow">Lessons learned</div>
+<h1>Industry lessons and common problems: pitfalls others hit first</h1>
+<p class="lead">Many rules, test items and design habits in the memory industry exist because something once went wrong. This page collects classic cases documented in public papers or reports, each written as symptom → root cause → fix → lesson. The second half lists problems that recur in process, test and design as tables you can use while debugging.</p>
+<div class="callout"><b>How to read this</b>　Cases cite only public papers and reports; see the originals for details. The common-problem tables are general industry experience, not specific to any company.</div>
+
+<h2 id="soft-errors">Soft errors: from alpha particles to server crashes</h2>
+<div class="case" id="c-alpha"><div class="case-h"><span class="tag rel">Reliab.</span><b>Alpha particles cause DRAM soft errors</b><small>1978–1979 · DRAM</small></div><dl>
+<div><dt>Symptom</dt><dd>16 Kb-class DRAMs showed random, non-repeatable bit flips; the devices were not damaged and a rewrite fixed them.</dd></div>
+<div><dt>Root cause</dt><dd>Trace uranium and thorium in ceramic package materials emitted alpha particles, and the charge they generated in silicon was enough to flip storage nodes.</dd></div>
+<div><dt>Fix</dt><dd>Low-alpha package materials, a polyimide coating on the die, more stored charge per cell, and ECC in systems.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Reliability problems can come from materials outside the chip; soft errors must be quantified in FIT and handled at system level.</dd></div></dl>
+<p class="src">Reference: T. C. May, M. H. Woods, “Alpha-particle-induced soft errors in dynamic memories,” IEEE Trans. Electron Devices, 1979.</p></div>
+
+<div class="case" id="c-boron"><div class="case-h"><span class="tag rel">Reliab.</span><b>Boron-10 in BPSG and thermal neutrons</b><small>late 1990s · SRAM / logic</small></div><dl>
+<div><dt>Symptom</dt><dd>SRAM soft-error rates were several times higher than expected and tracked the neutron environment.</dd></div>
+<div><dt>Root cause</dt><dd>Boron-10 in the BPSG dielectric absorbs thermal neutrons and splits into an alpha particle and a lithium nucleus — right above the transistors.</dd></div>
+<div><dt>Fix</dt><dd>Remove BPSG from the process or use material depleted of boron-10.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Even the isotopic make-up of materials affects reliability; new materials must be assessed for soft-error rate.</dd></div></dl>
+<p class="src">Reference: R. Baumann et al. (Texas Instruments), studies of BPSG and thermal-neutron soft errors, c. 1995–2001.</p></div>
+
+<div class="case" id="c-cache"><div class="case-h"><span class="tag rel">Reliab.</span><b>Server cache SRAM with parity only</b><small>c. 1999–2000 · SRAM / system</small></div><dl>
+<div><dt>Symptom</dt><dd>A server product line suffered frequent unexplained crashes at customers.</dd></div>
+<div><dt>Root cause</dt><dd>The external cache SRAM had parity but no ECC; a soft error could be detected but not corrected, so the system had to stop.</dd></div>
+<div><dt>Fix</dt><dd>Later products added ECC and mirroring to the cache.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>As capacity grows, soft errors matter at system level; detect-only turns a soft error into downtime.</dd></div></dl>
+<p class="src">Reference: public reports around 2000 on the Sun UltraSPARC II external-cache issue.</p></div>
+
+<h2 id="field-dram">DRAM errors in data centers</h2>
+<div class="case" id="c-wild"><div class="case-h"><span class="tag rel">Reliab.</span><b>DRAM Errors in the Wild</b><small>2009 · field study</small></div><dl>
+<div><dt>Symptom</dt><dd>Large-scale data-center statistics showed DRAM error rates far above lab estimates; about a third of machines saw at least one correctable error per year.</dd></div>
+<div><dt>Root cause</dt><dd>Most errors were hard or recurring errors rather than random soft errors, and rates correlated with utilization and module age.</dd></div>
+<div><dt>Fix</dt><dd>ECC on every server, trend monitoring of correctable errors (CE), and proactive module replacement or page offlining when CEs pile up.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Lab numbers do not represent the field; correctable errors are precursors and must be collected and analysed.</dd></div></dl>
+<p class="src">Reference: B. Schroeder, E. Pinheiro, W.-D. Weber, “DRAM Errors in the Wild: A Large-Scale Field Study,” SIGMETRICS 2009.</p></div>
+
+<div class="case" id="c-revisit"><div class="case-h"><span class="tag rel">Reliab.</span><b>Field errors in newer DRAM generations</b><small>2015 · field study</small></div><dl>
+<div><dt>Symptom</dt><dd>A small fraction of servers caused most memory errors.</dd></div>
+<div><dt>Root cause</dt><dd>Errors concentrated in specific device failures (whole rows or chips), and newer, denser DRAM generations had higher error rates.</dd></div>
+<div><dt>Fix</dt><dd>Handle errors by type and isolate frequently failing pages and modules.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Scaling weakens cells; system-level error management (RAS) is part of memory reliability.</dd></div></dl>
+<p class="src">Reference: J. Meza, Q. Wu, S. Kumar, O. Mutlu, “Revisiting Memory Errors in Large-Scale Production Data Centers,” DSN 2015.</p></div>
+
+<div class="case" id="c-odecc"><div class="case-h"><span class="tag des">Design</span><b>On-die ECC hides the warning signs</b><small>DDR5 era · DRAM / system</small></div><dl>
+<div><dt>Symptom</dt><dd>Systems see very low error rates, but when errors do appear they are often multi-bit and hard to analyse.</dd></div>
+<div><dt>Root cause</dt><dd>On-die ECC silently corrects single-bit errors, so the system sees no precursors; with two errors in one codeword it can even miscorrect and make things worse.</dd></div>
+<div><dt>Fix</dt><dd>DDR5 provides ECS (error check and scrub) error counts; systems keep their own ECC; work with suppliers for error statistics when needed.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Hiding errors is not the same as reliability; designs must stay observable.</dd></div></dl></div>
+
+<h2 id="rowhammer-saga">A decade of row hammer</h2>
+<div class="case" id="c-rh2014"><div class="case-h"><span class="tag rel">Reliab.</span><b>Row hammer discovered, then weaponized</b><small>2014–2015 · DRAM / security</small></div><dl>
+<div><dt>Symptom</dt><dd>Research showed that rapidly accessing two addresses from an ordinary user program flips bits elsewhere; most DDR3 modules tested were affected. A year later it was used to gain system privileges.</dd></div>
+<div><dt>Root cause</dt><dd>Scaling strengthened coupling and leakage paths between neighbouring cells, so many activations within one refresh period disturb adjacent rows.</dd></div>
+<div><dt>Fix</dt><dd>Short term, higher refresh rates; then in-DRAM TRR and controller-side mitigation.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>A reliability problem can become a security hole; legal timing does not mean a safe access pattern.</dd></div></dl>
+<p class="src">References: Y. Kim et al., “Flipping Bits in Memory Without Accessing Them,” ISCA 2014; Google Project Zero blog, 2015.</p></div>
+
+<div class="case" id="c-trrespass"><div class="case-h"><span class="tag rel">Reliab.</span><b>TRRespass: bypassing TRR</b><small>2020 · DRAM / security</small></div><dl>
+<div><dt>Symptom</dt><dd>DDR4 modules advertised as row-hammer protected still flipped under many-sided attacks.</dd></div>
+<div><dt>Root cause</dt><dd>TRR tracking tables are small and undocumented; with more aggressors than they can track, protection fails.</dd></div>
+<div><dt>Fix</dt><dd>The industry moved to specified, verifiable mechanisms: RFM in DDR5, then PRAC.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Undisclosed mitigations are hard to verify; protection must be checkable by third parties.</dd></div></dl>
+<p class="src">Reference: P. Frigo et al., “TRRespass: Exploiting the Many Sides of Target Row Refresh,” IEEE S&amp;P 2020.</p>
+<div class="tryit" style="margin-bottom:0">▶ Reproduce it: <a href="lab.html#rowhammer">Lab · Row hammer</a> (TRR table of 4, 20 aggressors)</div></div>
+
+<div class="case" id="c-halfdouble"><div class="case-h"><span class="tag rel">Reliab.</span><b>Half-Double and RowPress</b><small>2021, 2023 · DRAM</small></div><dl>
+<div><dt>Symptom</dt><dd>Victims two rows away also flip; or, without many activations, simply holding an aggressor row open long enough flips bits.</dd></div>
+<div><dt>Root cause</dt><dd>There is more than one disturb mechanism (coupling, charge injection, leakage from long open rows); a model of “adjacent rows, activation count” is not enough.</dd></div>
+<div><dt>Fix</dt><dd>Mitigations consider a wider neighbourhood and row-open time; PRAC’s per-row counting gives more complete protection.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Failure models evolve with measurements; test patterns must cover many access styles.</dd></div></dl>
+<p class="src">References: Google, “Half-Double: Next-Row-Over Assisted Rowhammer,” 2021; H. Luo et al., “RowPress,” ISCA 2023.</p></div>
+
+<h2 id="flash-field">Flash and SSD field issues</h2>
+<div class="case" id="c-evo"><div class="case-h"><span class="tag app">Apps</span><b>Old data reads slowly</b><small>2014 · TLC SSD</small></div><dl>
+<div><dt>Symptom</dt><dd>A popular TLC SSD read months-old files much more slowly, while newly written data was fine.</dd></div>
+<div><dt>Root cause</dt><dd>V<sub>t</sub> drift during retention meant reads needed many read-retry and ECC attempts to succeed, which slowed them down.</dd></div>
+<div><dt>Fix</dt><dd>Firmware updates added background scans that periodically rewrite old data, plus better read-voltage tracking.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Retention drift in multi-level NAND is both a reliability and a performance problem; much of an SSD’s quality lives in firmware.</dd></div></dl>
+<p class="src">Reference: public reports and firmware notices on the Samsung 840 EVO read-performance issue, 2014–2015.</p>
+<div class="tryit" style="margin-bottom:0">▶ See retention drift and read retry: <a href="lab.html#nand">Lab · NAND</a></div></div>
+
+<div class="case" id="c-flashprod"><div class="case-h"><span class="tag rel">Reliab.</span><b>Flash reliability in production</b><small>2016 · field study</small></div><dl>
+<div><dt>Symptom</dt><dd>Analysis of several years of field data from SLC, MLC and eMLC SSDs.</dd></div>
+<div><dt>Findings</dt><dd>RBER rises with P/E cycles but is not a good predictor of failures; SLC did not necessarily see fewer uncorrectable errors than MLC; age itself matters; uncorrectable errors were more common than expected.</dd></div>
+<div><dt>Fix</dt><dd>Base monitoring and replacement on field data rather than datasheet ratings alone.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Rated endurance is only one side of the story; verify assumptions with field statistics.</dd></div></dl>
+<p class="src">Reference: B. Schroeder, R. Lagisetty, A. Merchant, “Flash Reliability in Production: The Expected and the Unexpected,” FAST 2016.</p></div>
+
+<div class="case" id="c-powerfault"><div class="case-h"><span class="tag app">Apps</span><b>SSD data corruption on sudden power loss</b><small>2013 · SSD</small></div><dl>
+<div><dt>Symptom</dt><dd>Repeatedly cutting power to many SSDs caused bit corruption, out-of-order writes, data loss and even bricked drives.</dd></div>
+<div><dt>Root cause</dt><dd>Mapping tables and cached data in DRAM did not reach NAND in time; losing power while programming an MLC upper page can destroy the already written lower page (paired page).</dd></div>
+<div><dt>Fix</dt><dd>Power-loss-protection capacitors (PLP), journaled mapping tables, and program ordering that avoids damaging paired pages.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Power loss is one of the harshest SSD tests; PLP in enterprise SSDs is not optional.</dd></div></dl>
+<p class="src">Reference: M. Zheng, J. Tucek, F. Qin, M. Lillibridge, “Understanding the Robustness of SSDs under Power Fault,” FAST 2013.</p></div>
+
+<h2 id="package-lessons">Packaging and materials</h2>
+<div class="case" id="c-redp"><div class="case-h"><span class="tag tst">Test</span><b>Red phosphorus flame retardant in mold compound</b><small>early 2000s · package materials</small></div><dl>
+<div><dt>Symptom</dt><dd>Large numbers of ICs using a particular mold compound developed leakage and shorts between pins in the field, affecting hard drives and other products.</dd></div>
+<div><dt>Root cause</dt><dd>Red phosphorus flame retardant in the compound formed conductive species with moisture, causing leakage between adjacent leads.</dd></div>
+<div><dt>Fix</dt><dd>Change the mold compound; the industry moved to red-phosphorus-free “green” formulations and strengthened humidity-bias testing.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>One material supplier’s problem can hit many companies’ products at once; material changes need full qualification and supply-chain traceability.</dd></div></dl></div>
+
+<div class="case" id="c-cuwire"><div class="case-h"><span class="tag tst">Test</span><b>Corrosion in copper wire bonding</b><small>gold-to-copper transition · packaging</small></div><dl>
+<div><dt>Symptom</dt><dd>After switching from gold to copper wire to save cost, some products showed rising contact resistance and opens in high-temperature humidity-bias tests.</dd></div>
+<div><dt>Root cause</dt><dd>Halide (chlorine) ions in the mold compound corroded the copper–aluminium intermetallic under moisture and bias.</dd></div>
+<div><dt>Fix</dt><dd>Low-halogen mold compounds, palladium-coated copper wire, optimized bonding and intermetallic formation, stronger uHAST / THB qualification.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Cost-driven material changes need stricter qualification than the old material, not inherited experience.</dd></div></dl></div>
+
+<div class="case" id="c-hbmthermal"><div class="case-h"><span class="tag tst">Test</span><b>Heat and warpage in HBM stacks</b><small>ongoing · advanced packaging</small></div><dl>
+<div><dt>Symptom</dt><dd>As stacks grow taller, yield and reliability issues concentrate in cracked joints, warpage and local hot spots.</dd></div>
+<div><dt>Root cause</dt><dd>Many thin dies have high thermal resistance, materials expand differently with temperature, and the neighbouring GPU dissipates enormous power.</dd></div>
+<div><dt>Fix</dt><dd>Better underfills (MR-MUF, NCF), thermal design, hybrid bonding and stricter KGD testing.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>Advanced packaging makes the package as important a yield source as the wafer; thermal design must be considered at system level.</dd></div></dl>
+<div class="tryit" style="margin-bottom:0">▶ See how height and KGD drive yield: <a href="lab.html#hbm">Lab · HBM stack yield</a></div></div>
+
+<h2 id="product-lessons">Technology and product choices</h2>
+<div class="case" id="c-optane"><div class="case-h"><span class="tag app">Apps</span><b>The exit of 3D XPoint / Optane</b><small>2022 · storage-class memory</small></div><dl>
+<div><dt>Symptom</dt><dd>A technically successful storage-class memory line, with performance between DRAM and NAND, was eventually discontinued.</dd></div>
+<div><dt>Root cause</dt><dd>Cost could not approach NAND; software and systems needed major changes to benefit; and steady DRAM and NAND progress squeezed the space in between.</dd></div>
+<div class="ls"><dt>Lesson</dt><dd>A new memory needs a cost curve, an ecosystem and clear killer applications, not just a technical lead. The later rise of CXL memory and HBM shows that how memory is integrated into systems often matters more than any single device.</dd></div></dl></div>
+
+<h2 id="fab-issues">Common process problems</h2>
+<div class="tblwrap"><table>
+<tr><th>Problem</th><th>Typical symptom</th><th>Common causes</th><th>How to investigate</th></tr>
+<tr><td>Capacitor leaning / bridging</td><td>Pairs or clusters of adjacent cells fail</td><td>Tall structures collapse while drying after wet steps; weak support layers</td><td>Fail bit map + cross-section TEM</td></tr>
+<tr><td>Holes not open</td><td>Whole regions of cells or whole NAND strings fail</td><td>Etch stop, residue at the hole bottom</td><td>Electrical localization + FIB cross-section</td></tr>
+<tr><td>Wafer bow</td><td>Worse overlay, more edge failures</td><td>Stress from thick 3D NAND stacks</td><td>Bow measurement, overlay maps</td></tr>
+<tr><td>Word-line shorts</td><td>Adjacent row pairs fail</td><td>Litho or etch defects, particles</td><td>Fail bit map signatures</td></tr>
+<tr><td>Plasma damage (antenna effect)</td><td>V<sub>t</sub> shifts or gate leakage on certain transistors</td><td>Long metal lines collect charge during processing and damage gates</td><td>Antenna rule checks, WAT</td></tr>
+<tr><td>Low edge yield</td><td>Ring-shaped failures</td><td>Film / etch non-uniformity, edge peeling</td><td>Radial wafer-map analysis</td></tr>
+<tr><td>High contact resistance</td><td>Speed failures when cold</td><td>Poor contact-bottom clean, barrier issues</td><td>Cold shmoo, contact-chain WAT</td></tr>
+<tr><td>High leakage</td><td>Retention failures, high I<sub>DD</sub></td><td>Implant / anneal conditions, crystal defects</td><td>Hot pause test, WAT</td></tr>
+</table></div>
+
+<h2 id="test-issues">Common test problems</h2>
+<div class="tblwrap"><table>
+<tr><th>Problem</th><th>Typical symptom</th><th>Common causes</th><th>Countermeasure</th></tr>
+<tr><td>Poor probe contact</td><td>Low yield on some sites or shifts, passes on retest</td><td>Worn or dirty tips, wrong overdrive</td><td>Probe-card cleaning and replacement, per-site yield monitoring</td></tr>
+<tr><td>Poor tester correlation</td><td>Large yield differences between testers</td><td>Timing calibration, thermal control differences</td><td>Golden-unit comparison, regular calibration</td></tr>
+<tr><td>Single-temperature test</td><td>Customer failures when cold or hot</td><td>Missing temperature-dependent mechanisms (see temperature inversion)</td><td>Hot and cold test</td></tr>
+<tr><td>VRT escapes</td><td>Retention failures appear after shipping</td><td>Weak cells happen to be in their “good” state during test</td><td>Repeated pause tests, larger guard band</td></tr>
+<tr><td>Insufficient patterns</td><td>Failures with specific data patterns in systems</td><td>Data backgrounds, address orders or disturb types not covered</td><td>Add disturb tests, system-level test (SLT)</td></tr>
+<tr><td>Masked by ECC</td><td>Raw failures rise unnoticed</td><td>On-die ECC left on during test</td><td>Test mode with ECC off to see raw fails</td></tr>
+<tr><td>Wrong guard band</td><td>Unusually low yield or rising customer returns</td><td>Guard band too big (overkill) or too small (escapes)</td><td>Derive from tester accuracy and Cpk, review regularly</td></tr>
+</table></div>
+<div class="tryit">▶ Test details: <a href="test.html#test-items">test items</a>, <a href="test.html#shmoo">shmoo plots</a>, <a href="test.html#guardband">guard bands</a></div>
+
+<h2 id="design-issues">Common design problems</h2>
+<div class="tblwrap"><table>
+<tr><th>Problem</th><th>Typical symptom</th><th>Cause</th><th>Prevention</th></tr>
+<tr><td>IR drop / supply noise</td><td>Fails under dense ACTs or particular bank combinations</td><td>Insufficient pump or power-grid capacity</td><td>Power-integrity analysis, t<sub>FAW</sub> planning</td></tr>
+<tr><td>SSO noise</td><td>I/O fails with certain data patterns (all 0 ↔ all 1)</td><td>Many I/Os switching at once</td><td>Power / ground pin plan, data bus inversion (DBI)</td></tr>
+<tr><td>Asymmetric SA layout</td><td>Higher error rate on one data polarity</td><td>Parasitic asymmetry creates systematic offset</td><td>Symmetric layout, post-layout Monte Carlo</td></tr>
+<tr><td>Bit-line coupling</td><td>Fails with specific data backgrounds</td><td>Neighbouring bit lines swing opposite ways together</td><td>Shielded or twisted bit lines, staggered timing</td></tr>
+<tr><td>Power-up fuse-load race</td><td>Intermittent boot failures</td><td>Fuses read before internal supplies settle</td><td>Power-up sequence verification, POR margin</td></tr>
+<tr><td>Underestimated SRAM V<sub>min</sub></td><td>Production V<sub>min</sub> higher than simulated</td><td>Simulated only to 4–5σ, aging ignored</td><td>High-sigma statistics, aging margin</td></tr>
+<tr><td>ESD weakness in new I/O</td><td>CDM damage after assembly</td><td>Protection does not fit the new structure</td><td>ESD design rules, early test-chip validation</td></tr>
+</table></div>
+<div class="tryit">▶ Design details: <a href="design.html#signal-budget">signal budget</a>, <a href="design.html#power">internal supplies</a>, <a href="design.html#dft">DFT test modes</a>, <a href="design.html#design-margin">design margin</a></div>
+
+<h2 id="takeaways">Common lessons</h2>
+<ol>
+<li><b>Verify assumptions with field data</b>: lab estimates and the field often differ widely, as DRAM and flash field studies showed.</li>
+<li><b>Stay observable</b>: ECC, redundancy and firmware all hide problems; test and systems must see raw failures.</li>
+<li><b>Failure models go stale</b>: row hammer went from “count” to “time” to “distance”, and test patterns must follow.</li>
+<li><b>Materials and supply chain are part of reliability</b>: one material change can affect many products at once.</li>
+<li><b>Sweep temperature and voltage</b>: single-point tests leak escapes; a shmoo is the cheapest insurance.</li>
+<li><b>Reliability problems become security problems</b>: access patterns are an attack surface.</li>
+<li><b>The system is one piece</b>: memory reliability is decided by the chip, controller, firmware and system RAS together.</li>
+</ol>
+
+<h2 id="references">References</h2>
+<ul class="note">
+<li>T. C. May, M. H. Woods, “Alpha-particle-induced soft errors in dynamic memories,” IEEE Trans. Electron Devices, 1979.</li>
+<li>R. Baumann, “Radiation-induced soft errors in advanced semiconductor technologies,” IEEE Trans. Device and Materials Reliability, 2005.</li>
+<li>B. Schroeder, E. Pinheiro, W.-D. Weber, “DRAM Errors in the Wild: A Large-Scale Field Study,” SIGMETRICS 2009.</li>
+<li>J. Meza, Q. Wu, S. Kumar, O. Mutlu, “Revisiting Memory Errors in Large-Scale Production Data Centers,” DSN 2015.</li>
+<li>Y. Kim et al., “Flipping Bits in Memory Without Accessing Them,” ISCA 2014.</li>
+<li>P. Frigo et al., “TRRespass: Exploiting the Many Sides of Target Row Refresh,” IEEE S&amp;P 2020.</li>
+<li>H. Luo et al., “RowPress: Amplifying Read Disturbance in Modern DRAM Chips,” ISCA 2023.</li>
+<li>B. Schroeder, R. Lagisetty, A. Merchant, “Flash Reliability in Production: The Expected and the Unexpected,” FAST 2016.</li>
+<li>M. Zheng, J. Tucek, F. Qin, M. Lillibridge, “Understanding the Robustness of SSDs under Power Fault,” FAST 2013.</li>
+</ul>
+
+<p class="foot">Case summaries are compiled from public sources; see the originals. The common-problem tables are general experience and do not describe any specific company.</p>
+</article>
+</main>
+<script src="../assets/search-index-en.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -128,6 +128,208 @@
 <li><b>速度分級</b>：同一批晶片依能穩定運作的最高速度與時序分成不同等級出貨。</li>
 </ul>
 
+<h2 id="test-items">DRAM 測試項目細節</h2>
+<div class="tblwrap"><table>
+<tr><th>項目</th><th>怎麼做</th><th>篩什麼</th></tr>
+<tr><td>Open / Short</td><td>每支腳灌小電流，量保護二極體電壓</td><td>探針接觸、打線、焊球、短路</td></tr>
+<tr><td>漏電 I<sub>IL</sub> / I<sub>OZ</sub></td><td>輸入 / 輸出腳加高低電壓量電流</td><td>I/O 損傷、ESD 結構缺陷</td></tr>
+<tr><td>I<sub>DD</sub> 系列</td><td>依 JEDEC 定義的操作（I<sub>DD0</sub> 啟動、I<sub>DD2P</sub> 待機、I<sub>DD5</sub> refresh、I<sub>DD6</sub> 自我更新…）量電流</td><td>短路、漏電異常、待機功耗超標</td></tr>
+<tr><td>內部電壓 trim</td><td>測試模式量測 V<sub>PP</sub>、V<sub>ARY</sub>、V<sub>BLP</sub> 等，燒熔絲修正</td><td>製程漂移造成的電壓偏差</td></tr>
+<tr><td>功能測試</td><td>March 類演算法搭配多種資料背景（全 0、棋盤、列 / 行條紋）</td><td>單元、解碼器、SA、資料路徑</td></tr>
+<tr><td>時序裕度</td><td>縮短 tRCD、tRP、tWR，或延後 SA 啟動</td><td>慢單元、寫入不完全、慢 SA</td></tr>
+<tr><td>電壓裕度</td><td>V<sub>DD</sub> 高於 / 低於規格執行功能測試</td><td>電壓敏感的弱點</td></tr>
+<tr><td>保存（pause）測試</td><td>高溫下寫入 → 停止 refresh 等待 → 讀出</td><td>保存不足的弱單元（之後修補）</td></tr>
+<tr><td>干擾測試</td><td>反覆啟動某列（row hammer）、長時間開列、反覆寫相鄰行</td><td>WL / BL 干擾敏感單元</td></tr>
+<tr><td>I/O 參數</td><td>V<sub>OH</sub>/V<sub>OL</sub>、ODT 阻抗、訓練後的資料眼</td><td>驅動、終端、時脈電路</td></tr>
+<tr><td>速度分級</td><td>在不同資料速率與時序下全功能測試</td><td>決定出貨速度等級</td></tr>
+</table></div>
+<p>同一個項目常在不同溫度重複：高溫抓漏電與保存，低溫抓速度（接觸電阻、多晶矽電阻在低溫變大）與 SA 偏移。只在單一溫度測試，是常見的漏網來源。</p>
+
+<h2 id="shmoo">Shmoo 圖與測試裕度</h2>
+<p>Shmoo 圖是把兩個條件（最常見是電壓與速度 / 時序）掃一遍，每個格子標示通過或失敗。它是特性分析（characterization）與除錯最常用的工具，因為形狀本身就透露失效機制。</p>
+<figure>
+<svg viewBox="0 0 560 290" role="img" aria-label="Shmoo 圖示意">
+<rect x="71" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="341" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="371" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="401" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="431" y="21" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="461" y="21" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="341" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="371" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="401" y="41" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="431" y="41" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="41" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="341" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="371" y="61" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="401" y="61" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="61" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="61" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="341" y="81" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="371" y="81" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="81" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="81" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="81" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="101" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="341" y="101" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="371" y="101" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="101" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="101" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="101" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="121" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="311" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="341" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="371" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="121" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="311" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="341" y="141" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="371" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="141" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="161" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="281" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="311" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="341" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="371" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="161" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="181" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="251" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="281" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="311" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="341" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="371" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="181" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="71" y="201" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="101" y="201" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="131" y="201" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="161" y="201" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="191" y="201" width="28" height="18" class="f4" style="opacity:.55"/>
+<rect x="221" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="251" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="281" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="311" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="341" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="371" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="401" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="431" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="461" y="201" width="28" height="18" class="f3" style="opacity:.75"/>
+<rect x="165.0" y="100" width="140.0" height="20" style="fill:none;stroke:var(--ink);stroke-width:2.5;stroke-dasharray:6 3"/>
+<text x="311.0" y="114" class="ts">規格視窗</text>
+<text x="64" y="34" text-anchor="end" class="ts t-mono t-mut">8000</text>
+<text x="64" y="74" text-anchor="end" class="ts t-mono t-mut">7200</text>
+<text x="64" y="114" text-anchor="end" class="ts t-mono t-mut">6400</text>
+<text x="64" y="154" text-anchor="end" class="ts t-mono t-mut">5600</text>
+<text x="64" y="194" text-anchor="end" class="ts t-mono t-mut">4800</text>
+<text x="85" y="236" text-anchor="middle" class="ts t-mono t-mut">0.95</text>
+<text x="175" y="236" text-anchor="middle" class="ts t-mono t-mut">1.04</text>
+<text x="265" y="236" text-anchor="middle" class="ts t-mono t-mut">1.13</text>
+<text x="355" y="236" text-anchor="middle" class="ts t-mono t-mut">1.22</text>
+<text x="445" y="236" text-anchor="middle" class="ts t-mono t-mut">1.31</text>
+<text x="280" y="254" text-anchor="middle" class="ts t-mut">V_DD (V)</text>
+<text x="16" y="120" text-anchor="middle" class="ts t-mut" transform="rotate(-90 16 120)">資料速率 (MT/s)</text>
+<path class="wm" d="M363.0 150.0L500.0 240.0"/><text x="470.0" y="256.0" class="ts">「洞」：圖形相依的邊際失效</text>
+<text x="78" y="34" class="ts">左上：速度路徑限制（斜邊）</text>
+<text x="74" y="214" class="ts">V_min 牆</text>
+</svg>
+<figcaption>示意的 Shmoo 圖：綠色通過、紅色失敗。虛線框是規格視窗（V<sub>DD</sub> 1.1 V ±5%，6400 MT/s），要整個落在通過區內，且四周還要留裕度。</figcaption>
+</figure>
+<ul>
+<li><b>斜邊</b>：電壓越高電晶體越快，所以通過區通常是「左上缺一角」的形狀，斜邊代表速度路徑。</li>
+<li><b>V<sub>min</sub> 牆</b>：低於某電壓，不論速度多慢都失敗，通常是 SA、SRAM 或保持電路的功能極限。</li>
+<li><b>高壓失效</b>：高電壓端失敗，可能是漏電、熱載子、或某些電路在高壓下時序反而競爭（race）。</li>
+<li><b>洞</b>：通過區中間零星的失敗，常是圖形相依、雜訊或邊際時序，需要換資料背景與重複量測確認。</li>
+<li><b>溫度反轉（temperature inversion）</b>：先進製程在低電壓時，低溫反而比高溫慢（V<sub>t</sub> 在低溫升高的影響超過遷移率提升），所以低壓的最差溫度可能是冷而不是熱。</li>
+</ul>
+<div class="tryit">▶ 調製程 corner、溫度與 guard band，看 Shmoo 圖與速度分級：<a href="lab.html#shmoo">互動實驗室 · Shmoo</a></div>
+
+<h2 id="guardband">Guard band 與測試相關性</h2>
+<p>測試機有量測誤差，測試條件也不可能和客戶系統完全一樣，所以測試限值（test limit）必須比規格（spec）更嚴格，這段差距就是 <b>guard band</b>：</p>
+<div class="eq">測試限值 = 規格 − (測試機時序精度 + 溫度 / 電壓條件差 + 老化預留)</div>
+<p>例：規格 tRCD = 13.75 ns，測試機邊緣定位精度 ±0.15 ns，再預留 0.15 ns 給溫度與老化，就以 13.45 ns 測試。</p>
+<ul>
+<li><b>Overkill（誤殺）</b>：其實符合規格、但沒通過較嚴的測試限值而被淘汰的晶片。Guard band 越大，overkill 越多，良率與營收越低。</li>
+<li><b>Underkill / escape（漏網）</b>：不符合規格卻通過測試而出貨。Guard band 太小、測試覆蓋不足、測試溫度不對都會造成。</li>
+<li><b>相關性（correlation）</b>：不同測試機、不同測試站（CP vs FT vs SLT）、不同探針卡之間結果要一致。用 golden unit（已知特性的樣品）定期比對，並追蹤各站的良率差異。</li>
+<li><b>重測政策</b>：失敗品重測後通過算不算良品？重測可以救回接觸不良造成的誤殺，但也可能讓邊際品混過去，所以要限制次數並分析重測通過率。</li>
+<li><b>統計指標</b>：參數的 Cpk（製程能力）決定 guard band 的成本；Cpk 高的參數可以用較小的 guard band 而不增加漏網。</li>
+</ul>
+
 <h2 id="mbist">嵌入式記憶體的 MBIST</h2>
 <p>SoC 裡的 SRAM 數以百計，無法從外部腳位直接存取。<b>MBIST</b>（Memory Built-In Self-Test）在每組記憶體旁加入控制器，由晶片內部產生 March 序列並比較結果，只把通過 / 失敗與失效位址送出。搭配 <b>BIRA / BISR</b>（內建修補分析 / 自我修補）可以自動配置備用元件，修補資訊存在 e-fuse 中，開機時載入。車用晶片還要求開機或執行期週期性執行 MBIST（in-system test）以符合功能安全。</p>
 
@@ -194,6 +396,12 @@
 <div><dt>TSV</dt><dd>Through-Silicon Via，矽穿孔。</dd></div>
 <div><dt>TC-NCF / MR-MUF</dt><dd>HBM 堆疊的兩種主要接合與填充方式。</dd></div>
 <div><dt>Burn-in / WLBI</dt><dd>高溫高壓加速篩選 / 晶圓層級 burn-in。</dd></div>
+<div><dt>Shmoo plot</dt><dd>掃描兩個測試條件並標示通過 / 失敗的二維圖。</dd></div>
+<div><dt>Guard band</dt><dd>測試限值比規格更嚴的那段預留量。</dd></div>
+<div><dt>Overkill / Underkill</dt><dd>誤殺良品 / 漏放不良品。</dd></div>
+<div><dt>Correlation</dt><dd>不同測試機台、測試站之間結果的一致性。</dd></div>
+<div><dt>Temperature inversion</dt><dd>低電壓下低溫反而比高溫慢的現象。</dd></div>
+<div><dt>Pause test</dt><dd>停止 refresh 一段時間後再讀，篩選保存不足的單元。</dd></div>
 <div><dt>DPPM</dt><dd>Defective Parts Per Million，出貨不良率。</dd></div>
 <div><dt>PAT</dt><dd>Part Average Testing，剔除統計離群的晶片。</dd></div>
 </dl>

@@ -250,3 +250,16 @@ svg .grid{stroke:var(--grid);stroke-width:1}
 .callout.co .note{display:block;margin-top:6px}
 
 a.tbtn{text-decoration:none;font:600 12.5px var(--mono)}
+
+/* lessons-learned case cards */
+.case{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:14px 16px;margin:14px 0}
+.case-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-bottom:10px}
+.case-h b{font:600 16.5px/1.4 var(--sans)}
+.case-h small{color:var(--muted);font:12px var(--mono)}
+.case dl{margin:0;display:grid;gap:6px}
+.case dl div{display:grid;grid-template-columns:1fr;gap:2px}
+@media (min-width:640px){.case dl div{grid-template-columns:72px minmax(0,1fr);gap:12px}}
+.case dt{font-weight:600;color:var(--accent);font-size:13.5px}
+.case dd{margin:0;font-size:14.5px;max-width:68ch}
+.case dl div.ls dd{font-weight:600}
+.case .src{font-size:12.5px;color:var(--muted);margin:10px 0 0}

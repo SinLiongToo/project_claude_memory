@@ -24,6 +24,7 @@
   <button role="tab" data-tab="retention" aria-selected="false">保存與 Refresh</button>
   <button role="tab" data-tab="rowhammer" aria-selected="false">Row Hammer</button>
   <button role="tab" data-tab="march" aria-selected="false">March 測試</button>
+  <button role="tab" data-tab="shmoo" aria-selected="false">Shmoo 圖</button>
   <button role="tab" data-tab="wafer" aria-selected="false">晶圓良率</button>
   <button role="tab" data-tab="hbm" aria-selected="false">HBM 堆疊良率</button>
   <button role="tab" data-tab="cost" aria-selected="false">每 Gb 成本</button>
@@ -264,6 +265,42 @@
 </div>
 </section>
 
+
+<!-- ============ SHMOO ============ -->
+<section class="tabp" id="tab-shmoo" role="tabpanel" hidden>
+<div class="bench">
+  <div class="panel">
+    <h3>參數 <small>DRAM 速度路徑</small></h3>
+    <div class="ctl"><label for="sh-corner">製程 corner</label><select id="sh-corner"><option value="1.15">SS（慢）</option><option value="1" selected>TT（典型）</option><option value="0.88">FF（快）</option></select></div>
+    <div class="ctl"><label for="sh-sig">這顆晶片的偏移 <output id="sh-sig-o"></output></label><input id="sh-sig" type="range" min="-3" max="3" step="0.25" value="0"></div>
+    <div class="ctl"><label for="sh-temp">測試溫度 <output id="sh-temp-o"></output></label><input id="sh-temp" type="range" min="-40" max="125" step="5" value="25"></div>
+    <div class="ctl"><label for="sh-bin">目標速度等級</label><select id="sh-bin"><option>4800</option><option>5600</option><option selected>6400</option><option>7200</option><option>8000</option></select></div>
+    <div class="ctl"><label for="sh-gbt">時序 guard band <output id="sh-gbt-o"></output></label><input id="sh-gbt" type="range" min="0" max="15" step="0.5" value="4"></div>
+    <div class="ctl"><label for="sh-gbv">電壓 guard band <output id="sh-gbv-o"></output></label><input id="sh-gbv" type="range" min="0" max="60" step="5" value="20"></div>
+    <div class="ctl"><label>圖形相依的邊際失效（洞）</label><div class="btnrow" id="sh-holes"><button class="btn" data-v="1" aria-pressed="false">開</button><button class="btn" data-v="0" aria-pressed="true">關</button></div></div>
+    <p class="note">速度以 alpha-power 模型近似：延遲 ∝ μ(T)·V / (V − V<sub>t</sub>(T))<sup>1.3</sup>，V<sub>t</sub> 在低溫升高、遷移率在高溫下降，所以會出現溫度反轉。規格為 V<sub>DD</sub> 1.1 V ±5%，客戶溫度 0–95 °C。</p>
+  </div>
+  <div class="stack">
+    <div class="metrics" id="sh-metrics"></div>
+    <div class="panel"><h3>Shmoo 圖 <small id="sh-sub"></small></h3><svg class="viz" id="sh-plot" role="img" aria-label="Shmoo 圖"></svg>
+      <div class="legend"><span><i style="background:var(--s3)"></i>通過</span><span><i style="background:var(--s4)"></i>失敗</span><span><i style="background:var(--ink)"></i>規格視窗</span><span><i style="background:var(--accent)"></i>測試視窗（含 guard band）</span></div></div>
+    <div class="panel"><h3>不同溫度的最高速度 vs V<sub>DD</sub></h3><svg class="viz" id="sh-temps" role="img" aria-label="各溫度的速度曲線"></svg>
+      <div class="legend"><span><i style="background:var(--s1)"></i>−40 °C</span><span><i style="background:var(--s3)"></i>25 °C</span><span><i style="background:var(--s2)"></i>95 °C</span><span><i style="background:var(--s4)"></i>125 °C</span></div></div>
+  </div>
+</div>
+<div class="explain">
+  <div class="panel"><h3>怎麼判讀</h3><ul>
+    <li>規格視窗（黑框）是客戶會用到的條件；測試視窗（藍框）是加上 guard band 後實際測試的條件，比規格更嚴。</li>
+    <li>測試視窗全部通過才出貨。規格視窗通過但測試視窗沒過 = <b>誤殺（overkill）</b>。</li>
+    <li>「全溫檢查」看的是這顆晶片在 0 °C 與 95 °C 是否也通過規格；如果只在測試溫度通過，就是單溫測試的漏網風險。</li>
+    <li>右下的曲線顯示溫度反轉：約 0.94 V 以下低溫比較慢，以上則高溫比較慢。</li></ul></div>
+  <div class="panel"><h3>試試看</h3><ul>
+    <li>把 guard band 調到 0，再調到 12%：看哪些晶片從「出貨」變成「誤殺」。</li>
+    <li>TT corner、偏移 +2σ、測試溫度 25 °C，把時序 guard band 調到 0：測試通過，但全溫檢查在 95 °C 失敗 → 漏網。把 guard band 調回 4%，它就被正確剔除。</li>
+    <li>把測試溫度調到 −40 °C，看低電壓區的速度反而變差（溫度反轉）。</li>
+    <li>延伸閱讀：<a href="test.html#shmoo">Shmoo 圖</a>、<a href="test.html#guardband">Guard band</a>、<a href="lessons.html#test-issues">測試常見問題</a>。</li></ul></div>
+</div>
+</section>
 
 <!-- ============ WAFER YIELD ============ -->
 <section class="tabp" id="tab-wafer" role="tabpanel" hidden>

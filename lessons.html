@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>業界案例與常見問題 · Memory Notes</title>
+<meta name="description" content="記憶體業界的 lessons learned：軟錯誤、資料中心 DRAM 錯誤、row hammer、SSD 現場問題、封裝材料事件、Optane 退場，以及製程、測試、設計的常見問題與排查方法。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="lessons">
+<main class="doc">
+<nav class="toc" aria-label="本頁目錄"></nav>
+<article>
+<div class="eyebrow">Lessons learned · 業界案例</div>
+<h1>業界案例與常見問題：別人踩過的坑</h1>
+<p class="lead">記憶體產業的很多規則、測試項目和設計習慣，背後都有一個「出過事」的故事。這一頁整理有公開文獻或公開報導的經典案例，每則依「現象 → 根因 → 對策 → 教訓」整理；後半段再把製程、測試、設計中反覆出現的常見問題整理成表，方便排查時對照。</p>
+<div class="callout"><b>閱讀方式</b>　案例只引用公開的論文與報導，細節以原始文獻為準。常見問題表是業界通用的經驗整理，不針對任何特定公司。</div>
+
+<h2 id="soft-errors">軟錯誤：從 α 粒子到伺服器當機</h2>
+<div class="case" id="c-alpha"><div class="case-h"><span class="tag rel">可靠度</span><b>α 粒子造成 DRAM 軟錯誤</b><small>1978–1979 · DRAM</small></div><dl>
+<div><dt>現象</dt><dd>16 Kb 等級的 DRAM 出現隨機、無法重現的位元翻轉，但元件本身沒有損壞，重寫就恢復。</dd></div>
+<div><dt>根因</dt><dd>陶瓷封裝材料中的微量鈾、釷衰變放出 α 粒子，打進矽中產生的電荷足以翻轉儲存節點。</dd></div>
+<div><dt>對策</dt><dd>低 α 封裝材料、晶片表面加聚醯亞胺保護層、提高單元儲存電荷、系統加入 ECC。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>可靠度問題可能來自晶片以外的材料；軟錯誤要以 FIT 量化，並在系統層處理。</dd></div></dl>
+<p class="src">參考：T. C. May, M. H. Woods, “Alpha-particle-induced soft errors in dynamic memories,” IEEE Trans. Electron Devices, 1979.</p></div>
+
+<div class="case" id="c-boron"><div class="case-h"><span class="tag rel">可靠度</span><b>BPSG 中的硼-10 與熱中子</b><small>1990 年代末 · SRAM / 邏輯</small></div><dl>
+<div><dt>現象</dt><dd>SRAM 軟錯誤率比預期高好幾倍，而且和環境中的中子量有關。</dd></div>
+<div><dt>根因</dt><dd>BPSG 介電層中的硼-10 吸收熱中子後分裂，放出 α 粒子與鋰核，位置就在電晶體正上方。</dd></div>
+<div><dt>對策</dt><dd>移除製程中的 BPSG，或改用硼-10 含量極低的材料。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>材料的同位素組成也會影響可靠度；導入新材料時要一併評估軟錯誤率。</dd></div></dl>
+<p class="src">參考：R. Baumann 等人（Texas Instruments）關於 BPSG 與熱中子軟錯誤的系列研究，約 1995–2001。</p></div>
+
+<div class="case" id="c-cache"><div class="case-h"><span class="tag rel">可靠度</span><b>伺服器快取 SRAM 只有同位檢查</b><small>約 1999–2000 · SRAM / 系統</small></div><dl>
+<div><dt>現象</dt><dd>某伺服器產品線在客戶端頻繁出現原因不明的當機。</dd></div>
+<div><dt>根因</dt><dd>外部快取 SRAM 只有同位元檢查、沒有 ECC。軟錯誤發生時只能偵測、無法更正，系統只能停機。</dd></div>
+<div><dt>對策</dt><dd>後續產品的快取加入 ECC 與鏡像保護。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>容量越大，軟錯誤在系統層越不能忽略；只偵測不更正，等於把軟錯誤變成停機。</dd></div></dl>
+<p class="src">參考：2000 年前後關於 Sun UltraSPARC II 外部快取問題的公開報導。</p></div>
+
+<h2 id="field-dram">資料中心的 DRAM 錯誤</h2>
+<div class="case" id="c-wild"><div class="case-h"><span class="tag rel">可靠度</span><b>DRAM Errors in the Wild</b><small>2009 · 現場統計</small></div><dl>
+<div><dt>現象</dt><dd>大規模資料中心的統計顯示，DRAM 錯誤率遠高於實驗室加速測試的推估，約三分之一的機器每年至少遇到一次可更正錯誤。</dd></div>
+<div><dt>根因</dt><dd>多數錯誤是硬錯誤或會重複出現的錯誤，而不是隨機軟錯誤；錯誤率與使用率、模組年齡相關。</dd></div>
+<div><dt>對策</dt><dd>伺服器全面使用 ECC、監控可更正錯誤（CE）的趨勢，CE 過多就預防性更換模組或停用該頁面（page offlining）。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>實驗室的數字不能代表現場；可更正錯誤是故障的前兆，要收集和分析。</dd></div></dl>
+<p class="src">參考：B. Schroeder, E. Pinheiro, W.-D. Weber, “DRAM Errors in the Wild: A Large-Scale Field Study,” SIGMETRICS 2009.</p></div>
+
+<div class="case" id="c-revisit"><div class="case-h"><span class="tag rel">可靠度</span><b>新世代 DRAM 的現場錯誤</b><small>2015 · 現場統計</small></div><dl>
+<div><dt>現象</dt><dd>少數伺服器貢獻了大部分的記憶體錯誤。</dd></div>
+<div><dt>根因</dt><dd>錯誤集中在特定元件故障（例如整列或整顆失效）；較新、較高密度的 DRAM 世代錯誤率較高。</dd></div>
+<div><dt>對策</dt><dd>依錯誤型態分級處理，隔離頻繁出錯的頁面與模組。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>微縮讓單元更弱，系統層的錯誤管理（RAS）本身就是記憶體可靠度的一部分。</dd></div></dl>
+<p class="src">參考：J. Meza, Q. Wu, S. Kumar, O. Mutlu, “Revisiting Memory Errors in Large-Scale Production Data Centers,” DSN 2015.</p></div>
+
+<div class="case" id="c-odecc"><div class="case-h"><span class="tag des">設計</span><b>On-die ECC 的可見度問題</b><small>DDR5 時代 · DRAM / 系統</small></div><dl>
+<div><dt>現象</dt><dd>系統看到的錯誤率很低，但一旦出錯，往往是多位元錯誤，而且很難分析。</dd></div>
+<div><dt>根因</dt><dd>On-die ECC 在晶片內默默更正單位元錯誤，系統看不到前兆；同一碼字出現兩個錯誤時，on-die ECC 甚至可能更正錯位元，把錯誤擴大。</dd></div>
+<div><dt>對策</dt><dd>DDR5 提供 ECS（error check and scrub）錯誤計數；系統端保留自己的 ECC；需要時與供應商合作取得錯誤統計。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>把錯誤藏起來不等於可靠；可靠度設計要保留可觀測性。</dd></div></dl></div>
+
+<h2 id="rowhammer-saga">Row hammer 十年</h2>
+<div class="case" id="c-rh2014"><div class="case-h"><span class="tag rel">可靠度</span><b>Row hammer 被發現，接著被武器化</b><small>2014–2015 · DRAM / 安全</small></div><dl>
+<div><dt>現象</dt><dd>研究發現，在一般使用者程式中快速反覆存取兩個位址，就能讓其他位置的位元翻轉；受測的大多數 DDR3 模組都受影響。隔年就有人示範用它取得系統權限。</dd></div>
+<div><dt>根因</dt><dd>微縮讓相鄰單元間的耦合與漏電路徑變強，一個 refresh 週期內的大量啟動足以干擾鄰列。</dd></div>
+<div><dt>對策</dt><dd>短期提高 refresh 頻率，之後由 DRAM 內建 TRR 與控制器端緩解。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>可靠度問題可以直接變成安全漏洞；時序合法不代表存取模式安全。</dd></div></dl>
+<p class="src">參考：Y. Kim et al., “Flipping Bits in Memory Without Accessing Them,” ISCA 2014；Google Project Zero 部落格，2015。</p></div>
+
+<div class="case" id="c-trrespass"><div class="case-h"><span class="tag rel">可靠度</span><b>TRRespass：繞過 TRR</b><small>2020 · DRAM / 安全</small></div><dl>
+<div><dt>現象</dt><dd>號稱已防護 row hammer 的 DDR4 模組，在多邊攻擊下仍然翻轉。</dd></div>
+<div><dt>根因</dt><dd>TRR 的追蹤表容量有限，而且實作不公開；攻擊列數超過追蹤能力時，保護就失效。</dd></div>
+<div><dt>對策</dt><dd>產業轉向有規格定義、可驗證的機制：DDR5 的 RFM，之後的 PRAC。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>不公開的緩解機制難以驗證；防護要能被第三方檢查。</dd></div></dl>
+<p class="src">參考：P. Frigo et al., “TRRespass: Exploiting the Many Sides of Target Row Refresh,” IEEE S&amp;P 2020.</p>
+<div class="tryit" style="margin-bottom:0">▶ 在實驗室重現：<a href="lab.html#rowhammer">互動實驗室 · Row Hammer</a>（TRR 表 4 列、攻擊列改成 20）</div></div>
+
+<div class="case" id="c-halfdouble"><div class="case-h"><span class="tag rel">可靠度</span><b>Half-Double 與 RowPress</b><small>2021、2023 · DRAM</small></div><dl>
+<div><dt>現象</dt><dd>相隔兩列的受害列也會翻轉；或者不需要很多次啟動，只要把攻擊列開得夠久也會翻轉。</dd></div>
+<div><dt>根因</dt><dd>干擾機制不只一種（耦合、電荷注入、長時間開列造成的漏電），只看「相鄰列、啟動次數」的模型不夠。</dd></div>
+<div><dt>對策</dt><dd>緩解機制考慮更大的鄰近範圍與開列時間；PRAC 以每列計數提供較完整的保護。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>失效模型會隨量測更新；測試圖形要涵蓋多種存取型態。</dd></div></dl>
+<p class="src">參考：Google, “Half-Double: Next-Row-Over Assisted Rowhammer,” 2021；H. Luo et al., “RowPress,” ISCA 2023.</p></div>
+
+<h2 id="flash-field">Flash 與 SSD 的現場問題</h2>
+<div class="case" id="c-evo"><div class="case-h"><span class="tag app">應用</span><b>舊資料讀取變慢</b><small>2014 · TLC SSD</small></div><dl>
+<div><dt>現象</dt><dd>某熱門 TLC SSD 讀取放了幾個月的舊檔案時速度大幅下降，新寫的資料則正常。</dd></div>
+<div><dt>根因</dt><dd>保存期間 V<sub>t</sub> 漂移，讀取時需要多次 read retry 與 ECC 重試才能讀對，所以變慢。</dd></div>
+<div><dt>對策</dt><dd>韌體更新加入背景掃描，定期把舊資料重寫到新位置，並改良讀取電壓追蹤。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>多階 NAND 的保存漂移既是可靠度問題，也是效能問題；SSD 的品質有很大一部分在韌體。</dd></div></dl>
+<p class="src">參考：Samsung 840 EVO 讀取效能問題的公開報導與韌體公告，2014–2015。</p>
+<div class="tryit" style="margin-bottom:0">▶ 看保存漂移與 read retry：<a href="lab.html#nand">互動實驗室 · NAND</a></div></div>
+
+<div class="case" id="c-flashprod"><div class="case-h"><span class="tag rel">可靠度</span><b>Flash 在大規模生產環境的可靠度</b><small>2016 · 現場統計</small></div><dl>
+<div><dt>現象</dt><dd>分析多種 SLC、MLC、eMLC SSD 多年的現場資料。</dd></div>
+<div><dt>發現</dt><dd>RBER 隨 P/E 次數上升，但不是預測故障的好指標；SLC 不一定比 MLC 更少出現不可更正錯誤；使用年數本身是重要因子；不可更正錯誤比預期常見。</dd></div>
+<div><dt>對策</dt><dd>用現場資料，而不是只看規格，來決定監控與替換策略。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>規格書上的耐寫度只是其中一面；假設要用現場統計驗證。</dd></div></dl>
+<p class="src">參考：B. Schroeder, R. Lagisetty, A. Merchant, “Flash Reliability in Production: The Expected and the Unexpected,” FAST 2016.</p></div>
+
+<div class="case" id="c-powerfault"><div class="case-h"><span class="tag app">應用</span><b>突然斷電時的 SSD 資料損毀</b><small>2013 · SSD</small></div><dl>
+<div><dt>現象</dt><dd>對多款 SSD 反覆突然斷電，出現位元損毀、寫入順序錯亂、資料遺失，甚至整顆裝置無法使用。</dd></div>
+<div><dt>根因</dt><dd>DRAM 中的對照表與快取資料來不及寫入 NAND；MLC 寫入第二頁時斷電會破壞已經寫好的第一頁（paired page）。</dd></div>
+<div><dt>對策</dt><dd>斷電保護電容（PLP）、對照表日誌化、安排寫入順序避免破壞 paired page。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>斷電是 SSD 最嚴苛的測試之一；企業級 SSD 的 PLP 不是可有可無。</dd></div></dl>
+<p class="src">參考：M. Zheng, J. Tucek, F. Qin, M. Lillibridge, “Understanding the Robustness of SSDs under Power Fault,” FAST 2013.</p></div>
+
+<h2 id="package-lessons">封裝與材料</h2>
+<div class="case" id="c-redp"><div class="case-h"><span class="tag tst">封測</span><b>模封材料中的紅磷阻燃劑</b><small>2000 年代初 · 封裝材料</small></div><dl>
+<div><dt>現象</dt><dd>使用特定模封材料的大量 IC 在現場出現腳位間漏電與短路，影響硬碟等多種產品。</dd></div>
+<div><dt>根因</dt><dd>模封材料中的紅磷阻燃劑在濕氣下形成導電物質，造成相鄰引腳之間漏電。</dd></div>
+<div><dt>對策</dt><dd>更換模封材料；產業轉向不含紅磷的綠色阻燃配方，並加強高溫高濕偏壓測試。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>一個材料供應商的問題可以同時影響很多公司的產品；材料變更要做完整驗證與供應鏈追溯。</dd></div></dl></div>
+
+<div class="case" id="c-cuwire"><div class="case-h"><span class="tag tst">封測</span><b>銅線打線的腐蝕</b><small>金線轉銅線期間 · 封裝</small></div><dl>
+<div><dt>現象</dt><dd>為降低成本把金線換成銅線後，部分產品在高溫高濕偏壓測試中出現接點電阻上升與斷線。</dd></div>
+<div><dt>根因</dt><dd>模封材料中的鹵素（氯）離子在濕氣與偏壓下腐蝕銅鋁介金屬層。</dd></div>
+<div><dt>對策</dt><dd>低鹵素模封材料、鍍鈀銅線、最佳化打線與介金屬製程、加強 uHAST / THB 驗證。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>為降成本做的材料轉換，要用比舊材料更嚴格的驗證，不能沿用過去的經驗。</dd></div></dl></div>
+
+<div class="case" id="c-hbmthermal"><div class="case-h"><span class="tag tst">封測</span><b>HBM 堆疊的熱與翹曲</b><small>持續中 · 先進封裝</small></div><dl>
+<div><dt>現象</dt><dd>堆疊層數增加後，良率與可靠度問題集中在接點裂開、翹曲與局部過熱。</dd></div>
+<div><dt>根因</dt><dd>多層薄晶粒熱阻大、不同材料的熱膨脹係數不同、旁邊的 GPU 功耗極高。</dd></div>
+<div><dt>對策</dt><dd>改進填充材料（MR-MUF、NCF）、導熱設計、混合鍵合、更嚴格的 KGD 測試。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>先進封裝讓封裝成為與晶圓製程同等重要的良率來源；熱設計要在系統層一起考慮。</dd></div></dl>
+<div class="tryit" style="margin-bottom:0">▶ 看層數與 KGD 對良率的影響：<a href="lab.html#hbm">互動實驗室 · HBM 堆疊良率</a></div></div>
+
+<h2 id="product-lessons">技術與產品選擇</h2>
+<div class="case" id="c-optane"><div class="case-h"><span class="tag app">應用</span><b>3D XPoint / Optane 退場</b><small>2022 · 儲存級記憶體</small></div><dl>
+<div><dt>現象</dt><dd>技術上成功、效能介於 DRAM 與 NAND 之間的儲存級記憶體產品線，最終停止發展。</dd></div>
+<div><dt>根因</dt><dd>成本難以降到接近 NAND；軟體與系統需要大幅修改才能發揮優勢；DRAM 與 NAND 持續進步，壓縮了中間的市場空間。</dd></div>
+<div class="ls"><dt>教訓</dt><dd>新記憶體要成功，除了技術領先，還需要成本曲線、生態系與明確的關鍵應用。之後 CXL 記憶體與 HBM 的興起也顯示，系統整合方式往往比單一元件更重要。</dd></div></dl></div>
+
+<h2 id="fab-issues">製程常見問題</h2>
+<div class="tblwrap"><table>
+<tr><th>問題</th><th>典型症狀</th><th>常見原因</th><th>怎麼查</th></tr>
+<tr><td>電容倒塌 / 橋接</td><td>成對或成群的相鄰單元失效</td><td>高深寬比結構在濕製程乾燥時傾倒、支撐層不足</td><td>失效位元圖 + 剖面 TEM</td></tr>
+<tr><td>孔未打開</td><td>整區單元或整串 NAND 失效</td><td>蝕刻停止、孔底殘留</td><td>電性定位 + FIB 剖面</td></tr>
+<tr><td>晶圓翹曲</td><td>疊對變差、邊緣失效增加</td><td>3D NAND 厚堆疊的應力</td><td>翹曲量測、疊對地圖</td></tr>
+<tr><td>字元線短路</td><td>相鄰雙列失效</td><td>微影或蝕刻缺陷、微粒</td><td>失效位元圖樣式</td></tr>
+<tr><td>電漿損傷（天線效應）</td><td>特定電晶體 V<sub>t</sub> 偏移、閘極漏電</td><td>製程中長金屬線收集電荷，傷害閘極</td><td>天線規則檢查、WAT</td></tr>
+<tr><td>晶圓邊緣良率低</td><td>環狀失效</td><td>膜厚 / 蝕刻不均、邊緣剝落</td><td>晶圓圖徑向分析</td></tr>
+<tr><td>接觸電阻偏高</td><td>低溫時速度失效</td><td>接觸孔底部清潔不良、阻障層問題</td><td>低溫 Shmoo、接觸鏈 WAT</td></tr>
+<tr><td>漏電偏高</td><td>保存失效、I<sub>DD</sub> 偏高</td><td>佈植 / 退火條件、晶格缺陷</td><td>高溫 pause test、WAT</td></tr>
+</table></div>
+
+<h2 id="test-issues">測試常見問題</h2>
+<div class="tblwrap"><table>
+<tr><th>問題</th><th>典型症狀</th><th>常見原因</th><th>對策</th></tr>
+<tr><td>探針接觸不良</td><td>某些 site 或時段良率偏低，重測就通過</td><td>針尖磨耗、汙染、針壓不對</td><td>探針卡清潔與更換、各 site 良率監控</td></tr>
+<tr><td>測試機相關性差</td><td>不同機台良率差異大</td><td>時序校正、溫控差異</td><td>Golden unit 比對、定期校正</td></tr>
+<tr><td>只在單一溫度測試</td><td>客戶端低溫或高溫失效</td><td>漏掉溫度相依的機制（見溫度反轉）</td><td>冷熱雙溫測試</td></tr>
+<tr><td>VRT 漏網</td><td>出貨後才出現保存失效</td><td>弱單元在測試當下剛好處於「好」狀態</td><td>多次 pause test、加大 guard band</td></tr>
+<tr><td>測試圖形不足</td><td>系統端特定資料圖形失效</td><td>資料背景、位址順序、干擾型態沒涵蓋</td><td>加入干擾測試、系統層測試（SLT）</td></tr>
+<tr><td>被 ECC 遮住</td><td>原始失效增加卻沒被發現</td><td>測試時 on-die ECC 開著</td><td>測試模式關閉 ECC 看原始失效</td></tr>
+<tr><td>Guard band 不當</td><td>良率異常低或客戶退貨增加</td><td>Guard band 太大（誤殺）或太小（漏網）</td><td>依測試機精度與 Cpk 計算，定期檢討</td></tr>
+</table></div>
+<div class="tryit">▶ 測試細節：<a href="test.html#test-items">測試項目</a>、<a href="test.html#shmoo">Shmoo 圖</a>、<a href="test.html#guardband">Guard band</a></div>
+
+<h2 id="design-issues">設計常見問題</h2>
+<div class="tblwrap"><table>
+<tr><th>問題</th><th>典型症狀</th><th>原因</th><th>預防</th></tr>
+<tr><td>IR drop / 電源雜訊</td><td>密集 ACT 或特定 bank 組合時失效</td><td>電荷泵或電源網路能力不足</td><td>電源完整性分析、t<sub>FAW</sub> 規劃</td></tr>
+<tr><td>SSO 雜訊</td><td>特定資料圖形（全 0 ↔ 全 1）時 I/O 失效</td><td>大量 I/O 同時切換</td><td>電源 / 地腳配置、資料匯流排反轉（DBI）</td></tr>
+<tr><td>SA 佈局不對稱</td><td>某一側的資料錯誤率較高</td><td>寄生不對稱造成系統性偏移</td><td>對稱佈局、佈局後 Monte Carlo</td></tr>
+<tr><td>位元線耦合</td><td>特定資料背景下失效</td><td>相鄰位元線同時反向擺動</td><td>屏蔽或交錯位元線、時序錯開</td></tr>
+<tr><td>上電熔絲載入競爭</td><td>偶發性開機失效</td><td>讀熔絲時內部電壓還沒穩</td><td>上電順序驗證、POR 電路裕度</td></tr>
+<tr><td>SRAM V<sub>min</sub> 低估</td><td>量產 V<sub>min</sub> 比模擬高</td><td>只模擬到 4–5σ、忽略老化</td><td>高 sigma 統計、老化裕度</td></tr>
+<tr><td>新 I/O 的 ESD 弱點</td><td>組裝後出現 CDM 損傷</td><td>保護元件與新結構不匹配</td><td>ESD 設計規則、早期測試晶片驗證</td></tr>
+</table></div>
+<div class="tryit">▶ 設計細節：<a href="design.html#signal-budget">感測訊號預算</a>、<a href="design.html#power">內部電源</a>、<a href="design.html#dft">DFT 測試模式</a>、<a href="design.html#design-margin">設計裕度</a></div>
+
+<h2 id="takeaways">共通的教訓</h2>
+<ol>
+<li><b>用現場資料驗證假設</b>：實驗室推估和現場常常差很多（DRAM、Flash 的現場研究都證明了這點）。</li>
+<li><b>保留可觀測性</b>：ECC、冗餘修補、韌體都會把問題藏起來；測試與系統都要看得到原始失效。</li>
+<li><b>失效模型會過時</b>：row hammer 從「次數」到「時間」再到「距離」，測試圖形要跟著更新。</li>
+<li><b>材料與供應鏈是可靠度的一部分</b>：一個材料變更可能同時影響很多產品。</li>
+<li><b>溫度與電壓都要掃</b>：只在單點測試最容易漏網；Shmoo 是最便宜的保險。</li>
+<li><b>可靠度問題會變成安全問題</b>：存取模式本身就是一種攻擊面。</li>
+<li><b>系統是一體的</b>：記憶體可靠度最終由晶片、控制器、韌體與系統 RAS 一起決定。</li>
+</ol>
+
+<h2 id="references">參考文獻</h2>
+<ul class="note">
+<li>T. C. May, M. H. Woods, “Alpha-particle-induced soft errors in dynamic memories,” IEEE Trans. Electron Devices, 1979.</li>
+<li>R. Baumann, “Radiation-induced soft errors in advanced semiconductor technologies,” IEEE Trans. Device and Materials Reliability, 2005.</li>
+<li>B. Schroeder, E. Pinheiro, W.-D. Weber, “DRAM Errors in the Wild: A Large-Scale Field Study,” SIGMETRICS 2009.</li>
+<li>J. Meza, Q. Wu, S. Kumar, O. Mutlu, “Revisiting Memory Errors in Large-Scale Production Data Centers,” DSN 2015.</li>
+<li>Y. Kim et al., “Flipping Bits in Memory Without Accessing Them,” ISCA 2014.</li>
+<li>P. Frigo et al., “TRRespass: Exploiting the Many Sides of Target Row Refresh,” IEEE S&amp;P 2020.</li>
+<li>H. Luo et al., “RowPress: Amplifying Read Disturbance in Modern DRAM Chips,” ISCA 2023.</li>
+<li>B. Schroeder, R. Lagisetty, A. Merchant, “Flash Reliability in Production: The Expected and the Unexpected,” FAST 2016.</li>
+<li>M. Zheng, J. Tucek, F. Qin, M. Lillibridge, “Understanding the Robustness of SSDs under Power Fault,” FAST 2013.</li>
+</ul>
+
+<p class="foot">案例摘要為公開資料的整理，以原始文獻為準。常見問題表為通用經驗，不代表任何特定公司的實際情況。</p>
+</article>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

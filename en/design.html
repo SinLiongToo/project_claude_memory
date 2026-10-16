@@ -87,6 +87,22 @@
 <p>SRAM typically uses a voltage latch SA, fired (SAE) only after the bit lines have developed 50–100 mV. The timing is tracked by a replica bit line so the SA fires when the signal is sufficient across PVT corners.</p>
 <div class="tryit">▶ See how SA offset compares with ΔV: <a href="lab.html#dram">Lab · DRAM read</a></div>
 
+<h2 id="signal-budget">The sensing signal budget</h2>
+<p>The ΔV from charge sharing is only the ideal value. A design subtracts everything that eats into the signal; what remains is the real margin. An illustrative budget (V<sub>DD</sub> = 1.1 V, C<sub>s</sub> = 10 fF, C<sub>BL</sub> = 50 fF):</p>
+<div class="tblwrap"><table>
+<tr><th>Item</th><th class="n">mV</th><th>Source and countermeasure</th></tr>
+<tr><td>Ideal charge-sharing signal</td><td class="n">+92</td><td>(V<sub>DD</sub>/2)·C<sub>s</sub>/(C<sub>s</sub>+C<sub>BL</sub>)</td></tr>
+<tr><td>Retention leakage (tail cell at end of refresh window)</td><td class="n">−25</td><td>Capacitor leakage, GIDL; lower-leakage transistors and a shorter tREFW</td></tr>
+<tr><td>Incomplete write</td><td class="n">−8</td><td>tWR too short or V<sub>PP</sub> too low, so the cell never reaches V<sub>DD</sub></td></tr>
+<tr><td>SA offset (6σ)</td><td class="n">−20</td><td>V<sub>t</sub> mismatch; larger devices, symmetric layout, offset-cancelling SAs</td></tr>
+<tr><td>Bit-line coupling noise</td><td class="n">−10</td><td>Coupling from neighbouring BLs and the rising WL; shielding, twisted BLs, staggered timing</td></tr>
+<tr><td>Precharge imbalance / V<sub>BLP</sub> error</td><td class="n">−5</td><td>Short equalization, V<sub>BLP</sub> regulator error</td></tr>
+<tr><td><b>Remaining margin</b></td><td class="n"><b>+24</b></td><td>Still needed for temperature, supply noise and aging</td></tr>
+</table></div>
+<p class="note">Numbers are illustrative, to show the budgeting mindset. Real designs evaluate every line at each PVT corner with Monte Carlo.</p>
+<p>The table shows why DRAM scaling is so hard: C<sub>s</sub> cannot grow much each generation while C<sub>BL</sub> and offset do not shrink by themselves, so margin gets nibbled away. The Spec Designer’s “sense margin” subtracts only SA offset — the most optimistic estimate.</p>
+<div class="tryit">▶ Explore C<sub>BL</sub>, C<sub>s</sub> and offset: <a href="lab.html#dram">Lab · DRAM read</a>, <a href="designer.html#dram">Spec Designer</a></div>
+
 <h2 id="timing">DRAM commands and timing</h2>
 <p>The memory controller drives DRAM with commands: <code>ACT</code> (open a row) → <code>RD</code>/<code>WR</code> (access columns) → <code>PRE</code> (close the row and precharge). The minimum spacing between commands is the timing table in the datasheet.</p>
 <figure>
@@ -126,6 +142,18 @@
 </table></div>
 <p>Interestingly, from DDR to DDR5 the data rate rose more than tenfold, but tRCD, CL and tRP in nanoseconds barely moved (they have stayed around 13–18 ns) because they are limited by the analog physics of the array. Bandwidth gains came mainly from the interface and parallelism.</p>
 
+<h2 id="trcd-breakdown">Taking tRCD apart</h2>
+<p>tRCD of about 13–16 ns looks like one number, but it is a chain of analog events that must finish in order:</p>
+<div class="tblwrap"><table>
+<tr><th>Stage</th><th class="n">Approx. time</th><th>Limited by</th></tr>
+<tr><td>Command decode, row address to the bank</td><td class="n">1–2 ns</td><td>Periphery logic speed, long wires</td></tr>
+<tr><td>Main word line → sub word line rising to V<sub>PP</sub></td><td class="n">2–4 ns</td><td>Word-line RC, SWD drive, V<sub>PP</sub> pump</td></tr>
+<tr><td>Charge sharing</td><td class="n">2–3 ns</td><td>Access-transistor on-resistance × (C<sub>s</sub>+C<sub>BL</sub>)</td></tr>
+<tr><td>SA amplification to a readable level</td><td class="n">3–5 ns</td><td>Initial ΔV, SA size, SAN/SAP drive</td></tr>
+<tr><td>Margin before column select may open</td><td class="n">2–3 ns</td><td>PVT variation, guard time for the slowest mat</td></tr>
+</table></div>
+<p>So a faster tRCD needs shorter word lines (more SWDs → area), stronger SAs (bigger → area) and higher V<sub>PP</sub> (reliability). That is why “low-latency DRAM” (RLDRAM, some low-tRCD server parts) trades area for speed.</p>
+
 <h2 id="interface">I/O interfaces and prefetch</h2>
 <p>The array runs at only a few hundred MHz while the interface runs at several Gb/s. The answer is <b>prefetch</b>: each internal access fetches n times the I/O width at once, and a serializer (SERDES) streams it out at high speed.</p>
 <div class="tblwrap"><table>
@@ -137,6 +165,24 @@
 <tr><td>DDR5</td><td class="n">16n</td><td class="n">4800–8800</td><td class="n">1.1 V</td><td>BL16, two 32-bit sub-channels per DIMM, on-die ECC, on-DIMM PMIC, DFE</td></tr>
 </table></div>
 <p>Key high-speed circuits: DLL / DCC (clock alignment and duty-cycle correction), ZQ calibration (driver impedance and ODT), receiver equalization (CTLE, DFE), and read/write training (the controller sweeps V<sub>ref</sub> and timing to find the best sampling point). GDDR6X uses PAM4 and GDDR7 uses PAM3, carrying more than one bit per symbol.</p>
+
+<h2 id="power">Internal supplies and charge pumps</h2>
+<p>Externally DRAM gets only V<sub>DD</sub> and V<sub>DDQ</sub> (plus V<sub>PP</sub> from DDR4 on), but inside it needs several voltages made by regulators and charge pumps:</p>
+<div class="tblwrap"><table>
+<tr><th>Voltage</th><th>Typical</th><th>Use</th></tr>
+<tr><td>V<sub>PP</sub></td><td>2.5–3 V</td><td>Word-line high so the access transistor turns fully on</td></tr>
+<tr><td>V<sub>NWL</sub> / V<sub>BB</sub></td><td>−0.2 to −0.5 V</td><td>Word-line low or body bias, shutting the transistor off harder to cut leakage</td></tr>
+<tr><td>V<sub>ARY</sub> / V<sub>BLH</sub></td><td>~1.0 V</td><td>Array high (the voltage of a written “1”)</td></tr>
+<tr><td>V<sub>BLP</sub>, V<sub>PLT</sub></td><td>V<sub>ARY</sub>/2</td><td>Bit-line precharge, capacitor plate</td></tr>
+<tr><td>V<sub>INT</sub> / V<sub>PERI</sub></td><td>~1.0 V</td><td>Periphery logic</td></tr>
+<tr><td>V<sub>DDQ</sub></td><td>1.1 V (DDR5), 0.5 V (LPDDR5X)</td><td>I/O</td></tr>
+</table></div>
+<ul>
+<li><b>Pump peak current</b>: every ACT charges thousands of bit lines and a whole word line. Several banks activating together make V<sub>PP</sub> droop — the reason t<sub>RRD</sub> and t<sub>FAW</sub> exist.</li>
+<li><b>Trim</b>: process variation pushes internal voltages off target; they are measured at test and corrected with fuses (see DFT below), so every die has its own settings.</li>
+<li><b>Power-up sequence</b>: internal supplies must settle and fuses (repair addresses, trims) be read before commands are accepted. Wrong order or timing can load bad repair data and cause failures that appear “only sometimes at boot”.</li>
+<li><b>Refresh and self-refresh</b> current (I<sub>DD5</sub>, I<sub>DD6</sub>) also comes from these supplies; low-power designs shut down unneeded pumps in standby.</li>
+</ul>
 
 <h2 id="refresh">Refresh</h2>
 <ul>
@@ -165,6 +211,18 @@
 </ul>
 <p>The test and repair flow is detailed in <a href="test.html#repair">Test &amp; packaging</a>.</p>
 
+<h2 id="dft">DFT test modes and trim</h2>
+<p>To test billions of bits in reasonable time, DRAM has many factory-only test modes (entered with special command sequences):</p>
+<ul>
+<li><b>Parallel test compression</b>: write many bits or banks at once and compare on chip on read, reporting only pass / fail — far shorter test time, at the cost of address resolution, so a normal mode is used again to locate fails.</li>
+<li><b>Forcing and monitoring internal voltages</b>: route V<sub>PP</sub>, V<sub>BLP</sub>, V<sub>PLT</sub> etc. to a test pin to measure, or force them externally, to find the best trim and apply voltage stress.</li>
+<li><b>Timing adjustment</b>: shorten or stretch internal timings (SA fire time, WL pulse width) to find weak cells and measure margin.</li>
+<li><b>Disabling ECC and repair</b>: see raw failures so on-die ECC or redundancy does not hide problems — essential for yield analysis and screening weak cells.</li>
+<li><b>Fuse trim</b>: burn in trim values for internal voltages, timers and drive strength from the measurements.</li>
+<li><b>Stress modes</b>: e.g. a WL stress that turns on all word lines together, accelerating oxide weak spots during burn-in.</li>
+<li><b>System-visible features</b>: DDR5 / LPDDR5 define PPR, MBIST (on some products) and ECS (error check and scrub); the HBM base die provides an IEEE 1500 test interface.</li>
+</ul>
+
 <h2 id="sram-assist">SRAM macros and assist circuits</h2>
 <p>SRAM in an SoC is usually generated by a <b>memory compiler</b>: the designer specifies words × bits, column mux and ports, and the compiler outputs layout, timing models (.lib), a Verilog model and LEF. A macro contains the bitcell array, row decoders and word-line drivers, column mux (e.g. 4:1 or 8:1 so the SA fits the pitch), SAs, write drivers and timing control (a replica bit line).</p>
 <h3 id="assist-types">Read and write assist</h3>
@@ -187,6 +245,17 @@
 </ul>
 <div class="tryit">▶ See how ISPP step, P/E cycles and retention affect V<sub>t</sub> distributions and error rate: <a href="lab.html#nand">Lab · NAND</a></div>
 
+<h2 id="design-margin">Design margin: PVT, statistics and aging</h2>
+<ul>
+<li><b>PVT corners</b>: process (SS/TT/FF, NMOS and PMOS skewed separately), voltage (±5% or more), temperature (−40 to 125 °C by grade). DRAM worst cases differ by circuit: SA offset is worst cold, leakage worst hot, speed worst at low voltage and high temperature (but at low voltage it may flip to cold — see temperature inversion).</li>
+<li><b>Statistical design</b>: SA offset and SRAM bitcells must be judged at 6σ or even 7σ (the worst of billions of instances), needing Monte Carlo with importance sampling; designs checked only at typical values fail at the tails in production.</li>
+<li><b>Aging margin</b>: BTI and HCI shift V<sub>t</sub> over time, so margin must be reserved for end of life — SRAM V<sub>min</sub>, for example, rises with use.</li>
+<li><b>Power integrity</b>: IR drop and dynamic droop (many banks active, simultaneous switching output, SSO) must be included in timing analysis.</li>
+<li><b>Signal integrity</b>: high-speed I/O needs channel simulation (reflections, crosstalk, ISI) and proof that training converges across DIMM / motherboard combinations.</li>
+<li><b>ESD and latch-up</b>: new I/O structures and thinner oxides make ESD protection harder; 2.5D products such as HBM must also survive CDM events during assembly.</li>
+</ul>
+<div class="tryit">▶ Common design mistakes and lessons: <a href="lessons.html#design-issues">Industry lessons · design issues</a></div>
+
 <h2 id="des-terms">Glossary</h2>
 <dl class="terms">
 <div><dt>Bank / Bank group</dt><dd>An independently activatable array / a group of banks sharing some resources.</dd></div>
@@ -208,6 +277,12 @@
 <div><dt>Memory compiler</dt><dd>A tool that generates SRAM macro layouts and models from parameters.</dd></div>
 <div><dt>Column mux</dt><dd>Several bit lines sharing one SA.</dd></div>
 <div><dt>Program verify</dt><dd>Checking after each program pulse whether V<sub>t</sub> has reached its target.</dd></div>
+<div><dt>Signal budget</dt><dd>The margin left after subtracting leakage, offset, coupling and other losses from the ideal ΔV.</dd></div>
+<div><dt>V<sub>NWL</sub> / V<sub>BB</sub></dt><dd>Negative word-line voltage / body bias that turns the access transistor off harder.</dd></div>
+<div><dt>Charge pump</dt><dd>A circuit that makes voltages above or below the supply on chip.</dd></div>
+<div><dt>Trim</dt><dd>Fuse-programmed adjustment of internal voltages or timing based on measurements.</dd></div>
+<div><dt>Test mode</dt><dd>Factory-only modes such as parallel test compression and voltage monitoring.</dd></div>
+<div><dt>PVT corner</dt><dd>Extreme combinations of process, voltage and temperature.</dd></div>
 <div><dt>Self-boosting</dt><dd>NAND program-inhibit technique that couples up the channel of unselected cells.</dd></div>
 </dl>
 

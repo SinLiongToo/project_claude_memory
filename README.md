@@ -13,10 +13,11 @@
 | `process.html` | 4. 製程：DRAM 流程與電容、EUV、4F²/3D DRAM、3D NAND、良率 |
 | `test.html` | 5. 封測：測試流程、故障模型、March、失效位元圖、KGD、封裝、HBM 堆疊 |
 | `reliability.html` | 6. 可靠度：保存、row hammer、耐寫、軟錯誤、驗證、加速模型 |
-| `lab.html` | 互動實驗室：DRAM 讀取、SRAM SNM、NAND Vt/RBER、Retention/Refresh、Row hammer、March 測試、晶圓良率、HBM 堆疊良率、每 Gb 成本 |
+| `lab.html` | 互動實驗室：DRAM 讀取、SRAM SNM、NAND Vt/RBER、Retention/Refresh、Row hammer、March 測試、Shmoo、晶圓良率、HBM 堆疊良率、每 Gb 成本 |
 | `designer.html` | 規格設計器：DRAM / 3D NAND SSD / SRAM 巨集 |
+| `lessons.html` | 業界案例與常見問題：公開案例（現象 → 根因 → 對策 → 教訓）與製程 / 測試 / 設計常見問題表 |
 | `roles.html` | 職務地圖：記憶體公司各職位的必讀章節、工具與面試題 |
-| `quiz.html` | 測驗：49 題，附解析與複習連結 |
+| `quiz.html` | 測驗：57 題，附解析與複習連結 |
 
 `assets/`：`style.css`（共用樣式，深淺色）、`site.js`（導覽、搜尋、目錄）、`plot.js`（SVG 繪圖）、`lab.js`、`lab-fab.js`、`designer.js`、`quiz.js`、`search-index.js`（自動產生）。
 

@@ -14,6 +14,7 @@
     {id:'lab',      href:'lab.html',      label:t('互動實驗室', 'Lab')},
     {id:'designer', href:'designer.html', label:t('規格設計器', 'Designer')},
     {sep:true},
+    {id:'lessons',  href:'lessons.html',  label:t('業界案例', 'Lessons')},
     {id:'roles',    href:'roles.html',    label:t('職務地圖', 'Careers')},
     {id:'quiz',     href:'quiz.html',     label:t('測驗', 'Quiz')}
   ];
@@ -95,9 +96,9 @@
   }
 
   /* ---------- find ---------- */
-  const PAGE_LABEL = EN ? {device:'Devices', design:'Design', app:'Apps', fab:'Process', test:'Test', rel:'Reliab.', lab:'Lab', designer:'Designer', roles:'Careers', quiz:'Quiz', index:'Home'}
-    : {device:'元件', design:'設計', app:'應用', fab:'製程', test:'封測', rel:'可靠度', lab:'實驗室', designer:'設計器', roles:'職務', quiz:'測驗', index:'首頁'};
-  const PAGE_TAG = {device:'dev', design:'des', app:'app', fab:'fab', test:'tst', rel:'rel', lab:'lab', designer:'dsg', roles:'dsg', quiz:'dsg', index:'lab'};
+  const PAGE_LABEL = EN ? {device:'Devices', design:'Design', app:'Apps', fab:'Process', test:'Test', rel:'Reliab.', lab:'Lab', designer:'Designer', roles:'Careers', quiz:'Quiz', lessons:'Lessons', index:'Home'}
+    : {device:'元件', design:'設計', app:'應用', fab:'製程', test:'封測', rel:'可靠度', lab:'實驗室', designer:'設計器', roles:'職務', quiz:'測驗', lessons:'案例', index:'首頁'};
+  const PAGE_TAG = {device:'dev', design:'des', app:'app', fab:'fab', test:'tst', rel:'rel', lab:'lab', designer:'dsg', roles:'dsg', quiz:'dsg', lessons:'rel', index:'lab'};
   const ov = document.createElement('div');
   ov.className = 'find-ov'; ov.hidden = true;
   ov.innerHTML = '<div class="find-box" role="dialog" aria-modal="true" aria-label="' + t('全站搜尋', 'Search the site') + '">' +
