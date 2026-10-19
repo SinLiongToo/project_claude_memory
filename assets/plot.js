@@ -84,7 +84,11 @@
     if(!isFinite(v)) return '—';
     const a = Math.abs(v), P = [[1e12,'T'],[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p'],[1e-15,'f']];
     if(a === 0) return '0 ' + unit;
-    for(const [k, p] of P) if(a >= k * 0.9995) return (v / k).toPrecision(digits || 3).replace(/\.?0+$/, '') + ' ' + p + unit;
+    for(const [k, p] of P) if(a >= k * 0.9995){
+      let s = (v / k).toPrecision(digits || 3);
+      if(s.indexOf('.') >= 0 && s.indexOf('e') < 0) s = s.replace(/0+$/, '').replace(/\.$/, '');   // trim decimal zeros only, never "100" -> "1"
+      return s + ' ' + p + unit;
+    }
     return v.toExponential(2) + ' ' + unit;
   }
   function fmtSci(v){
